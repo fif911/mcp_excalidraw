@@ -57,10 +57,19 @@ If neither works, tell the user:
 ### REST API Gotchas (Critical — read before using REST API)
 
 1. **Labels**: Use `"label": {"text": "My Label"}` (not `"text": "My Label"`). MCP tools auto-convert, REST API does not.
-2. **Arrow binding**: Use `"start": {"id": "svc-a"}, "end": {"id": "svc-b"}` (not `"startElementId"`/`"endElementId"`). MCP tools accept `startElementId` and convert, REST API requires the `start`/`end` object format directly.
-3. **fontFamily**: Pass a string name (`"helvetica"`, `"virgil"`, `"mono"`) or numeric ID (`1`, `2`, `3`). Both are accepted — the server normalizes to Excalidraw's numeric format automatically.
-4. **Updating labels**: When updating a shape via `PUT /api/elements/:id`, include the full `label` in the update body to preserve it. Omitting `label` from the update won't delete it, but re-sending ensures it renders correctly.
-5. **Screenshot in REST mode**: `POST /api/export/image` returns `{"data": "<base64>"}`. Save to file and read it back for visual verification. Requires browser open.
+2. **Label font — CRITICAL**: Labels default to Virgil (handwritten) font unless you explicitly set fontFamily. **Always pass fontFamily on labels** for professional diagrams:
+   ```json
+   {"label": {"text": "API Server", "fontFamily": "helvetica"}}
+   ```
+   The label object accepts: `text` (required), `fontFamily` (string name or numeric ID), `fontSize`, `strokeColor`. Without `fontFamily`, you get the sketchy handwritten font.
+3. **Arrow binding**: Use `"start": {"id": "svc-a"}, "end": {"id": "svc-b"}` (not `"startElementId"`/`"endElementId"`). MCP tools accept `startElementId` and convert, REST API requires the `start`/`end` object format directly.
+4. **fontFamily**: Pass a string name or numeric ID. Both work — the server normalizes automatically. This applies to both standalone text elements AND labels. All supported values:
+   - `"virgil"` / `"hand"` / `"handwritten"` → `1` (sketchy hand-drawn)
+   - `"helvetica"` / `"sans"` / `"sans-serif"` → `2` (clean sans-serif — **recommended for professional diagrams**)
+   - `"cascadia"` / `"mono"` / `"monospace"` → `3` (monospace — for code/technical labels)
+   - `"excalifont"` → `5`, `"nunito"` → `6`, `"lilita"` / `"lilita one"` → `7`, `"comic shanns"` / `"comic"` → `8`
+5. **Updating labels**: When updating a shape via `PUT /api/elements/:id`, include the full `label` in the update body to preserve it. Omitting `label` from the update won't delete it, but re-sending ensures it renders correctly.
+6. **Screenshot in REST mode**: `POST /api/export/image` returns `{"data": "<base64>"}`. Save to file and read it back for visual verification. Requires browser open.
 
 ## Quality Gate (MANDATORY — read before creating any diagram)
 
@@ -138,19 +147,24 @@ The `fontFamily` parameter accepts string names or numeric IDs. The server norma
 
 ## Font & Style Consistency Rules
 
-- **All text elements MUST use the same fontFamily** unless there's a specific design reason. Default: `1` (Virgil/hand-drawn) or `2` (Helvetica) — pick one and stick with it.
-- **Numbered step circles**: Use `textAlign: "center"` and `verticalAlign: "middle"` on the label. Circle dimensions must be equal (e.g. 50x50) to stay round — NOT rectangular.
-- **Circle number labels — GOTCHA**: The `label` property on shapes only accepts `{text: string}` — no color/font overrides. Labels inherit `strokeColor` from the parent shape. So on dark-filled circles (backgroundColor: "#1a1a1a", strokeColor: "#1a1a1a"), labels render as dark-on-dark = invisible.
-  **Fix**: Use a **separate text element** overlaid on the circle instead of the `label` property:
+- **All text elements AND labels MUST use the same fontFamily** unless there's a specific design reason. For professional diagrams, use `"helvetica"` (fontFamily 2). For sketch-style, use `"virgil"` (fontFamily 1). **Pick one and use it everywhere — both on standalone text elements and on labels.**
+- **Labels accept fontFamily**: `"label": {"text": "Service A", "fontFamily": "helvetica"}`. Without `fontFamily`, labels render in Virgil (handwritten). Also accepts `fontSize` and `strokeColor`.
+- **Numbered step circles**: Use a separate text element + `align_in_parent` for precise centering:
   ```python
-  # Circle: 50x50 at (cx, cy)
-  requests.post(API, json={"id": "c1-bg", "type": "ellipse", "x": cx, "y": cy, "width": 50, "height": 50,
-      "backgroundColor": "#1a1a1a", "strokeColor": "#1a1a1a", "fillStyle": "solid", "roughness": 0, "strokeWidth": 1})
-  # Number text: offset +12,+8 to visually center single digit
-  requests.post(API, json={"id": "c1-tx", "type": "text", "x": cx+12, "y": cy+8,
-      "text": "1", "fontSize": 18, "fontFamily": "2", "strokeColor": "#ffffff"})
+  # 1. Create circle + text element (text at 0,0 — will be aligned)
+  requests.post(API + "/api/elements/batch", json={"elements": [
+      {"id": "c1", "type": "ellipse", "x": cx, "y": cy, "width": 50, "height": 50,
+       "backgroundColor": "#1e40af", "strokeColor": "#1e40af", "fillStyle": "solid", "roughness": 0},
+      {"id": "c1-text", "type": "text", "x": 0, "y": 0,
+       "text": "1", "fontSize": 22, "fontFamily": "helvetica", "strokeColor": "#ffffff"}
+  ]})
+  # 2. Center text in circle (browser-delegated — uses actual rendered dimensions)
+  requests.post(API + "/api/align", json={
+      "parentId": "c1", "childIds": ["c1-text"], "alignment": "center", "padding": 0
+  })
   ```
-  The **+14/+10 offset** centers a single digit (fontSize 18, fontFamily "2") inside a 50x50 circle. Tested against 6 offset variants — +14,+10 is visually centered. Adjust for multi-digit numbers or different font sizes.
+  This works for any font size, multi-digit numbers, or different circle sizes — no manual offset calculation needed.
+- **Dark-filled shapes with labels**: Labels inherit `strokeColor` from the parent shape by default. On dark shapes (e.g., `strokeColor: "#1a1a1a"`), labels are invisible. Fix: set `strokeColor` on the label: `"label": {"text": "1", "strokeColor": "#ffffff", "fontFamily": "helvetica"}`.
 
 ## Quick Start
 
