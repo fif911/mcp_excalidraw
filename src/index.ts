@@ -529,6 +529,10 @@ const tools: Tool[] = [
           type: 'string',
           enum: ['center', 'top', 'bottom', 'left', 'right', 'top-left', 'top-right', 'bottom-left', 'bottom-right'],
           description: 'Where to position the children within the parent. Default: center'
+        },
+        padding: {
+          type: 'number',
+          description: 'Padding in pixels from parent edge for non-center alignments. Default: 0'
         }
       },
       required: ['parentId', 'childIds']
@@ -2218,15 +2222,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
       }
 
       case 'align_in_parent': {
-        const { parentId, childIds, alignment } = args as { parentId: string; childIds: string[]; alignment?: string };
+        const { parentId, childIds, alignment, padding } = args as { parentId: string; childIds: string[]; alignment?: string; padding?: number };
         const effectiveAlignment = alignment || 'center';
-        logger.info('Align in parent (frontend-delegated)', { parentId, childIds, alignment: effectiveAlignment });
+        logger.info('Align in parent (frontend-delegated)', { parentId, childIds, alignment: effectiveAlignment, padding });
 
         try {
           const response = await fetch(`${EXPRESS_SERVER_URL}/api/align`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ parentId, childIds, alignment: effectiveAlignment })
+            body: JSON.stringify({ parentId, childIds, alignment: effectiveAlignment, padding: padding ?? 0 })
           });
 
           const result = await response.json() as any;

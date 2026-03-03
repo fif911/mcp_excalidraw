@@ -431,7 +431,7 @@ function App(): JSX.Element {
               const pw = parent.width || 0
               const ph = parent.height || 0
               const alignment = data.alignment || 'center'
-              const PADDING = 4
+              const padding = data.padding ?? 0
 
               const updates: Array<{ id: string; x: number; y: number }> = []
               const updatedElements = allElements.map(el => {
@@ -442,9 +442,9 @@ function App(): JSX.Element {
                   // Horizontal position
                   let newX: number
                   if (alignment === 'left' || alignment === 'top-left' || alignment === 'bottom-left') {
-                    newX = parent.x + PADDING
+                    newX = parent.x + padding
                   } else if (alignment === 'right' || alignment === 'top-right' || alignment === 'bottom-right') {
-                    newX = parent.x + pw - cw - PADDING
+                    newX = parent.x + pw - cw - padding
                   } else {
                     newX = parent.x + pw / 2 - cw / 2
                   }
@@ -452,9 +452,9 @@ function App(): JSX.Element {
                   // Vertical position
                   let newY: number
                   if (alignment === 'top' || alignment === 'top-left' || alignment === 'top-right') {
-                    newY = parent.y + PADDING
+                    newY = parent.y + padding
                   } else if (alignment === 'bottom' || alignment === 'bottom-left' || alignment === 'bottom-right') {
-                    newY = parent.y + ph - ch - PADDING
+                    newY = parent.y + ph - ch - padding
                   } else {
                     newY = parent.y + ph / 2 - ch / 2
                   }

@@ -1029,7 +1029,7 @@ const pendingAligns = new Map<string, PendingAlign>();
 
 app.post('/api/align', async (req: Request, res: Response) => {
   try {
-    const { parentId, childIds, alignment } = req.body;
+    const { parentId, childIds, alignment, padding } = req.body;
 
     if (!parentId || !Array.isArray(childIds) || childIds.length === 0) {
       return res.status(400).json({
@@ -1054,7 +1054,8 @@ app.post('/api/align', async (req: Request, res: Response) => {
       requestId,
       parentId,
       childIds,
-      alignment: alignment || 'center'
+      alignment: alignment || 'center',
+      padding: padding ?? 0
     } as any);
 
     const result = await alignPromise;
