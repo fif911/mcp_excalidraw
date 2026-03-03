@@ -21,7 +21,7 @@
     "type-check": "npx tsc --noEmit"
   },
   "dependencies": {
-    "@excalidraw/excalidraw": "^0.18.0",
+    "@excalidraw/excalidraw": "^0.18.0-60b2758",
     "@excalidraw/mermaid-to-excalidraw": "^1.1.3",
     "@modelcontextprotocol/sdk": "latest",
     "cors": "^2.8.5",
