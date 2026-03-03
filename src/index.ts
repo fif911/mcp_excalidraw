@@ -2005,6 +2005,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
               { type: 'text', id: textId }
             ];
 
+            // Resolve label-level overrides (label.fontFamily, label.fontSize, label.strokeColor)
+            const labelFontSize = label?.fontSize ?? rest.fontSize ?? 16;
+            const labelFontFamily = normalizeFontFamily(label?.fontFamily) ?? normalizeFontFamily(rest.fontFamily) ?? 1;
+            const labelStrokeColor = label?.strokeColor;
+
             // Compute text position: centered in shape, or at arrow midpoint
             let textX: number, textY: number, textW: number, textH: number;
             const isArrow = el.type === 'arrow' || el.type === 'line';
@@ -2038,7 +2043,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
               width: textW,
               height: textH,
               angle: 0,
-              strokeColor: isArrow ? '#1e1e1e' : base.strokeColor,
+              strokeColor: labelStrokeColor ?? (isArrow ? '#1e1e1e' : base.strokeColor),
               backgroundColor: 'transparent',
               fillStyle: 'solid',
               strokeWidth: 1,
@@ -2059,8 +2064,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
               locked: false,
               text: labelText,
               originalText: labelText,
-              fontSize: isArrow ? 14 : (rest.fontSize ?? 16),
-              fontFamily: normalizeFontFamily(rest.fontFamily) ?? 1,
+              fontSize: isArrow ? 14 : labelFontSize,
+              fontFamily: labelFontFamily,
               textAlign: 'center',
               verticalAlign: 'middle',
               autoResize: true,

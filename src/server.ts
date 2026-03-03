@@ -116,7 +116,10 @@ const CreateElementSchema = z.object({
   opacity: z.number().optional(),
   text: z.string().optional(),
   label: z.object({
-    text: z.string()
+    text: z.string(),
+    fontSize: z.number().optional(),
+    fontFamily: z.union([z.string(), z.number()]).optional(),
+    strokeColor: z.string().optional(),
   }).optional(),
   fontSize: z.number().optional(),
   fontFamily: z.union([z.string(), z.number()]).optional(),
@@ -174,7 +177,10 @@ const UpdateElementSchema = z.object({
   opacity: z.number().optional(),
   text: z.string().optional(),
   label: z.object({
-    text: z.string()
+    text: z.string(),
+    fontSize: z.number().optional(),
+    fontFamily: z.union([z.string(), z.number()]).optional(),
+    strokeColor: z.string().optional(),
   }).optional(),
   fontSize: z.number().optional(),
   fontFamily: z.union([z.string(), z.number()]).optional(),
@@ -255,6 +261,12 @@ app.post('/api/elements', (req: Request, res: Response) => {
       updatedAt: new Date().toISOString(),
       version: 1
     };
+
+    // Normalize fontFamily inside label so convertToExcalidrawElements uses the right font
+    const singleLabel = (element as any).label;
+    if (singleLabel?.fontFamily) {
+      singleLabel.fontFamily = normalizeFontFamily(singleLabel.fontFamily);
+    }
 
     // Resolve arrow bindings against existing elements
     if (element.type === 'arrow' || element.type === 'line') {
@@ -628,6 +640,12 @@ app.post('/api/elements/batch', (req: Request, res: Response) => {
         updatedAt: new Date().toISOString(),
         version: 1
       };
+
+      // Normalize fontFamily inside label so convertToExcalidrawElements uses the right font
+      const label = (element as any).label;
+      if (label?.fontFamily) {
+        label.fontFamily = normalizeFontFamily(label.fontFamily);
+      }
 
       createdElements.push(element);
     });
