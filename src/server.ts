@@ -121,6 +121,7 @@ const CreateElementSchema = z.object({
   locked: z.boolean().optional(),
   roundness: z.object({ type: z.number(), value: z.number().optional() }).nullable().optional(),
   fillStyle: z.string().optional(),
+  containerId: z.string().nullable().optional(),
   // Arrow-specific properties
   points: z.any().optional(),
   start: z.object({ id: z.string() }).optional(),
@@ -128,6 +129,25 @@ const CreateElementSchema = z.object({
   startArrowhead: z.string().nullable().optional(),
   endArrowhead: z.string().nullable().optional(),
   elbowed: z.boolean().optional(),
+  // Arrow binding properties (preserved for Excalidraw frontend)
+  startBinding: z.object({
+    elementId: z.string(),
+    focus: z.number().optional(),
+    gap: z.number().optional(),
+    fixedPoint: z.any().nullable().optional(),
+    mode: z.string().optional(),
+  }).nullable().optional(),
+  endBinding: z.object({
+    elementId: z.string(),
+    focus: z.number().optional(),
+    gap: z.number().optional(),
+    fixedPoint: z.any().nullable().optional(),
+    mode: z.string().optional(),
+  }).nullable().optional(),
+  boundElements: z.array(z.object({
+    id: z.string(),
+    type: z.enum(["arrow", "text"]),
+  })).nullable().optional(),
 });
 
 const UpdateElementSchema = z.object({
@@ -155,6 +175,7 @@ const UpdateElementSchema = z.object({
   locked: z.boolean().optional(),
   roundness: z.object({ type: z.number(), value: z.number().optional() }).nullable().optional(),
   fillStyle: z.string().optional(),
+  containerId: z.string().nullable().optional(),
   points: z.array(z.union([
     z.tuple([z.number(), z.number()]),
     z.object({ x: z.number(), y: z.number() })
@@ -164,6 +185,25 @@ const UpdateElementSchema = z.object({
   startArrowhead: z.string().nullable().optional(),
   endArrowhead: z.string().nullable().optional(),
   elbowed: z.boolean().optional(),
+  // Arrow binding properties
+  startBinding: z.object({
+    elementId: z.string(),
+    focus: z.number().optional(),
+    gap: z.number().optional(),
+    fixedPoint: z.any().nullable().optional(),
+    mode: z.string().optional(),
+  }).nullable().optional(),
+  endBinding: z.object({
+    elementId: z.string(),
+    focus: z.number().optional(),
+    gap: z.number().optional(),
+    fixedPoint: z.any().nullable().optional(),
+    mode: z.string().optional(),
+  }).nullable().optional(),
+  boundElements: z.array(z.object({
+    id: z.string(),
+    type: z.enum(["arrow", "text"]),
+  })).nullable().optional(),
 });
 
 // API Routes
@@ -202,6 +242,11 @@ app.post('/api/elements', (req: Request, res: Response) => {
       updatedAt: new Date().toISOString(),
       version: 1
     };
+
+    // Resolve arrow bindings against existing elements
+    if (element.type === 'arrow' || element.type === 'line') {
+      resolveArrowBindings([element]);
+    }
 
     elements.set(id, element);
 

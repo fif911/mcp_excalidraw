@@ -86,6 +86,49 @@ const cleanElementForExcalidraw = (element: ServerElement): Partial<ExcalidrawEl
   return cleanElement;
 }
 
+// Helper: restore startBinding/endBinding/boundElements after convertToExcalidrawElements strips them
+const restoreBindings = (
+  convertedElements: readonly any[],
+  originalElements: Partial<ExcalidrawElement>[]
+): any[] => {
+  const originalMap = new Map<string, any>();
+  for (const el of originalElements) {
+    if (el.id) originalMap.set(el.id, el);
+  }
+
+  return convertedElements.map((el: any) => {
+    const orig = originalMap.get(el.id);
+    if (!orig) return el;
+
+    const patched = { ...el };
+
+    // Restore arrow bindings
+    if (orig.startBinding && !el.startBinding) {
+      patched.startBinding = orig.startBinding;
+    }
+    if (orig.endBinding && !el.endBinding) {
+      patched.endBinding = orig.endBinding;
+    }
+
+    // Restore boundElements on shapes (rectangles, ellipses, etc.)
+    if (orig.boundElements && (!el.boundElements || el.boundElements.length === 0)) {
+      patched.boundElements = orig.boundElements;
+    }
+
+    // Restore elbowed flag
+    if (orig.elbowed !== undefined && el.elbowed === undefined) {
+      patched.elbowed = orig.elbowed;
+    }
+
+    // Restore containerId (text bound inside a container)
+    if (orig.containerId && !el.containerId) {
+      patched.containerId = orig.containerId;
+    }
+
+    return patched;
+  });
+};
+
 // Helper function to validate and fix element binding data
 const validateAndFixBindings = (elements: Partial<ExcalidrawElement>[]): Partial<ExcalidrawElement>[] => {
   const elementMap = new Map(elements.map(el => [el.id!, el]));
@@ -236,8 +279,8 @@ function App(): JSX.Element {
           if (data.elements && data.elements.length > 0) {
             const cleanedElements = data.elements.map(cleanElementForExcalidraw)
             const validatedElements = validateAndFixBindings(cleanedElements)
-            // Preserve server IDs so later update/delete websocket events can match by id.
-            const convertedElements = convertToExcalidrawElements(validatedElements, { regenerateIds: false })
+            const rawConverted = convertToExcalidrawElements(validatedElements, { regenerateIds: false })
+            const convertedElements = restoreBindings(rawConverted, validatedElements)
             excalidrawAPI.updateScene({
               elements: convertedElements,
               captureUpdate: CaptureUpdateAction.NEVER
@@ -248,17 +291,17 @@ function App(): JSX.Element {
         case 'element_created':
           if (data.element) {
             const cleanedNewElement = cleanElementForExcalidraw(data.element)
-            const hasBindings = (cleanedNewElement as any).start || (cleanedNewElement as any).end
+            const hasBindings = (cleanedNewElement as any).start || (cleanedNewElement as any).end ||
+              (cleanedNewElement as any).startBinding || (cleanedNewElement as any).endBinding
             if (hasBindings) {
-              // Bound arrow: re-convert all elements together so bindings resolve
-              const allElements = [...currentElements, cleanedNewElement] as any[]
-              const convertedAll = convertToExcalidrawElements(allElements, { regenerateIds: false })
+              // Bound arrow: convert and restore bindings
+              const rawConverted = convertToExcalidrawElements([cleanedNewElement], { regenerateIds: false })
+              const [restoredElement] = restoreBindings(rawConverted, [cleanedNewElement])
               excalidrawAPI.updateScene({
-                elements: convertedAll,
+                elements: [...currentElements, restoredElement],
                 captureUpdate: CaptureUpdateAction.NEVER
               })
             } else {
-              // Preserve server IDs so later update/delete websocket events can match by id.
               const newElement = convertToExcalidrawElements([cleanedNewElement], { regenerateIds: false })
               const updatedElementsAfterCreate = [...currentElements, ...newElement]
               excalidrawAPI.updateScene({
@@ -268,12 +311,12 @@ function App(): JSX.Element {
             }
           }
           break
-          
+
         case 'element_updated':
           if (data.element) {
             const cleanedUpdatedElement = cleanElementForExcalidraw(data.element)
-            // Preserve server IDs so we can replace the existing element by id.
-            const convertedUpdatedElement = convertToExcalidrawElements([cleanedUpdatedElement], { regenerateIds: false })[0]
+            const rawUpdated = convertToExcalidrawElements([cleanedUpdatedElement], { regenerateIds: false })
+            const [convertedUpdatedElement] = restoreBindings(rawUpdated, [cleanedUpdatedElement])
             const updatedElements = currentElements.map(el =>
               el.id === data.element!.id ? convertedUpdatedElement : el
             )
@@ -297,18 +340,21 @@ function App(): JSX.Element {
         case 'elements_batch_created':
           if (data.elements) {
             const cleanedBatchElements = data.elements.map(cleanElementForExcalidraw)
-            const hasBoundArrows = cleanedBatchElements.some((el: any) => el.start || el.end)
+            const hasBoundArrows = cleanedBatchElements.some((el: any) =>
+              el.start || el.end || el.startBinding || el.endBinding
+            )
             if (hasBoundArrows) {
               // Convert ALL elements together so arrow bindings resolve to target shapes
               const allElements = [...currentElements, ...cleanedBatchElements] as any[]
-              const convertedAll = convertToExcalidrawElements(allElements, { regenerateIds: false })
+              const rawConverted = convertToExcalidrawElements(allElements, { regenerateIds: false })
+              const convertedAll = restoreBindings(rawConverted, allElements)
               excalidrawAPI.updateScene({
                 elements: convertedAll,
                 captureUpdate: CaptureUpdateAction.NEVER
               })
             } else {
-              // Preserve server IDs so later update/delete websocket events can match by id.
-              const batchElements = convertToExcalidrawElements(cleanedBatchElements, { regenerateIds: false })
+              const rawBatch = convertToExcalidrawElements(cleanedBatchElements, { regenerateIds: false })
+              const batchElements = restoreBindings(rawBatch, cleanedBatchElements)
               const updatedElementsAfterBatch = [...currentElements, ...batchElements]
               excalidrawAPI.updateScene({
                 elements: updatedElementsAfterBatch,
