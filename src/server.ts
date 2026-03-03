@@ -53,8 +53,13 @@ const clients = new Set<WebSocket>();
 function broadcast(message: WebSocketMessage): void {
   const data = JSON.stringify(message);
   clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(data);
+    try {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(data);
+      }
+    } catch (err) {
+      logger.warn('Failed to send to client, removing');
+      clients.delete(client);
     }
   });
 }
