@@ -9,50 +9,67 @@ description: Programmatic canvas toolkit for creating, editing, and refining Exc
 
 Before doing anything, determine which mode is available. Run these checks **in order**:
 
-### Check 1: MCP Server (Best experience)
+### Check 1: MCPorter (Recommended for OpenClaw agents)
+```bash
+mcporter list 2>/dev/null | grep excalidraw
+```
+If you see `excalidraw` with tools listed → **use MCPorter mode**. Call tools via `mcporter call excalidraw.<tool> key=value`.
+
+**MCPorter syntax:**
+```bash
+# Simple tool call
+mcporter call excalidraw.clear_canvas
+
+# Tool with JSON argument
+mcporter call excalidraw.batch_create_elements --args '{"elements": [...]}'
+
+# Tool with named arguments
+mcporter call excalidraw.create_element type=rectangle x=100 y=100 width=160 height=60
+
+# Describe scene
+mcporter call excalidraw.describe_scene
+```
+
+MCPorter uses the same MCP tool interface — all MCP mode examples in this skill apply directly. Use `startElementId`/`endElementId` for arrow binding, `text` for labels.
+
+### Check 2: MCP Server (Claude Code / direct MCP)
 ```bash
 mcp-cli tools | grep excalidraw
 ```
 If you see tools like `excalidraw/batch_create_elements` → **use MCP mode**. Call MCP tools directly.
 
-### Check 2: REST API (Fallback — works without MCP server)
+### Check 3: REST API (Fallback — works without MCP server)
 ```bash
 curl -s http://localhost:3000/health
 ```
 If you get `{"status":"ok"}` → **use REST API mode**. Use HTTP endpoints (`curl` / `fetch`) from the cheatsheet.
 
-### Check 3: Nothing works → Guide user to install
-If neither works, tell the user:
+### Check 4: Nothing works → Guide user to install
+If none work, tell the user:
 > The Excalidraw canvas server is not running. To set up:
-> 1. Clone: `git clone https://github.com/yctimlin/mcp_excalidraw && cd mcp_excalidraw`
+> 1. Clone: `git clone https://github.com/fif911/mcp_excalidraw && cd mcp_excalidraw`
 > 2. Build: `npm ci && npm run build`
 > 3. Start canvas: `HOST=0.0.0.0 PORT=3000 npm run canvas`
 > 4. Open `http://localhost:3000` in a browser
-> 5. (Recommended) Install the MCP server for the best experience:
->    ```
->    claude mcp add excalidraw -s user -e EXPRESS_SERVER_URL=http://localhost:3000 -- node /path/to/mcp_excalidraw/dist/index.js
->    ```
+> 5. Add to MCPorter: `mcporter config add excalidraw --command node --arg /path/to/mcp_excalidraw/dist/index.js --scope home`
 
-### MCP vs REST API Quick Reference
+### MCP vs MCPorter vs REST API Quick Reference
 
-| Operation | MCP Tool | REST API Equivalent |
-|-----------|----------|-------------------|
-| Create elements | `batch_create_elements` | `POST /api/elements/batch` with `{"elements": [...]}` |
-| Get all elements | `query_elements` | `GET /api/elements` |
-| Get one element | `get_element` | `GET /api/elements/:id` |
-| Update element | `update_element` | `PUT /api/elements/:id` |
-| Delete element | `delete_element` | `DELETE /api/elements/:id` |
-| Clear canvas | `clear_canvas` | `DELETE /api/elements/clear` |
-| Describe scene | `describe_scene` | `GET /api/elements` (parse manually) |
-| Export scene | `export_scene` | `GET /api/elements` (save to file) |
-| Import scene | `import_scene` | `POST /api/elements/sync` with `{"elements": [...]}` |
-| Snapshot | `snapshot_scene` | `POST /api/snapshots` with `{"name": "..."}` |
-| Restore snapshot | `restore_snapshot` | `GET /api/snapshots/:name` then `POST /api/elements/sync` |
-| Screenshot | `get_canvas_screenshot` | Only via MCP (needs browser) |
-| Design guide | `read_diagram_guide` | Not available — see cheatsheet for guidelines |
-| Viewport | `set_viewport` | `POST /api/viewport` (needs browser) |
-| Export image | `export_to_image` | `POST /api/export/image` (needs browser) |
-| Export URL | `export_to_excalidraw_url` | Only via MCP |
+| Operation | MCP Tool | MCPorter | REST API |
+|-----------|----------|----------|----------|
+| Create elements | `batch_create_elements` | `mcporter call excalidraw.batch_create_elements --args '{"elements":[...]}'` | `POST /api/elements/batch` |
+| Get all elements | `query_elements` | `mcporter call excalidraw.query_elements` | `GET /api/elements` |
+| Get one element | `get_element` | `mcporter call excalidraw.get_element id=myId` | `GET /api/elements/:id` |
+| Update element | `update_element` | `mcporter call excalidraw.update_element --args '{...}'` | `PUT /api/elements/:id` |
+| Delete element | `delete_element` | `mcporter call excalidraw.delete_element id=myId` | `DELETE /api/elements/:id` |
+| Clear canvas | `clear_canvas` | `mcporter call excalidraw.clear_canvas` | `DELETE /api/elements/clear` |
+| Describe scene | `describe_scene` | `mcporter call excalidraw.describe_scene` | `GET /api/elements` (parse manually) |
+| Screenshot | `get_canvas_screenshot` | `mcporter call excalidraw.get_canvas_screenshot` | Only via MCP (needs browser) |
+| Viewport | `set_viewport` | `mcporter call excalidraw.set_viewport scrollToContent=true` | `POST /api/viewport` (needs browser) |
+| Export image | `export_to_image` | `mcporter call excalidraw.export_to_image format=png` | `POST /api/export/image` (needs browser) |
+| Export URL | `export_to_excalidraw_url` | `mcporter call excalidraw.export_to_excalidraw_url` | Only via MCP |
+
+**MCPorter uses the same MCP tool interface** — all MCP mode patterns (labels, arrow binding, etc.) apply identically.
 
 ### REST API Gotchas (Critical — read before using REST API)
 
