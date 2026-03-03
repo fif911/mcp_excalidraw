@@ -21,7 +21,9 @@ import {
   SyncStatusMessage,
   InitialElementsMessage,
   Snapshot,
-  normalizeFontFamily
+  normalizeFontFamily,
+  ExcalidrawFile,
+  files
 } from './types.js';
 import { z } from 'zod';
 import WebSocket from 'ws';
@@ -70,9 +72,12 @@ wss.on('connection', (ws: WebSocket) => {
   logger.info('New WebSocket connection established');
   
   // Send current elements to new client
-  const initialMessage: InitialElementsMessage = {
+  const filesObj: Record<string, ExcalidrawFile> = {};
+  files.forEach((f, id) => { filesObj[id] = f; });
+  const initialMessage: InitialElementsMessage & { files?: Record<string, ExcalidrawFile> } = {
     type: 'initial_elements',
-    elements: Array.from(elements.values())
+    elements: Array.from(elements.values()),
+    ...(files.size > 0 ? { files: filesObj } : {})
   };
   ws.send(JSON.stringify(initialMessage));
   
@@ -148,6 +153,10 @@ const CreateElementSchema = z.object({
     id: z.string(),
     type: z.enum(["arrow", "text"]),
   })).nullable().optional(),
+  // Image-specific properties
+  fileId: z.string().optional(),
+  status: z.string().optional(),
+  scale: z.tuple([z.number(), z.number()]).optional(),
 });
 
 const UpdateElementSchema = z.object({
@@ -204,6 +213,10 @@ const UpdateElementSchema = z.object({
     id: z.string(),
     type: z.enum(["arrow", "text"]),
   })).nullable().optional(),
+  // Image-specific properties
+  fileId: z.string().optional(),
+  status: z.string().optional(),
+  scale: z.tuple([z.number(), z.number()]).optional(),
 });
 
 // API Routes
@@ -768,6 +781,38 @@ app.post('/api/elements/sync', (req: Request, res: Response) => {
       error: (error as Error).message,
       details: 'Internal server error during sync operation'
     });
+  }
+});
+
+// ─── Files API (for image elements) ───────────────────────────
+// GET all files
+app.get('/api/files', (_req: Request, res: Response) => {
+  const filesObj: Record<string, ExcalidrawFile> = {};
+  files.forEach((f, id) => { filesObj[id] = f; });
+  res.json({ files: filesObj });
+});
+
+// POST add/update files (batch)
+app.post('/api/files', (req: Request, res: Response) => {
+  const body = req.body;
+  const fileList: ExcalidrawFile[] = Array.isArray(body) ? body : (body?.files || []);
+  for (const f of fileList) {
+    if (f.id && f.dataURL) {
+      files.set(f.id, { id: f.id, dataURL: f.dataURL, mimeType: f.mimeType || 'image/png', created: f.created || Date.now() });
+    }
+  }
+  broadcast({ type: 'files_added', files: fileList } as any);
+  res.json({ success: true, count: fileList.length });
+});
+
+// DELETE a file
+app.delete('/api/files/:id', (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  if (files.delete(id)) {
+    broadcast({ type: 'file_deleted', fileId: id } as any);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ success: false, error: `File with ID ${id} not found` });
   }
 });
 

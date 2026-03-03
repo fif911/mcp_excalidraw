@@ -278,13 +278,50 @@ function App(): JSX.Element {
         case 'initial_elements':
           if (data.elements && data.elements.length > 0) {
             const cleanedElements = data.elements.map(cleanElementForExcalidraw)
-            const validatedElements = validateAndFixBindings(cleanedElements)
+            // Separate image elements — convertToExcalidrawElements strips fileId/status
+            const imageElements = cleanedElements.filter((e: any) => e.type === 'image')
+            const nonImageElements = cleanedElements.filter((e: any) => e.type !== 'image')
+            const validatedElements = validateAndFixBindings(nonImageElements)
             const rawConverted = convertToExcalidrawElements(validatedElements, { regenerateIds: false })
             const convertedElements = restoreBindings(rawConverted, validatedElements)
+            // Re-add image elements with required Excalidraw properties
+            const fullImageElements = imageElements.map((img: any) => ({
+              ...img,
+              angle: img.angle || 0,
+              strokeColor: img.strokeColor || 'transparent',
+              backgroundColor: img.backgroundColor || 'transparent',
+              fillStyle: img.fillStyle || 'solid',
+              strokeWidth: img.strokeWidth || 1,
+              strokeStyle: img.strokeStyle || 'solid',
+              roughness: img.roughness ?? 0,
+              opacity: img.opacity ?? 100,
+              groupIds: img.groupIds || [],
+              roundness: null,
+              seed: img.seed || Math.floor(Math.random() * 1000000),
+              version: img.version || 1,
+              versionNonce: img.versionNonce || Math.floor(Math.random() * 1000000),
+              isDeleted: false,
+              boundElements: img.boundElements || null,
+              link: img.link || null,
+              locked: img.locked || false,
+              status: img.status || 'saved',
+              fileId: img.fileId,
+              scale: img.scale || [1, 1],
+            }))
             excalidrawAPI.updateScene({
-              elements: convertedElements,
+              elements: [...convertedElements, ...fullImageElements],
               captureUpdate: CaptureUpdateAction.NEVER
             })
+          }
+          // Load files for image elements
+          if ((data as any).files) {
+            excalidrawAPI.addFiles(Object.values((data as any).files))
+          }
+          break
+
+        case 'files_added':
+          if (Array.isArray((data as any).files)) {
+            excalidrawAPI.addFiles((data as any).files)
           }
           break
 
