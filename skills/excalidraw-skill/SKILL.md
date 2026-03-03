@@ -58,7 +58,7 @@ If neither works, tell the user:
 
 1. **Labels**: Use `"label": {"text": "My Label"}` (not `"text": "My Label"`). MCP tools auto-convert, REST API does not.
 2. **Arrow binding**: Use `"start": {"id": "svc-a"}, "end": {"id": "svc-b"}` (not `"startElementId"`/`"endElementId"`). MCP tools accept `startElementId` and convert, REST API requires the `start`/`end` object format directly.
-3. **fontFamily**: Must be a string (e.g. `"1"`) or omit it entirely. Do NOT pass a number like `1`.
+3. **fontFamily**: Pass a string name (`"helvetica"`, `"virgil"`, `"mono"`) or numeric ID (`1`, `2`, `3`). Both are accepted — the server normalizes to Excalidraw's numeric format automatically.
 4. **Updating labels**: When updating a shape via `PUT /api/elements/:id`, include the full `label` in the update body to preserve it. Omitting `label` from the update won't delete it, but re-sending ensures it renders correctly.
 5. **Screenshot in REST mode**: `POST /api/export/image` returns `{"data": "<base64>"}`. Save to file and read it back for visual verification. Requires browser open.
 
@@ -97,6 +97,60 @@ Before creating elements, **plan your coordinate grid** on paper first:
 - Side panels: x < 0 (left) or x > mainDiagramRight + 80 (right)
 
 **Do NOT place side panels (observability, external APIs) at the same x-range as the main diagram — they WILL overlap.**
+
+## Iteration Versioning (MANDATORY)
+
+**Every official iteration MUST be saved as a separate build file.**
+
+- Name pattern: `build-diagram-v{N}.py` (or `.cjs` / `.sh`) — increment N for each iteration.
+- After each successful export, **immediately save the current build script** as a new versioned file.
+- Never overwrite a previous version. Old versions are your rollback safety net.
+- Export PNGs follow the same pattern: `test-export{N}.png` or `diagram-v{N}.png`.
+- This prevents the "which script produced which export?" problem. Each export maps 1:1 to a build file.
+
+**Example workflow:**
+```
+build-diagram-v1.py → test-export1.png (base layout)
+build-diagram-v2.py → test-export2.png (fixed overlaps)
+build-diagram-v3.py → test-export3.png (added icons)
+```
+
+**Also save canvas state JSON** after each successful iteration:
+```bash
+curl -s http://localhost:3000/api/elements | python3 -c "import json,sys; json.dump(json.load(sys.stdin), open('canvas-state-v{N}.json','w'), indent=2)"
+```
+
+## Supported Fonts
+
+The `fontFamily` parameter accepts string names or numeric IDs. The server normalizes all to Excalidraw numeric format.
+
+| ID | Name(s) | Style |
+|----|---------|-------|
+| 1  | `virgil`, `hand`, `handwritten` | Hand-drawn sketch font (Excalidraw default) |
+| 2  | `helvetica`, `sans`, `sans-serif` | Clean sans-serif (best for professional diagrams) |
+| 3  | `cascadia`, `mono`, `monospace` | Monospace (code, technical labels) |
+| 5  | `excalifont` | Excalidraw's custom sketch font |
+| 6  | `nunito` | Rounded sans-serif |
+| 7  | `lilita`, `lilita one` | Bold display font |
+| 8  | `comic shanns`, `comic` | Comic Sans alternative |
+
+**Example:** `"fontFamily": "helvetica"` or `"fontFamily": 2` — both produce the same result.
+
+## Font & Style Consistency Rules
+
+- **All text elements MUST use the same fontFamily** unless there's a specific design reason. Default: `1` (Virgil/hand-drawn) or `2` (Helvetica) — pick one and stick with it.
+- **Numbered step circles**: Use `textAlign: "center"` and `verticalAlign: "middle"` on the label. Circle dimensions must be equal (e.g. 50x50) to stay round — NOT rectangular.
+- **Circle number labels — GOTCHA**: The `label` property on shapes only accepts `{text: string}` — no color/font overrides. Labels inherit `strokeColor` from the parent shape. So on dark-filled circles (backgroundColor: "#1a1a1a", strokeColor: "#1a1a1a"), labels render as dark-on-dark = invisible.
+  **Fix**: Use a **separate text element** overlaid on the circle instead of the `label` property:
+  ```python
+  # Circle: 50x50 at (cx, cy)
+  requests.post(API, json={"id": "c1-bg", "type": "ellipse", "x": cx, "y": cy, "width": 50, "height": 50,
+      "backgroundColor": "#1a1a1a", "strokeColor": "#1a1a1a", "fillStyle": "solid", "roughness": 0, "strokeWidth": 1})
+  # Number text: offset +12,+8 to visually center single digit
+  requests.post(API, json={"id": "c1-tx", "type": "text", "x": cx+12, "y": cy+8,
+      "text": "1", "fontSize": 18, "fontFamily": "2", "strokeColor": "#ffffff"})
+  ```
+  The **+14/+10 offset** centers a single digit (fontSize 18, fontFamily "2") inside a 50x50 circle. Tested against 6 offset variants — +14,+10 is visually centered. Adjust for multi-digit numbers or different font sizes.
 
 ## Quick Start
 

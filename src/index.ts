@@ -1488,13 +1488,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
 
         // Fetch files for image elements
         let sceneFiles: Record<string, any> = {};
-        try {
-          const filesResponse = await fetch(`${EXPRESS_SERVER_URL}/api/files`);
-          if (filesResponse.ok) {
-            const filesData = await filesResponse.json() as any;
-            sceneFiles = filesData.files || {};
-          }
-        } catch { /* files endpoint may not exist */ }
+        const filesResponse = await fetch(`${EXPRESS_SERVER_URL}/api/files`);
+        if (filesResponse.ok) {
+          const filesData = await filesResponse.json() as any;
+          sceneFiles = filesData.files || {};
+        }
 
         const excalidrawScene: any = {
           type: 'excalidraw',
@@ -1579,13 +1577,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
         if (importFiles && typeof importFiles === 'object') {
           const fileList = Object.values(importFiles);
           if (fileList.length > 0) {
-            try {
-              await fetch(`${EXPRESS_SERVER_URL}/api/files`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(fileList)
-              });
-            } catch { /* best effort */ }
+            await fetch(`${EXPRESS_SERVER_URL}/api/files`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(fileList)
+            });
           }
         }
 
