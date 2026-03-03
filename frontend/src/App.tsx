@@ -418,6 +418,83 @@ function App(): JSX.Element {
           })
           break
 
+        case 'align_elements_request':
+          console.log('Received align elements request', data)
+          if (data.requestId) {
+            try {
+              const allElements = excalidrawAPI.getSceneElements()
+              const parent = allElements.find(el => el.id === data.parentId)
+              if (!parent) {
+                throw new Error(`Parent element ${data.parentId} not found`)
+              }
+
+              const pw = parent.width || 0
+              const ph = parent.height || 0
+              const alignment = data.alignment || 'center'
+              const PADDING = 4
+
+              const updates: Array<{ id: string; x: number; y: number }> = []
+              const updatedElements = allElements.map(el => {
+                if (data.childIds?.includes(el.id)) {
+                  const cw = el.width || 0
+                  const ch = el.height || 0
+
+                  // Horizontal position
+                  let newX: number
+                  if (alignment === 'left' || alignment === 'top-left' || alignment === 'bottom-left') {
+                    newX = parent.x + PADDING
+                  } else if (alignment === 'right' || alignment === 'top-right' || alignment === 'bottom-right') {
+                    newX = parent.x + pw - cw - PADDING
+                  } else {
+                    newX = parent.x + pw / 2 - cw / 2
+                  }
+
+                  // Vertical position
+                  let newY: number
+                  if (alignment === 'top' || alignment === 'top-left' || alignment === 'top-right') {
+                    newY = parent.y + PADDING
+                  } else if (alignment === 'bottom' || alignment === 'bottom-left' || alignment === 'bottom-right') {
+                    newY = parent.y + ph - ch - PADDING
+                  } else {
+                    newY = parent.y + ph / 2 - ch / 2
+                  }
+
+                  updates.push({ id: el.id, x: newX, y: newY })
+                  return { ...el, x: newX, y: newY }
+                }
+                return el
+              })
+
+              excalidrawAPI.updateScene({
+                elements: updatedElements as any,
+                captureUpdate: CaptureUpdateAction.NEVER
+              })
+
+              await fetch('/api/align/result', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  requestId: data.requestId,
+                  success: true,
+                  message: `Aligned ${updates.length} element(s) (${data.alignment || 'center'}) in parent ${data.parentId}`,
+                  updates
+                })
+              })
+            } catch (alignError: any) {
+              console.error('Error aligning elements:', alignError)
+              await fetch('/api/align/result', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  requestId: data.requestId,
+                  success: false,
+                  error: alignError.message
+                })
+              }).catch(() => {})
+            }
+          }
+          break
+
         case 'export_image_request':
           console.log('Received image export request', data)
           if (data.requestId) {

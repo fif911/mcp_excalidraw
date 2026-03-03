@@ -1019,6 +1019,100 @@ app.post('/api/viewport/result', (req: Request, res: Response) => {
   }
 });
 
+// Align in parent: browser-delegated element alignment
+interface PendingAlign {
+  resolve: (value: any) => void;
+  reject: (reason: any) => void;
+  timeout: NodeJS.Timeout;
+}
+const pendingAligns = new Map<string, PendingAlign>();
+
+app.post('/api/align', async (req: Request, res: Response) => {
+  try {
+    const { parentId, childIds, alignment } = req.body;
+
+    if (!parentId || !Array.isArray(childIds) || childIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'parentId (string) and childIds (non-empty array) are required'
+      });
+    }
+
+    const requestId = generateId();
+
+    const alignPromise = new Promise<any>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        pendingAligns.delete(requestId);
+        reject(new Error('Alignment timed out — no browser responded within 10s'));
+      }, 10000);
+
+      pendingAligns.set(requestId, { resolve, reject, timeout });
+    });
+
+    broadcast({
+      type: 'align_elements_request',
+      requestId,
+      parentId,
+      childIds,
+      alignment: alignment || 'center'
+    } as any);
+
+    const result = await alignPromise;
+
+    // Sync updated positions back to server storage
+    if (result.updates) {
+      for (const update of result.updates) {
+        const existing = elements.get(update.id);
+        if (existing) {
+          existing.x = update.x;
+          existing.y = update.y;
+          existing.updatedAt = new Date().toISOString();
+        }
+      }
+    }
+
+    res.json({ success: true, message: result.message, updates: result.updates });
+  } catch (error) {
+    logger.error('Error in align:', error);
+    res.status(500).json({
+      success: false,
+      error: (error as Error).message
+    });
+  }
+});
+
+app.post('/api/align/result', (req: Request, res: Response) => {
+  try {
+    const { requestId, success, message, error, updates } = req.body;
+
+    if (!requestId) {
+      return res.status(400).json({ success: false, error: 'requestId is required' });
+    }
+
+    const pending = pendingAligns.get(requestId);
+    if (!pending) {
+      return res.status(404).json({ success: false, error: 'No pending alignment for this requestId' });
+    }
+
+    clearTimeout(pending.timeout);
+
+    if (success) {
+      pending.resolve({ success: true, message, updates });
+    } else {
+      pending.reject(new Error(error || 'Alignment failed'));
+    }
+
+    pendingAligns.delete(requestId);
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error processing align result:', error);
+    res.status(500).json({
+      success: false,
+      error: (error as Error).message
+    });
+  }
+});
+
 // Snapshots: save
 app.post('/api/snapshots', (req: Request, res: Response) => {
   try {

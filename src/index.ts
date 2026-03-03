@@ -494,7 +494,7 @@ const tools: Tool[] = [
   },
   {
     name: 'align_elements',
-    description: 'Align elements to a specific position',
+    description: 'Align elements relative to EACH OTHER (e.g., line up 3 boxes by their left edges). Server-side — works for shapes with known dimensions. Does NOT work reliably for text elements (use align_in_parent instead).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -508,6 +508,30 @@ const tools: Tool[] = [
         }
       },
       required: ['elementIds', 'alignment']
+    }
+  },
+  {
+    name: 'align_in_parent',
+    description: 'Align child elements INSIDE a parent element (e.g., center text "3" inside a circle, or left-align a label inside a rectangle). Browser-delegated — reads actual rendered dimensions from Excalidraw, so it works correctly for text elements whose width/height are unknown server-side. Use this instead of align_elements when positioning children within a container.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        parentId: {
+          type: 'string',
+          description: 'ID of the parent/container element (e.g., ellipse, rectangle)'
+        },
+        childIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'IDs of child elements to align inside the parent'
+        },
+        alignment: {
+          type: 'string',
+          enum: ['center', 'top', 'bottom', 'left', 'right', 'top-left', 'top-right', 'bottom-left', 'bottom-right'],
+          description: 'Where to position the children within the parent. Default: center'
+        }
+      },
+      required: ['parentId', 'childIds']
     }
   },
   {
@@ -2195,6 +2219,39 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
             text: `Viewport updated successfully.\n\n${JSON.stringify(viewportResult, null, 2)}`
           }]
         };
+      }
+
+      case 'align_in_parent': {
+        const { parentId, childIds, alignment } = args as { parentId: string; childIds: string[]; alignment?: string };
+        const effectiveAlignment = alignment || 'center';
+        logger.info('Align in parent (frontend-delegated)', { parentId, childIds, alignment: effectiveAlignment });
+
+        try {
+          const response = await fetch(`${EXPRESS_SERVER_URL}/api/align`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ parentId, childIds, alignment: effectiveAlignment })
+          });
+
+          const result = await response.json() as any;
+
+          if (!response.ok || !result.success) {
+            throw new Error(result.error || result.message || 'Alignment failed');
+          }
+
+          return {
+            content: [{ type: 'text', text: JSON.stringify({
+              aligned: true,
+              parentId,
+              childIds,
+              alignment: effectiveAlignment,
+              message: result.message,
+              updates: result.updates
+            }, null, 2) }]
+          };
+        } catch (error) {
+          throw new Error(`Failed to align elements in parent: ${(error as Error).message}`);
+        }
       }
 
       default:
