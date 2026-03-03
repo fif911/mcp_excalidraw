@@ -25,7 +25,8 @@ import {
   EXCALIDRAW_ELEMENT_TYPES,
   ServerElement,
   ExcalidrawElementType,
-  validateElement
+  validateElement,
+  normalizeFontFamily
 } from './types.js';
 import fetch from 'node-fetch';
 
@@ -225,7 +226,7 @@ const ElementSchema = z.object({
   opacity: z.number().optional(),
   text: z.string().optional(),
   fontSize: z.number().optional(),
-  fontFamily: z.string().optional(),
+  fontFamily: z.union([z.string(), z.number()]).optional(),
   groupIds: z.array(z.string()).optional(),
   locked: z.boolean().optional(),
   strokeStyle: z.string().optional(),
@@ -2009,7 +2010,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
               text: labelText,
               originalText: labelText,
               fontSize: isArrow ? 14 : (rest.fontSize ?? 16),
-              fontFamily: rest.fontFamily ?? 1,
+              fontFamily: normalizeFontFamily(rest.fontFamily) ?? 1,
               textAlign: 'center',
               verticalAlign: 'middle',
               autoResize: true,
