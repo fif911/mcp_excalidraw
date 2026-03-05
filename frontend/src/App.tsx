@@ -86,6 +86,49 @@ const cleanElementForExcalidraw = (element: ServerElement): Partial<ExcalidrawEl
   return cleanElement;
 }
 
+// Helper: restore startBinding/endBinding/boundElements after convertToExcalidrawElements strips them
+const restoreBindings = (
+  convertedElements: readonly any[],
+  originalElements: Partial<ExcalidrawElement>[]
+): any[] => {
+  const originalMap = new Map<string, any>();
+  for (const el of originalElements) {
+    if (el.id) originalMap.set(el.id, el);
+  }
+
+  return convertedElements.map((el: any) => {
+    const orig = originalMap.get(el.id);
+    if (!orig) return el;
+
+    const patched = { ...el };
+
+    // Restore arrow bindings
+    if (orig.startBinding && !el.startBinding) {
+      patched.startBinding = orig.startBinding;
+    }
+    if (orig.endBinding && !el.endBinding) {
+      patched.endBinding = orig.endBinding;
+    }
+
+    // Restore boundElements on shapes (rectangles, ellipses, etc.)
+    if (orig.boundElements && (!el.boundElements || el.boundElements.length === 0)) {
+      patched.boundElements = orig.boundElements;
+    }
+
+    // Restore elbowed flag
+    if (orig.elbowed !== undefined && el.elbowed === undefined) {
+      patched.elbowed = orig.elbowed;
+    }
+
+    // Restore containerId (text bound inside a container)
+    if (orig.containerId && !el.containerId) {
+      patched.containerId = orig.containerId;
+    }
+
+    return patched;
+  });
+};
+
 // Helper function to validate and fix element binding data
 const validateAndFixBindings = (elements: Partial<ExcalidrawElement>[]): Partial<ExcalidrawElement>[] => {
   const elementMap = new Map(elements.map(el => [el.id!, el]));
@@ -235,30 +278,67 @@ function App(): JSX.Element {
         case 'initial_elements':
           if (data.elements && data.elements.length > 0) {
             const cleanedElements = data.elements.map(cleanElementForExcalidraw)
-            const validatedElements = validateAndFixBindings(cleanedElements)
-            // Preserve server IDs so later update/delete websocket events can match by id.
-            const convertedElements = convertToExcalidrawElements(validatedElements, { regenerateIds: false })
+            // Separate image elements — convertToExcalidrawElements strips fileId/status
+            const imageElements = cleanedElements.filter((e: any) => e.type === 'image')
+            const nonImageElements = cleanedElements.filter((e: any) => e.type !== 'image')
+            const validatedElements = validateAndFixBindings(nonImageElements)
+            const rawConverted = convertToExcalidrawElements(validatedElements, { regenerateIds: false })
+            const convertedElements = restoreBindings(rawConverted, validatedElements)
+            // Re-add image elements with required Excalidraw properties
+            const fullImageElements = imageElements.map((img: any) => ({
+              ...img,
+              angle: img.angle || 0,
+              strokeColor: img.strokeColor || 'transparent',
+              backgroundColor: img.backgroundColor || 'transparent',
+              fillStyle: img.fillStyle || 'solid',
+              strokeWidth: img.strokeWidth || 1,
+              strokeStyle: img.strokeStyle || 'solid',
+              roughness: img.roughness ?? 0,
+              opacity: img.opacity ?? 100,
+              groupIds: img.groupIds || [],
+              roundness: null,
+              seed: img.seed || Math.floor(Math.random() * 1000000),
+              version: img.version || 1,
+              versionNonce: img.versionNonce || Math.floor(Math.random() * 1000000),
+              isDeleted: false,
+              boundElements: img.boundElements || null,
+              link: img.link || null,
+              locked: img.locked || false,
+              status: img.status || 'saved',
+              fileId: img.fileId,
+              scale: img.scale || [1, 1],
+            }))
             excalidrawAPI.updateScene({
-              elements: convertedElements,
+              elements: [...convertedElements, ...fullImageElements],
               captureUpdate: CaptureUpdateAction.NEVER
             })
+          }
+          // Load files for image elements
+          if ((data as any).files) {
+            excalidrawAPI.addFiles(Object.values((data as any).files))
+          }
+          break
+
+        case 'files_added':
+          if (Array.isArray((data as any).files)) {
+            excalidrawAPI.addFiles((data as any).files)
           }
           break
 
         case 'element_created':
           if (data.element) {
             const cleanedNewElement = cleanElementForExcalidraw(data.element)
-            const hasBindings = (cleanedNewElement as any).start || (cleanedNewElement as any).end
+            const hasBindings = (cleanedNewElement as any).start || (cleanedNewElement as any).end ||
+              (cleanedNewElement as any).startBinding || (cleanedNewElement as any).endBinding
             if (hasBindings) {
-              // Bound arrow: re-convert all elements together so bindings resolve
-              const allElements = [...currentElements, cleanedNewElement] as any[]
-              const convertedAll = convertToExcalidrawElements(allElements, { regenerateIds: false })
+              // Bound arrow: convert and restore bindings
+              const rawConverted = convertToExcalidrawElements([cleanedNewElement], { regenerateIds: false })
+              const [restoredElement] = restoreBindings(rawConverted, [cleanedNewElement])
               excalidrawAPI.updateScene({
-                elements: convertedAll,
+                elements: [...currentElements, restoredElement],
                 captureUpdate: CaptureUpdateAction.NEVER
               })
             } else {
-              // Preserve server IDs so later update/delete websocket events can match by id.
               const newElement = convertToExcalidrawElements([cleanedNewElement], { regenerateIds: false })
               const updatedElementsAfterCreate = [...currentElements, ...newElement]
               excalidrawAPI.updateScene({
@@ -268,12 +348,12 @@ function App(): JSX.Element {
             }
           }
           break
-          
+
         case 'element_updated':
           if (data.element) {
             const cleanedUpdatedElement = cleanElementForExcalidraw(data.element)
-            // Preserve server IDs so we can replace the existing element by id.
-            const convertedUpdatedElement = convertToExcalidrawElements([cleanedUpdatedElement], { regenerateIds: false })[0]
+            const rawUpdated = convertToExcalidrawElements([cleanedUpdatedElement], { regenerateIds: false })
+            const [convertedUpdatedElement] = restoreBindings(rawUpdated, [cleanedUpdatedElement])
             const updatedElements = currentElements.map(el =>
               el.id === data.element!.id ? convertedUpdatedElement : el
             )
@@ -297,18 +377,21 @@ function App(): JSX.Element {
         case 'elements_batch_created':
           if (data.elements) {
             const cleanedBatchElements = data.elements.map(cleanElementForExcalidraw)
-            const hasBoundArrows = cleanedBatchElements.some((el: any) => el.start || el.end)
+            const hasBoundArrows = cleanedBatchElements.some((el: any) =>
+              el.start || el.end || el.startBinding || el.endBinding
+            )
             if (hasBoundArrows) {
               // Convert ALL elements together so arrow bindings resolve to target shapes
               const allElements = [...currentElements, ...cleanedBatchElements] as any[]
-              const convertedAll = convertToExcalidrawElements(allElements, { regenerateIds: false })
+              const rawConverted = convertToExcalidrawElements(allElements, { regenerateIds: false })
+              const convertedAll = restoreBindings(rawConverted, allElements)
               excalidrawAPI.updateScene({
                 elements: convertedAll,
                 captureUpdate: CaptureUpdateAction.NEVER
               })
             } else {
-              // Preserve server IDs so later update/delete websocket events can match by id.
-              const batchElements = convertToExcalidrawElements(cleanedBatchElements, { regenerateIds: false })
+              const rawBatch = convertToExcalidrawElements(cleanedBatchElements, { regenerateIds: false })
+              const batchElements = restoreBindings(rawBatch, cleanedBatchElements)
               const updatedElementsAfterBatch = [...currentElements, ...batchElements]
               excalidrawAPI.updateScene({
                 elements: updatedElementsAfterBatch,
@@ -333,6 +416,83 @@ function App(): JSX.Element {
             elements: [],
             captureUpdate: CaptureUpdateAction.NEVER
           })
+          break
+
+        case 'align_elements_request':
+          console.log('Received align elements request', data)
+          if (data.requestId) {
+            try {
+              const allElements = excalidrawAPI.getSceneElements()
+              const parent = allElements.find(el => el.id === data.parentId)
+              if (!parent) {
+                throw new Error(`Parent element ${data.parentId} not found`)
+              }
+
+              const pw = parent.width || 0
+              const ph = parent.height || 0
+              const alignment = data.alignment || 'center'
+              const padding = data.padding ?? 0
+
+              const updates: Array<{ id: string; x: number; y: number }> = []
+              const updatedElements = allElements.map(el => {
+                if (data.childIds?.includes(el.id)) {
+                  const cw = el.width || 0
+                  const ch = el.height || 0
+
+                  // Horizontal position
+                  let newX: number
+                  if (alignment === 'left' || alignment === 'top-left' || alignment === 'bottom-left') {
+                    newX = parent.x + padding
+                  } else if (alignment === 'right' || alignment === 'top-right' || alignment === 'bottom-right') {
+                    newX = parent.x + pw - cw - padding
+                  } else {
+                    newX = parent.x + pw / 2 - cw / 2
+                  }
+
+                  // Vertical position
+                  let newY: number
+                  if (alignment === 'top' || alignment === 'top-left' || alignment === 'top-right') {
+                    newY = parent.y + padding
+                  } else if (alignment === 'bottom' || alignment === 'bottom-left' || alignment === 'bottom-right') {
+                    newY = parent.y + ph - ch - padding
+                  } else {
+                    newY = parent.y + ph / 2 - ch / 2
+                  }
+
+                  updates.push({ id: el.id, x: newX, y: newY })
+                  return { ...el, x: newX, y: newY }
+                }
+                return el
+              })
+
+              excalidrawAPI.updateScene({
+                elements: updatedElements as any,
+                captureUpdate: CaptureUpdateAction.NEVER
+              })
+
+              await fetch('/api/align/result', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  requestId: data.requestId,
+                  success: true,
+                  message: `Aligned ${updates.length} element(s) (${data.alignment || 'center'}) in parent ${data.parentId}`,
+                  updates
+                })
+              })
+            } catch (alignError: any) {
+              console.error('Error aligning elements:', alignError)
+              await fetch('/api/align/result', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  requestId: data.requestId,
+                  success: false,
+                  error: alignError.message
+                })
+              }).catch(() => {})
+            }
+          }
           break
 
         case 'export_image_request':

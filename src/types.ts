@@ -106,7 +106,7 @@ export interface ExcalidrawBinding {
   fixedPoint?: readonly [number, number] | null;
 }
 
-export type ExcalidrawElementType = 'rectangle' | 'ellipse' | 'diamond' | 'arrow' | 'text' | 'line' | 'freedraw';
+export type ExcalidrawElementType = 'rectangle' | 'ellipse' | 'diamond' | 'arrow' | 'text' | 'line' | 'freedraw' | 'image';
 
 // Excalidraw element types
 export const EXCALIDRAW_ELEMENT_TYPES: Record<string, ExcalidrawElementType> = {
@@ -116,7 +116,8 @@ export const EXCALIDRAW_ELEMENT_TYPES: Record<string, ExcalidrawElementType> = {
   ARROW: 'arrow',
   TEXT: 'text',
   FREEDRAW: 'freedraw',
-  LINE: 'line'
+  LINE: 'line',
+  IMAGE: 'image'
 } as const;
 
 // Server-side element with metadata
@@ -182,7 +183,8 @@ export type WebSocketMessageType =
   | 'mermaid_convert'
   | 'canvas_cleared'
   | 'export_image_request'
-  | 'set_viewport';
+  | 'set_viewport'
+  | 'align_elements_request';
 
 export interface InitialElementsMessage extends WebSocketMessage {
   type: 'initial_elements';
@@ -280,6 +282,15 @@ export interface Snapshot {
 
 // In-memory storage for Excalidraw elements
 export const elements = new Map<string, ServerElement>();
+
+// In-memory file storage for image elements (Excalidraw BinaryFiles)
+export interface ExcalidrawFile {
+  id: string;
+  dataURL: string;
+  mimeType: string;
+  created: number;
+}
+export const files = new Map<string, ExcalidrawFile>();
 
 // In-memory storage for snapshots
 export const snapshots = new Map<string, Snapshot>();

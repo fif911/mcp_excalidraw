@@ -21,7 +21,9 @@ import {
   SyncStatusMessage,
   InitialElementsMessage,
   Snapshot,
-  normalizeFontFamily
+  normalizeFontFamily,
+  ExcalidrawFile,
+  files
 } from './types.js';
 import { z } from 'zod';
 import WebSocket from 'ws';
@@ -53,8 +55,13 @@ const clients = new Set<WebSocket>();
 function broadcast(message: WebSocketMessage): void {
   const data = JSON.stringify(message);
   clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(data);
+    try {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(data);
+      }
+    } catch (err) {
+      logger.warn('Failed to send to client, removing');
+      clients.delete(client);
     }
   });
 }
@@ -65,9 +72,12 @@ wss.on('connection', (ws: WebSocket) => {
   logger.info('New WebSocket connection established');
   
   // Send current elements to new client
-  const initialMessage: InitialElementsMessage = {
+  const filesObj: Record<string, ExcalidrawFile> = {};
+  files.forEach((f, id) => { filesObj[id] = f; });
+  const initialMessage: InitialElementsMessage & { files?: Record<string, ExcalidrawFile> } = {
     type: 'initial_elements',
-    elements: Array.from(elements.values())
+    elements: Array.from(elements.values()),
+    ...(files.size > 0 ? { files: filesObj } : {})
   };
   ws.send(JSON.stringify(initialMessage));
   
@@ -106,14 +116,20 @@ const CreateElementSchema = z.object({
   opacity: z.number().optional(),
   text: z.string().optional(),
   label: z.object({
-    text: z.string()
+    text: z.string(),
+    fontSize: z.number().optional(),
+    fontFamily: z.union([z.string(), z.number()]).optional(),
+    strokeColor: z.string().optional(),
   }).optional(),
   fontSize: z.number().optional(),
   fontFamily: z.union([z.string(), z.number()]).optional(),
+  textAlign: z.enum(["left", "center", "right"]).optional(),
+  verticalAlign: z.enum(["top", "middle", "bottom"]).optional(),
   groupIds: z.array(z.string()).optional(),
   locked: z.boolean().optional(),
   roundness: z.object({ type: z.number(), value: z.number().optional() }).nullable().optional(),
   fillStyle: z.string().optional(),
+  containerId: z.string().nullable().optional(),
   // Arrow-specific properties
   points: z.any().optional(),
   start: z.object({ id: z.string() }).optional(),
@@ -121,6 +137,29 @@ const CreateElementSchema = z.object({
   startArrowhead: z.string().nullable().optional(),
   endArrowhead: z.string().nullable().optional(),
   elbowed: z.boolean().optional(),
+  // Arrow binding properties (preserved for Excalidraw frontend)
+  startBinding: z.object({
+    elementId: z.string(),
+    focus: z.number().optional(),
+    gap: z.number().optional(),
+    fixedPoint: z.any().nullable().optional(),
+    mode: z.string().optional(),
+  }).nullable().optional(),
+  endBinding: z.object({
+    elementId: z.string(),
+    focus: z.number().optional(),
+    gap: z.number().optional(),
+    fixedPoint: z.any().nullable().optional(),
+    mode: z.string().optional(),
+  }).nullable().optional(),
+  boundElements: z.array(z.object({
+    id: z.string(),
+    type: z.enum(["arrow", "text"]),
+  })).nullable().optional(),
+  // Image-specific properties
+  fileId: z.string().optional(),
+  status: z.string().optional(),
+  scale: z.tuple([z.number(), z.number()]).optional(),
 });
 
 const UpdateElementSchema = z.object({
@@ -138,14 +177,20 @@ const UpdateElementSchema = z.object({
   opacity: z.number().optional(),
   text: z.string().optional(),
   label: z.object({
-    text: z.string()
+    text: z.string(),
+    fontSize: z.number().optional(),
+    fontFamily: z.union([z.string(), z.number()]).optional(),
+    strokeColor: z.string().optional(),
   }).optional(),
   fontSize: z.number().optional(),
   fontFamily: z.union([z.string(), z.number()]).optional(),
+  textAlign: z.enum(["left", "center", "right"]).optional(),
+  verticalAlign: z.enum(["top", "middle", "bottom"]).optional(),
   groupIds: z.array(z.string()).optional(),
   locked: z.boolean().optional(),
   roundness: z.object({ type: z.number(), value: z.number().optional() }).nullable().optional(),
   fillStyle: z.string().optional(),
+  containerId: z.string().nullable().optional(),
   points: z.array(z.union([
     z.tuple([z.number(), z.number()]),
     z.object({ x: z.number(), y: z.number() })
@@ -155,6 +200,29 @@ const UpdateElementSchema = z.object({
   startArrowhead: z.string().nullable().optional(),
   endArrowhead: z.string().nullable().optional(),
   elbowed: z.boolean().optional(),
+  // Arrow binding properties
+  startBinding: z.object({
+    elementId: z.string(),
+    focus: z.number().optional(),
+    gap: z.number().optional(),
+    fixedPoint: z.any().nullable().optional(),
+    mode: z.string().optional(),
+  }).nullable().optional(),
+  endBinding: z.object({
+    elementId: z.string(),
+    focus: z.number().optional(),
+    gap: z.number().optional(),
+    fixedPoint: z.any().nullable().optional(),
+    mode: z.string().optional(),
+  }).nullable().optional(),
+  boundElements: z.array(z.object({
+    id: z.string(),
+    type: z.enum(["arrow", "text"]),
+  })).nullable().optional(),
+  // Image-specific properties
+  fileId: z.string().optional(),
+  status: z.string().optional(),
+  scale: z.tuple([z.number(), z.number()]).optional(),
 });
 
 // API Routes
@@ -193,6 +261,17 @@ app.post('/api/elements', (req: Request, res: Response) => {
       updatedAt: new Date().toISOString(),
       version: 1
     };
+
+    // Normalize fontFamily inside label so convertToExcalidrawElements uses the right font
+    const singleLabel = (element as any).label;
+    if (singleLabel?.fontFamily) {
+      singleLabel.fontFamily = normalizeFontFamily(singleLabel.fontFamily);
+    }
+
+    // Resolve arrow bindings against existing elements
+    if (element.type === 'arrow' || element.type === 'line') {
+      resolveArrowBindings([element]);
+    }
 
     elements.set(id, element);
 
@@ -524,6 +603,12 @@ function resolveArrowBindings(batchElements: ServerElement[]): void {
         focus: 0,
         gap: GAP
       };
+      // Add boundElements to the source shape
+      const startBound = (startEl.boundElements as any[] || []);
+      if (!startBound.some((b: any) => b.id === el.id)) {
+        startBound.push({ id: el.id, type: 'arrow' });
+      }
+      (startEl as any).boundElements = startBound;
     }
     if (endEl) {
       (el as any).endBinding = {
@@ -531,6 +616,12 @@ function resolveArrowBindings(batchElements: ServerElement[]): void {
         focus: 0,
         gap: GAP
       };
+      // Add boundElements to the target shape
+      const endBound = (endEl.boundElements as any[] || []);
+      if (!endBound.some((b: any) => b.id === el.id)) {
+        endBound.push({ id: el.id, type: 'arrow' });
+      }
+      (endEl as any).boundElements = endBound;
     }
   }
 }
@@ -561,6 +652,12 @@ app.post('/api/elements/batch', (req: Request, res: Response) => {
         updatedAt: new Date().toISOString(),
         version: 1
       };
+
+      // Normalize fontFamily inside label so convertToExcalidrawElements uses the right font
+      const label = (element as any).label;
+      if (label?.fontFamily) {
+        label.fontFamily = normalizeFontFamily(label.fontFamily);
+      }
 
       createdElements.push(element);
     });
@@ -714,6 +811,38 @@ app.post('/api/elements/sync', (req: Request, res: Response) => {
       error: (error as Error).message,
       details: 'Internal server error during sync operation'
     });
+  }
+});
+
+// ─── Files API (for image elements) ───────────────────────────
+// GET all files
+app.get('/api/files', (_req: Request, res: Response) => {
+  const filesObj: Record<string, ExcalidrawFile> = {};
+  files.forEach((f, id) => { filesObj[id] = f; });
+  res.json({ files: filesObj });
+});
+
+// POST add/update files (batch)
+app.post('/api/files', (req: Request, res: Response) => {
+  const body = req.body;
+  const fileList: ExcalidrawFile[] = Array.isArray(body) ? body : (body?.files || []);
+  for (const f of fileList) {
+    if (f.id && f.dataURL) {
+      files.set(f.id, { id: f.id, dataURL: f.dataURL, mimeType: f.mimeType || 'image/png', created: f.created || Date.now() });
+    }
+  }
+  broadcast({ type: 'files_added', files: fileList } as any);
+  res.json({ success: true, count: fileList.length });
+});
+
+// DELETE a file
+app.delete('/api/files/:id', (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  if (files.delete(id)) {
+    broadcast({ type: 'file_deleted', fileId: id } as any);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ success: false, error: `File with ID ${id} not found` });
   }
 });
 
@@ -913,6 +1042,101 @@ app.post('/api/viewport/result', (req: Request, res: Response) => {
     res.json({ success: true });
   } catch (error) {
     logger.error('Error processing viewport result:', error);
+    res.status(500).json({
+      success: false,
+      error: (error as Error).message
+    });
+  }
+});
+
+// Align in parent: browser-delegated element alignment
+interface PendingAlign {
+  resolve: (value: any) => void;
+  reject: (reason: any) => void;
+  timeout: NodeJS.Timeout;
+}
+const pendingAligns = new Map<string, PendingAlign>();
+
+app.post('/api/align', async (req: Request, res: Response) => {
+  try {
+    const { parentId, childIds, alignment, padding } = req.body;
+
+    if (!parentId || !Array.isArray(childIds) || childIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'parentId (string) and childIds (non-empty array) are required'
+      });
+    }
+
+    const requestId = generateId();
+
+    const alignPromise = new Promise<any>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        pendingAligns.delete(requestId);
+        reject(new Error('Alignment timed out — no browser responded within 10s'));
+      }, 10000);
+
+      pendingAligns.set(requestId, { resolve, reject, timeout });
+    });
+
+    broadcast({
+      type: 'align_elements_request',
+      requestId,
+      parentId,
+      childIds,
+      alignment: alignment || 'center',
+      padding: padding ?? 0
+    } as any);
+
+    const result = await alignPromise;
+
+    // Sync updated positions back to server storage
+    if (result.updates) {
+      for (const update of result.updates) {
+        const existing = elements.get(update.id);
+        if (existing) {
+          existing.x = update.x;
+          existing.y = update.y;
+          existing.updatedAt = new Date().toISOString();
+        }
+      }
+    }
+
+    res.json({ success: true, message: result.message, updates: result.updates });
+  } catch (error) {
+    logger.error('Error in align:', error);
+    res.status(500).json({
+      success: false,
+      error: (error as Error).message
+    });
+  }
+});
+
+app.post('/api/align/result', (req: Request, res: Response) => {
+  try {
+    const { requestId, success, message, error, updates } = req.body;
+
+    if (!requestId) {
+      return res.status(400).json({ success: false, error: 'requestId is required' });
+    }
+
+    const pending = pendingAligns.get(requestId);
+    if (!pending) {
+      return res.status(404).json({ success: false, error: 'No pending alignment for this requestId' });
+    }
+
+    clearTimeout(pending.timeout);
+
+    if (success) {
+      pending.resolve({ success: true, message, updates });
+    } else {
+      pending.reject(new Error(error || 'Alignment failed'));
+    }
+
+    pendingAligns.delete(requestId);
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error processing align result:', error);
     res.status(500).json({
       success: false,
       error: (error as Error).message

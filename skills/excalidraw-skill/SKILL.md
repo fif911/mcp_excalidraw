@@ -9,58 +9,84 @@ description: Programmatic canvas toolkit for creating, editing, and refining Exc
 
 Before doing anything, determine which mode is available. Run these checks **in order**:
 
-### Check 1: MCP Server (Best experience)
+### Check 1: MCPorter (Recommended for OpenClaw agents)
+```bash
+mcporter list 2>/dev/null | grep excalidraw
+```
+If you see `excalidraw` with tools listed → **use MCPorter mode**. Call tools via `mcporter call excalidraw.<tool> key=value`.
+
+**MCPorter syntax:**
+```bash
+# Simple tool call
+mcporter call excalidraw.clear_canvas
+
+# Tool with JSON argument
+mcporter call excalidraw.batch_create_elements --args '{"elements": [...]}'
+
+# Tool with named arguments
+mcporter call excalidraw.create_element type=rectangle x=100 y=100 width=160 height=60
+
+# Describe scene
+mcporter call excalidraw.describe_scene
+```
+
+MCPorter uses the same MCP tool interface — all MCP mode examples in this skill apply directly. Use `startElementId`/`endElementId` for arrow binding, `text` for labels.
+
+### Check 2: MCP Server (Claude Code / direct MCP)
 ```bash
 mcp-cli tools | grep excalidraw
 ```
 If you see tools like `excalidraw/batch_create_elements` → **use MCP mode**. Call MCP tools directly.
 
-### Check 2: REST API (Fallback — works without MCP server)
+### Check 3: REST API (Fallback — works without MCP server)
 ```bash
 curl -s http://localhost:3000/health
 ```
 If you get `{"status":"ok"}` → **use REST API mode**. Use HTTP endpoints (`curl` / `fetch`) from the cheatsheet.
 
-### Check 3: Nothing works → Guide user to install
-If neither works, tell the user:
+### Check 4: Nothing works → Guide user to install
+If none work, tell the user:
 > The Excalidraw canvas server is not running. To set up:
-> 1. Clone: `git clone https://github.com/yctimlin/mcp_excalidraw && cd mcp_excalidraw`
+> 1. Clone: `git clone https://github.com/fif911/mcp_excalidraw && cd mcp_excalidraw`
 > 2. Build: `npm ci && npm run build`
 > 3. Start canvas: `HOST=0.0.0.0 PORT=3000 npm run canvas`
 > 4. Open `http://localhost:3000` in a browser
-> 5. (Recommended) Install the MCP server for the best experience:
->    ```
->    claude mcp add excalidraw -s user -e EXPRESS_SERVER_URL=http://localhost:3000 -- node /path/to/mcp_excalidraw/dist/index.js
->    ```
+> 5. Add to MCPorter: `mcporter config add excalidraw --command node --arg /path/to/mcp_excalidraw/dist/index.js --scope home`
 
-### MCP vs REST API Quick Reference
+### MCP vs MCPorter vs REST API Quick Reference
 
-| Operation | MCP Tool | REST API Equivalent |
-|-----------|----------|-------------------|
-| Create elements | `batch_create_elements` | `POST /api/elements/batch` with `{"elements": [...]}` |
-| Get all elements | `query_elements` | `GET /api/elements` |
-| Get one element | `get_element` | `GET /api/elements/:id` |
-| Update element | `update_element` | `PUT /api/elements/:id` |
-| Delete element | `delete_element` | `DELETE /api/elements/:id` |
-| Clear canvas | `clear_canvas` | `DELETE /api/elements/clear` |
-| Describe scene | `describe_scene` | `GET /api/elements` (parse manually) |
-| Export scene | `export_scene` | `GET /api/elements` (save to file) |
-| Import scene | `import_scene` | `POST /api/elements/sync` with `{"elements": [...]}` |
-| Snapshot | `snapshot_scene` | `POST /api/snapshots` with `{"name": "..."}` |
-| Restore snapshot | `restore_snapshot` | `GET /api/snapshots/:name` then `POST /api/elements/sync` |
-| Screenshot | `get_canvas_screenshot` | Only via MCP (needs browser) |
-| Design guide | `read_diagram_guide` | Not available — see cheatsheet for guidelines |
-| Viewport | `set_viewport` | `POST /api/viewport` (needs browser) |
-| Export image | `export_to_image` | `POST /api/export/image` (needs browser) |
-| Export URL | `export_to_excalidraw_url` | Only via MCP |
+| Operation | MCP Tool | MCPorter | REST API |
+|-----------|----------|----------|----------|
+| Create elements | `batch_create_elements` | `mcporter call excalidraw.batch_create_elements --args '{"elements":[...]}'` | `POST /api/elements/batch` |
+| Get all elements | `query_elements` | `mcporter call excalidraw.query_elements` | `GET /api/elements` |
+| Get one element | `get_element` | `mcporter call excalidraw.get_element id=myId` | `GET /api/elements/:id` |
+| Update element | `update_element` | `mcporter call excalidraw.update_element --args '{...}'` | `PUT /api/elements/:id` |
+| Delete element | `delete_element` | `mcporter call excalidraw.delete_element id=myId` | `DELETE /api/elements/:id` |
+| Clear canvas | `clear_canvas` | `mcporter call excalidraw.clear_canvas` | `DELETE /api/elements/clear` |
+| Describe scene | `describe_scene` | `mcporter call excalidraw.describe_scene` | `GET /api/elements` (parse manually) |
+| Screenshot | `get_canvas_screenshot` | `mcporter call excalidraw.get_canvas_screenshot` | Only via MCP (needs browser) |
+| Viewport | `set_viewport` | `mcporter call excalidraw.set_viewport scrollToContent=true` | `POST /api/viewport` (needs browser) |
+| Export image | `export_to_image` | `mcporter call excalidraw.export_to_image format=png` | `POST /api/export/image` (needs browser) |
+| Export URL | `export_to_excalidraw_url` | `mcporter call excalidraw.export_to_excalidraw_url` | Only via MCP |
+
+**MCPorter uses the same MCP tool interface** — all MCP mode patterns (labels, arrow binding, etc.) apply identically.
 
 ### REST API Gotchas (Critical — read before using REST API)
 
 1. **Labels**: Use `"label": {"text": "My Label"}` (not `"text": "My Label"`). MCP tools auto-convert, REST API does not.
-2. **Arrow binding**: Use `"start": {"id": "svc-a"}, "end": {"id": "svc-b"}` (not `"startElementId"`/`"endElementId"`). MCP tools accept `startElementId` and convert, REST API requires the `start`/`end` object format directly.
-3. **fontFamily**: Must be a string (e.g. `"1"`) or omit it entirely. Do NOT pass a number like `1`.
-4. **Updating labels**: When updating a shape via `PUT /api/elements/:id`, include the full `label` in the update body to preserve it. Omitting `label` from the update won't delete it, but re-sending ensures it renders correctly.
-5. **Screenshot in REST mode**: `POST /api/export/image` returns `{"data": "<base64>"}`. Save to file and read it back for visual verification. Requires browser open.
+2. **Label font — CRITICAL**: Labels default to Virgil (handwritten) font unless you explicitly set fontFamily. **Always pass fontFamily on labels** for professional diagrams:
+   ```json
+   {"label": {"text": "API Server", "fontFamily": "helvetica"}}
+   ```
+   The label object accepts: `text` (required), `fontFamily` (string name or numeric ID), `fontSize`, `strokeColor`. Without `fontFamily`, you get the sketchy handwritten font.
+3. **Arrow binding**: Use `"start": {"id": "svc-a"}, "end": {"id": "svc-b"}` (not `"startElementId"`/`"endElementId"`). MCP tools accept `startElementId` and convert, REST API requires the `start`/`end` object format directly.
+4. **fontFamily**: Pass a string name or numeric ID. Both work — the server normalizes automatically. This applies to both standalone text elements AND labels. All supported values:
+   - `"virgil"` / `"hand"` / `"handwritten"` → `1` (sketchy hand-drawn)
+   - `"helvetica"` / `"sans"` / `"sans-serif"` → `2` (clean sans-serif — **recommended for professional diagrams**)
+   - `"cascadia"` / `"mono"` / `"monospace"` → `3` (monospace — for code/technical labels)
+   - `"excalifont"` → `5`, `"nunito"` → `6`, `"lilita"` / `"lilita one"` → `7`, `"comic shanns"` / `"comic"` → `8`
+5. **Updating labels**: When updating a shape via `PUT /api/elements/:id`, include the full `label` in the update body to preserve it. Omitting `label` from the update won't delete it, but re-sending ensures it renders correctly.
+6. **Screenshot in REST mode**: `POST /api/export/image` returns `{"data": "<base64>"}`. Save to file and read it back for visual verification. Requires browser open.
 
 ## Quality Gate (MANDATORY — read before creating any diagram)
 
@@ -97,6 +123,65 @@ Before creating elements, **plan your coordinate grid** on paper first:
 - Side panels: x < 0 (left) or x > mainDiagramRight + 80 (right)
 
 **Do NOT place side panels (observability, external APIs) at the same x-range as the main diagram — they WILL overlap.**
+
+## Iteration Versioning (MANDATORY)
+
+**Every official iteration MUST be saved as a separate build file.**
+
+- Name pattern: `build-diagram-v{N}.py` (or `.cjs` / `.sh`) — increment N for each iteration.
+- After each successful export, **immediately save the current build script** as a new versioned file.
+- Never overwrite a previous version. Old versions are your rollback safety net.
+- Export PNGs follow the same pattern: `test-export{N}.png` or `diagram-v{N}.png`.
+- This prevents the "which script produced which export?" problem. Each export maps 1:1 to a build file.
+
+**Example workflow:**
+```
+build-diagram-v1.py → test-export1.png (base layout)
+build-diagram-v2.py → test-export2.png (fixed overlaps)
+build-diagram-v3.py → test-export3.png (added icons)
+```
+
+**Also save canvas state JSON** after each successful iteration:
+```bash
+curl -s http://localhost:3000/api/elements | python3 -c "import json,sys; json.dump(json.load(sys.stdin), open('canvas-state-v{N}.json','w'), indent=2)"
+```
+
+## Supported Fonts
+
+The `fontFamily` parameter accepts string names or numeric IDs. The server normalizes all to Excalidraw numeric format.
+
+| ID | Name(s) | Style |
+|----|---------|-------|
+| 1  | `virgil`, `hand`, `handwritten` | Hand-drawn sketch font (Excalidraw default) |
+| 2  | `helvetica`, `sans`, `sans-serif` | Clean sans-serif (best for professional diagrams) |
+| 3  | `cascadia`, `mono`, `monospace` | Monospace (code, technical labels) |
+| 5  | `excalifont` | Excalidraw's custom sketch font |
+| 6  | `nunito` | Rounded sans-serif |
+| 7  | `lilita`, `lilita one` | Bold display font |
+| 8  | `comic shanns`, `comic` | Comic Sans alternative |
+
+**Example:** `"fontFamily": "helvetica"` or `"fontFamily": 2` — both produce the same result.
+
+## Font & Style Consistency Rules
+
+- **All text elements AND labels MUST use the same fontFamily** unless there's a specific design reason. For professional diagrams, use `"helvetica"` (fontFamily 2). For sketch-style, use `"virgil"` (fontFamily 1). **Pick one and use it everywhere — both on standalone text elements and on labels.**
+- **Labels accept fontFamily**: `"label": {"text": "Service A", "fontFamily": "helvetica"}`. Without `fontFamily`, labels render in Virgil (handwritten). Also accepts `fontSize` and `strokeColor`.
+- **Numbered step circles**: Use a separate text element + `align_in_parent` for precise centering:
+  ```python
+  # 1. Create circle + text element (text at 0,0 — will be aligned)
+  requests.post(API + "/api/elements/batch", json={"elements": [
+      {"id": "c1", "type": "ellipse", "x": cx, "y": cy, "width": 50, "height": 50,
+       "backgroundColor": "#1e40af", "strokeColor": "#1e40af", "fillStyle": "solid", "roughness": 0},
+      {"id": "c1-text", "type": "text", "x": 0, "y": 0,
+       "text": "1", "fontSize": 22, "fontFamily": "helvetica", "strokeColor": "#ffffff"}
+  ]})
+  # 2. Center text in circle (browser-delegated — uses actual rendered dimensions)
+  requests.post(API + "/api/align", json={
+      "parentId": "c1", "childIds": ["c1-text"], "alignment": "center", "padding": 0
+  })
+  ```
+  This works for any font size, multi-digit numbers, or different circle sizes — no manual offset calculation needed.
+- **Dark-filled shapes with labels**: Labels inherit `strokeColor` from the parent shape by default. On dark shapes (e.g., `strokeColor: "#1a1a1a"`), labels are invisible. Fix: set `strokeColor` on the label: `"label": {"text": "1", "strokeColor": "#ffffff", "fontFamily": "helvetica"}`.
 
 ## Quick Start
 

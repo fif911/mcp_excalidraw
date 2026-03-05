@@ -494,7 +494,7 @@ const tools: Tool[] = [
   },
   {
     name: 'align_elements',
-    description: 'Align elements to a specific position',
+    description: 'Align elements relative to EACH OTHER (e.g., line up 3 boxes by their left edges). Server-side — works for shapes with known dimensions. Does NOT work reliably for text elements (use align_in_parent instead).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -508,6 +508,34 @@ const tools: Tool[] = [
         }
       },
       required: ['elementIds', 'alignment']
+    }
+  },
+  {
+    name: 'align_in_parent',
+    description: 'Align child elements INSIDE a parent element (e.g., center text "3" inside a circle, or left-align a label inside a rectangle). Browser-delegated — reads actual rendered dimensions from Excalidraw, so it works correctly for text elements whose width/height are unknown server-side. Use this instead of align_elements when positioning children within a container.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        parentId: {
+          type: 'string',
+          description: 'ID of the parent/container element (e.g., ellipse, rectangle)'
+        },
+        childIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'IDs of child elements to align inside the parent'
+        },
+        alignment: {
+          type: 'string',
+          enum: ['center', 'top', 'bottom', 'left', 'right', 'top-left', 'top-right', 'bottom-left', 'bottom-right'],
+          description: 'Where to position the children within the parent. Default: center'
+        },
+        padding: {
+          type: 'number',
+          description: 'Padding in pixels from parent edge for non-center alignments. Default: 0'
+        }
+      },
+      required: ['parentId', 'childIds']
     }
   },
   {
@@ -1477,7 +1505,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
         const data = await response.json() as ApiResponse;
         const sceneElements = data.elements || [];
 
-        const excalidrawScene = {
+        // Fetch files for image elements
+        let sceneFiles: Record<string, any> = {};
+        const filesResponse = await fetch(`${EXPRESS_SERVER_URL}/api/files`);
+        if (filesResponse.ok) {
+          const filesData = await filesResponse.json() as any;
+          sceneFiles = filesData.files || {};
+        }
+
+        const excalidrawScene: any = {
           type: 'excalidraw',
           version: 2,
           source: 'mcp-excalidraw-server',
@@ -1485,7 +1521,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
           appState: {
             viewBackgroundColor: '#ffffff',
             gridSize: null
-          }
+          },
+          ...(Object.keys(sceneFiles).length > 0 ? { files: sceneFiles } : {})
         };
 
         const jsonString = JSON.stringify(excalidrawScene, null, 2);
@@ -1554,10 +1591,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
 
         const canvasElements = await batchCreateElementsOnCanvas(elementsToCreate);
 
+        // Import files if present (for image elements)
+        const importFiles = sceneData.files;
+        if (importFiles && typeof importFiles === 'object') {
+          const fileList = Object.values(importFiles);
+          if (fileList.length > 0) {
+            await fetch(`${EXPRESS_SERVER_URL}/api/files`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(fileList)
+            });
+          }
+        }
+
         return {
           content: [{
             type: 'text',
-            text: `Imported ${elementsToCreate.length} elements (mode: ${params.mode})\n\n✅ Synced to canvas`
+            text: `Imported ${elementsToCreate.length} elements (mode: ${params.mode})${importFiles ? `, ${Object.keys(importFiles).length} files` : ''}\n\n✅ Synced to canvas`
           }]
         };
       }
@@ -1970,6 +2020,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
               { type: 'text', id: textId }
             ];
 
+            // Resolve label-level overrides (label.fontFamily, label.fontSize, label.strokeColor)
+            const labelFontSize = label?.fontSize ?? rest.fontSize ?? 16;
+            const labelFontFamily = normalizeFontFamily(label?.fontFamily) ?? normalizeFontFamily(rest.fontFamily) ?? 1;
+            const labelStrokeColor = label?.strokeColor;
+
             // Compute text position: centered in shape, or at arrow midpoint
             let textX: number, textY: number, textW: number, textH: number;
             const isArrow = el.type === 'arrow' || el.type === 'line';
@@ -2003,7 +2058,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
               width: textW,
               height: textH,
               angle: 0,
-              strokeColor: isArrow ? '#1e1e1e' : base.strokeColor,
+              strokeColor: labelStrokeColor ?? (isArrow ? '#1e1e1e' : base.strokeColor),
               backgroundColor: 'transparent',
               fillStyle: 'solid',
               strokeWidth: 1,
@@ -2024,8 +2079,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
               locked: false,
               text: labelText,
               originalText: labelText,
-              fontSize: isArrow ? 14 : (rest.fontSize ?? 16),
-              fontFamily: normalizeFontFamily(rest.fontFamily) ?? 1,
+              fontSize: isArrow ? 14 : labelFontSize,
+              fontFamily: labelFontFamily,
               textAlign: 'center',
               verticalAlign: 'middle',
               autoResize: true,
@@ -2186,6 +2241,39 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
         };
       }
 
+      case 'align_in_parent': {
+        const { parentId, childIds, alignment, padding } = args as { parentId: string; childIds: string[]; alignment?: string; padding?: number };
+        const effectiveAlignment = alignment || 'center';
+        logger.info('Align in parent (frontend-delegated)', { parentId, childIds, alignment: effectiveAlignment, padding });
+
+        try {
+          const response = await fetch(`${EXPRESS_SERVER_URL}/api/align`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ parentId, childIds, alignment: effectiveAlignment, padding: padding ?? 0 })
+          });
+
+          const result = await response.json() as any;
+
+          if (!response.ok || !result.success) {
+            throw new Error(result.error || result.message || 'Alignment failed');
+          }
+
+          return {
+            content: [{ type: 'text', text: JSON.stringify({
+              aligned: true,
+              parentId,
+              childIds,
+              alignment: effectiveAlignment,
+              message: result.message,
+              updates: result.updates
+            }, null, 2) }]
+          };
+        } catch (error) {
+          throw new Error(`Failed to align elements in parent: ${(error as Error).message}`);
+        }
+      }
+
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
@@ -2241,12 +2329,10 @@ if (process.env.DEBUG === 'true') {
   logger.debug('Debug mode enabled');
 }
 
-// Start the server if this file is run directly
-if (fileURLToPath(import.meta.url) === process.argv[1]) {
-  runServer().catch(error => {
-    logger.error('Failed to start server:', error);
-    process.exit(1);
-  });
-}
+// Always start the server when this file is executed
+runServer().catch(error => {
+  logger.error('Failed to start server:', error);
+  process.exit(1);
+});
 
 export default runServer;
