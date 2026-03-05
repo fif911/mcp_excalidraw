@@ -207,7 +207,7 @@ def icon_label_component(prefix, file_id, label_text, cx, cy,
             "id": icon_bg_id, "type": "rectangle",
             "x": round(cx - bg_size / 2, 1), "y": round(icon_y - icon_bg_padding, 1),
             "width": bg_size, "height": bg_size,
-            "backgroundColor": icon_bg_color, "strokeColor": icon_bg_color,
+            "backgroundColor": icon_bg_color, "strokeColor": "transparent",
             "fillStyle": "solid", "roughness": 0, "strokeWidth": 0,
             "roundness": {"type": 3, "value": 8},
             "groupIds": [group_id]
@@ -280,8 +280,8 @@ def numbered_circle(prefix, number, cx, cy, size=50,
         "id": bg_id, "type": "ellipse",
         "x": round(cx - size/2), "y": round(cy - size/2),
         "width": size, "height": size,
-        "backgroundColor": bg_color, "strokeColor": bg_color,
-        "strokeWidth": 1, "fillStyle": "solid", "roughness": 0,
+        "backgroundColor": bg_color, "strokeColor": "transparent",
+        "strokeWidth": 0, "fillStyle": "solid", "roughness": 0,
         "groupIds": [group_id]
     })
 
@@ -365,12 +365,13 @@ def container_box(cid, x, y, w, h, stroke_color, fill_color="transparent",
             "groupIds": [group_id]
         })
 
-    # Header label (right of icon)
+    # Header label (right of icon) — vertically centered using full text height
     if label_text:
         label_id = f"{cid}-lbl"
         icon_sz = icon_header_size or 55
         lx = x + icon_sz + 5 if icon_file_id else x + 10
-        ly = y + (icon_sz - label_font_size) / 2 if icon_file_id else y + 8
+        _, text_h = measure_text(label_text, label_font_size)
+        ly = y + (icon_sz - text_h) / 2 if icon_file_id else y + 8
         create({
             "id": label_id, "type": "text",
             "x": lx, "y": round(ly, 1),

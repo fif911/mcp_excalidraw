@@ -27,3 +27,5 @@ skills/excalidraw-diagramming/.DS_Store
 # Python
 __pycache__/
 *.pyc
+/tmp_mcp_learnings_docs
+/.idea
