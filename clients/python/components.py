@@ -161,13 +161,12 @@ def estimate_text_height(text, font_size=22):
 
 def icon_label_component(prefix, file_id, label_text, cx, cy,
                           icon_size=65, font_size=22, gap=8,
-                          text_color="#000000", label_width=None):
+                          text_color="#000000", label_width=None,
+                          icon_bg_color=None, icon_bg_padding=6,
+                          font_family="2"):
     """
     Create an icon centered above a label, grouped.
-    
-    Uses explicit width + textAlign=center on the label so Excalidraw
-    handles text centering natively — no character width estimation.
-    
+
     Args:
         prefix: Unique prefix for element IDs
         file_id: Uploaded SVG file ID
@@ -178,26 +177,42 @@ def icon_label_component(prefix, file_id, label_text, cx, cy,
         gap: Pixels between icon bottom and text top
         text_color: Label color
         label_width: Explicit label width (default: max(icon_size + 60, 140))
-    
+        icon_bg_color: Optional background color for a rounded rect behind the icon
+        icon_bg_padding: Padding around icon for the background rect (default 6)
+        font_family: Font family string (default "2" = Helvetica)
+
     Returns:
-        dict with keys: icon_id, label_id, group_id, bbox
+        dict with keys: icon_id, icon_bg_id, label_id, group_id, bbox
     """
     icon_id = f"img-{prefix}"
+    icon_bg_id = f"{prefix}-ibg" if icon_bg_color else None
     label_id = f"{prefix}-lbl"
     group_id = f"g-{prefix}"
-    
+
     # Get accurate text dimensions from server
     text_w, text_h = measure_text(label_text, font_size)
     total_h = icon_size + gap + text_h
     component_w = max(icon_size, text_w)
-    
+
     # Position: center everything at (cx, cy)
     icon_x = cx - icon_size / 2
     icon_y = cy - total_h / 2
-    # Label: center text horizontally under icon using ACCURATE width
     label_x = cx - text_w / 2
     label_y = icon_y + icon_size + gap
-    
+
+    # Icon background (created BEFORE icon for z-order)
+    if icon_bg_color:
+        bg_size = icon_size + 2 * icon_bg_padding
+        create({
+            "id": icon_bg_id, "type": "rectangle",
+            "x": round(cx - bg_size / 2, 1), "y": round(icon_y - icon_bg_padding, 1),
+            "width": bg_size, "height": bg_size,
+            "backgroundColor": icon_bg_color, "strokeColor": icon_bg_color,
+            "fillStyle": "solid", "roughness": 0, "strokeWidth": 0,
+            "roundness": {"type": 3, "value": 8},
+            "groupIds": [group_id]
+        })
+
     # Create icon
     create({
         "id": icon_id, "type": "image",
@@ -206,24 +221,21 @@ def icon_label_component(prefix, file_id, label_text, cx, cy,
         "fileId": file_id, "status": "saved", "scale": [1, 1],
         "groupIds": [group_id]
     })
-    
+
     # Create label — separate text element per line, each centered under icon
-    # This is needed because Excalidraw ignores textAlign on standalone text
     lines = label_text.split('\n')
     line_h = font_size * 1.25
-    
+
     if len(lines) == 1:
-        # Single line: one text element centered
         create({
             "id": label_id, "type": "text",
             "x": round(label_x, 1), "y": round(label_y, 1),
             "text": label_text,
-            "fontSize": font_size, "fontFamily": "2",
+            "fontSize": font_size, "fontFamily": font_family,
             "strokeColor": text_color,
             "groupIds": [group_id]
         })
     else:
-        # Multi-line: create one element per line, each individually centered
         for li, line in enumerate(lines):
             line_w = measure_text(line, font_size)[0]
             line_x = cx - line_w / 2
@@ -233,11 +245,11 @@ def icon_label_component(prefix, file_id, label_text, cx, cy,
                 "id": lid, "type": "text",
                 "x": round(line_x, 1), "y": round(line_y, 1),
                 "text": line,
-                "fontSize": font_size, "fontFamily": "2",
+                "fontSize": font_size, "fontFamily": font_family,
                 "strokeColor": text_color,
                 "groupIds": [group_id]
             })
-    
+
     bbox = {
         "x": min(icon_x, label_x),
         "y": icon_y,
@@ -245,38 +257,41 @@ def icon_label_component(prefix, file_id, label_text, cx, cy,
         "h": total_h,
         "cx": cx, "cy": cy
     }
-    
-    return {"icon_id": icon_id, "label_id": label_id, "group_id": group_id, "bbox": bbox}
+
+    return {"icon_id": icon_id, "icon_bg_id": icon_bg_id, "label_id": label_id,
+            "group_id": group_id, "bbox": bbox}
 
 
-def numbered_circle(prefix, number, cx, cy, size=50):
+def numbered_circle(prefix, number, cx, cy, size=50,
+                    bg_color="#1a1a1a", text_color="#ffffff",
+                    font_size=18):
     """
-    Create a dark circle with centered white number, grouped.
-    
+    Create a colored circle with centered number, grouped.
+
     Returns:
         dict with keys: bg_id, text_id, group_id, bbox
     """
     bg_id = f"{prefix}-bg"
     text_id = f"{prefix}-tx"
     group_id = f"g-{prefix}"
-    
+
     # Circle
     create({
         "id": bg_id, "type": "ellipse",
         "x": round(cx - size/2), "y": round(cy - size/2),
         "width": size, "height": size,
-        "backgroundColor": "#1a1a1a", "strokeColor": "#1a1a1a",
+        "backgroundColor": bg_color, "strokeColor": bg_color,
         "strokeWidth": 1, "fillStyle": "solid", "roughness": 0,
         "groupIds": [group_id]
     })
-    
+
     # Number text — initial position, then browser centers it accurately
     create({
         "id": text_id, "type": "text",
         "x": round(cx - 5), "y": round(cy - 11),
         "text": str(number),
-        "fontSize": 18, "fontFamily": "2",
-        "strokeColor": "#ffffff",
+        "fontSize": font_size, "fontFamily": "2",
+        "strokeColor": text_color,
         "groupIds": [group_id]
     })
 
@@ -292,17 +307,25 @@ def numbered_circle(prefix, number, cx, cy, size=50):
 def container_box(cid, x, y, w, h, stroke_color, fill_color="transparent",
                    icon_file_id=None, label_text=None, label_color=None,
                    stroke_width=2, stroke_style="solid", corner_radius=0,
-                   icon_header_size=None):
+                   icon_header_size=None,
+                   header_bg_color=None, header_height=None,
+                   label_font_size=22):
     """
     Create a container rectangle with optional header (icon + label in top-left).
-    
+
+    Args:
+        header_bg_color: Optional colored bar spanning full width at top
+        header_height: Height of the header bar (default: icon_size + 10)
+        label_font_size: Font size for the header label (default 22)
+
     Returns:
-        dict with keys: box_id, icon_id, label_id, group_id, bbox
+        dict with keys: box_id, header_bg_id, icon_id, label_id, group_id, bbox
     """
     group_id = f"g-{cid}"
     icon_id = None
     label_id = None
-    
+    header_bg_id = None
+
     # Box
     create({
         "id": cid, "type": "rectangle",
@@ -316,8 +339,21 @@ def container_box(cid, x, y, w, h, stroke_color, fill_color="transparent",
         "roundness": {"type": 3, "value": corner_radius} if corner_radius else None,
         "groupIds": [group_id]
     })
-    
-    # Header icon (flush with top-left corner, same size as service icons)
+
+    # Header background bar (created BEFORE icon/label for z-order)
+    if header_bg_color:
+        icon_sz = icon_header_size or 55
+        hdr_h = header_height or (icon_sz + 10)
+        header_bg_id = f"{cid}-hdr-bg"
+        create({
+            "id": header_bg_id, "type": "rectangle",
+            "x": x, "y": y, "width": w, "height": hdr_h,
+            "backgroundColor": header_bg_color, "strokeColor": header_bg_color,
+            "fillStyle": "solid", "roughness": 0, "strokeWidth": 0,
+            "groupIds": [group_id]
+        })
+
+    # Header icon (flush with top-left corner)
     if icon_file_id:
         icon_id = f"img-{cid}-hdr"
         icon_sz = icon_header_size or 55
@@ -328,67 +364,72 @@ def container_box(cid, x, y, w, h, stroke_color, fill_color="transparent",
             "fileId": icon_file_id, "status": "saved", "scale": [1, 1],
             "groupIds": [group_id]
         })
-    
+
     # Header label (right of icon)
     if label_text:
         label_id = f"{cid}-lbl"
         icon_sz = icon_header_size or 55
         lx = x + icon_sz + 5 if icon_file_id else x + 10
-        ly = y + (icon_sz - 22) / 2 if icon_file_id else y + 8  # vertically center text with icon
+        ly = y + (icon_sz - label_font_size) / 2 if icon_file_id else y + 8
         create({
             "id": label_id, "type": "text",
             "x": lx, "y": round(ly, 1),
             "text": label_text,
-            "fontSize": 22, "fontFamily": "2",
+            "fontSize": label_font_size, "fontFamily": "2",
             "strokeColor": label_color or stroke_color,
             "groupIds": [group_id]
         })
-    
+
     return {
-        "box_id": cid, "icon_id": icon_id, "label_id": label_id,
-        "group_id": group_id,
+        "box_id": cid, "header_bg_id": header_bg_id, "icon_id": icon_id,
+        "label_id": label_id, "group_id": group_id,
         "bbox": {"x": x, "y": y, "w": w, "h": h}
     }
 
 
 def service_in_container(prefix, file_id, label_text, container_id,
-                          icon_size=65, font_size=22):
+                          icon_size=65, font_size=22,
+                          text_color="#000000", icon_bg_color=None):
     """
     Create an icon+label component centered within an existing container.
-    
+
     Reads the container's position and centers the component within it,
-    accounting for any header (assumes 45px header height).
-    
+    accounting for any header (assumes 60px header height).
+
     Returns:
         dict from icon_label_component
     """
     ctr = get_element(container_id)
     header_h = 60  # space for header icon (55px) + padding
-    
+
     # Content area
     content_x = ctr['x']
     content_y = ctr['y'] + header_h
     content_w = ctr['width']
     content_h = ctr['height'] - header_h
-    
+
     cx = content_x + content_w / 2
     cy = content_y + content_h / 2
-    
+
     return icon_label_component(prefix, file_id, label_text, cx, cy,
-                                 icon_size=icon_size, font_size=font_size)
+                                 icon_size=icon_size, font_size=font_size,
+                                 text_color=text_color, icon_bg_color=icon_bg_color)
 
 
-def grid_2x2(prefix, items, container_id, header_h=45, icon_size=55, font_size=22):
+def grid_2x2(prefix, items, container_id, header_h=45, icon_size=55, font_size=22,
+             icon_bg_color=None):
     """
     Create a 2x2 grid of icon+label components inside a container.
-    
+
     Args:
         prefix: Prefix for sub-element IDs
         items: List of 4 dicts: [{"file_id", "label", "id_suffix"}, ...]
                Order: top-left, top-right, bottom-left, bottom-right
+               Items can optionally include "icon_bg_color" and "text_color" keys.
         container_id: Parent container element ID
         header_h: Height reserved for container header
-    
+        icon_bg_color: Default icon background color for all items (overridden per-item)
+
     Returns:
         List of 4 component dicts from icon_label_component
     """
@@ -397,17 +438,17 @@ def grid_2x2(prefix, items, container_id, header_h=45, icon_size=55, font_size=2
     cy = ctr['y'] + header_h
     cw = ctr['width']
     ch = ctr['height'] - header_h
-    
+
     cell_w = cw / 2
     cell_h = ch / 2
-    
+
     positions = [
         (0, 0),  # top-left
         (1, 0),  # top-right
         (0, 1),  # bottom-left
         (1, 1),  # bottom-right
     ]
-    
+
     results = []
     for i, (col, row) in enumerate(positions):
         if i >= len(items):
@@ -415,15 +456,70 @@ def grid_2x2(prefix, items, container_id, header_h=45, icon_size=55, font_size=2
         item = items[i]
         cell_cx = cx + col * cell_w + cell_w / 2
         cell_cy = cy + row * cell_h + cell_h / 2
-        
+
         comp = icon_label_component(
             item["id_suffix"], item["file_id"], item["label"],
             cell_cx, cell_cy,
-            icon_size=icon_size, font_size=font_size
+            icon_size=icon_size, font_size=font_size,
+            icon_bg_color=item.get("icon_bg_color", icon_bg_color),
+            text_color=item.get("text_color", "#000000"),
         )
         results.append(comp)
-    
+
     return results
+
+
+def text_box(prefix, text, cx, cy,
+             width=None, height=None, padding=12,
+             font_size=18, font_family="2",
+             text_color="#1a1a1a", stroke_color="#1a1a1a",
+             fill_color="transparent", stroke_width=1,
+             corner_radius=8):
+    """
+    Create a bordered rectangle with centered text (no icon).
+
+    Used for workflow step labels like "extract text", "describe face", etc.
+    Auto-sizes from text if width/height not provided.
+
+    Returns:
+        dict with keys: box_id, text_id, group_id, bbox
+    """
+    box_id = f"{prefix}-box"
+    text_id = f"{prefix}-tx"
+    group_id = f"g-{prefix}"
+
+    tw, th = measure_text(text, font_size)
+    w = width or (tw + 2 * padding)
+    h = height or (th + 2 * padding)
+
+    # Rectangle
+    create({
+        "id": box_id, "type": "rectangle",
+        "x": round(cx - w / 2), "y": round(cy - h / 2),
+        "width": w, "height": h,
+        "strokeColor": stroke_color,
+        "backgroundColor": fill_color,
+        "strokeWidth": stroke_width,
+        "roughness": 0,
+        "fillStyle": "solid" if fill_color != "transparent" else "hachure",
+        "roundness": {"type": 3, "value": corner_radius} if corner_radius else None,
+        "groupIds": [group_id]
+    })
+
+    # Text — initial position, then browser centers it
+    create({
+        "id": text_id, "type": "text",
+        "x": round(cx - tw / 2), "y": round(cy - th / 2),
+        "text": text,
+        "fontSize": font_size, "fontFamily": font_family,
+        "strokeColor": text_color,
+        "groupIds": [group_id]
+    })
+
+    align_in_parent(text_id, box_id, alignment="center")
+
+    bbox = {"x": cx - w / 2, "y": cy - h / 2, "w": w, "h": h, "cx": cx, "cy": cy}
+    return {"box_id": box_id, "text_id": text_id, "group_id": group_id, "bbox": bbox}
 
 
 def arrow(aid, start_x, start_y, end_x, end_y,
@@ -526,6 +622,50 @@ def elbowed_arrow(aid, start_id, end_id, label=None,
 
     create(element)
     return {"arrow_id": aid}
+
+
+def arrow_label(arrow_id, text, font_size=16, text_color="#1a1a1a",
+                offset_x=0, offset_y=-14, font_family="2"):
+    """
+    Place a text annotation near an arrow's midpoint.
+
+    Args:
+        arrow_id: ID of an existing arrow element
+        text: Label text
+        offset_x, offset_y: Offset from midpoint (default: slightly above)
+
+    Returns:
+        dict with label_id
+    """
+    a = get_element(arrow_id)
+    pts = a.get("points", [[0, 0], [0, 0]])
+    ax, ay = a["x"], a["y"]
+
+    # Find midpoint of the points array
+    mid_idx = len(pts) // 2
+    if len(pts) % 2 == 0:
+        # Average of the two middle points
+        p1 = pts[mid_idx - 1]
+        p2 = pts[mid_idx]
+        mx = ax + (p1[0] + p2[0]) / 2
+        my = ay + (p1[1] + p2[1]) / 2
+    else:
+        mx = ax + pts[mid_idx][0]
+        my = ay + pts[mid_idx][1]
+
+    tw, th = measure_text(text, font_size)
+    label_id = f"{arrow_id}-lbl"
+
+    create({
+        "id": label_id, "type": "text",
+        "x": round(mx - tw / 2 + offset_x),
+        "y": round(my - th / 2 + offset_y),
+        "text": text,
+        "fontSize": font_size, "fontFamily": font_family,
+        "strokeColor": text_color,
+    })
+
+    return {"label_id": label_id}
 
 
 def validate_arrow_paths(arrow_ids=None, margin=15, skip_text_ids=None):
