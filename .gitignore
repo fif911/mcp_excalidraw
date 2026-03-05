@@ -19,3 +19,11 @@ public/dist/
 *.excalidraw
 
 docs/
+/aws-icons-official
+/excalidraw_resource_libraries/__MACOSX
+/excalidraw_resource_libraries/excalidraw_resource_libraries/aws-icons-official
+skills/excalidraw-diagramming/.DS_Store
+
+# Python
+__pycache__/
+*.pyc
