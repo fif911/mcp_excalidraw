@@ -65,6 +65,33 @@ def create(element):
 def update(eid, props):
     return _put(f"/elements/{eid}", props)
 
+def align_in_parent(child_ids, parent_id, alignment="center", padding=0):
+    """
+    Center/align children within a parent element using the browser's rendered dimensions.
+
+    Delegates to the browser via WebSocket — requires browser open at localhost:3000.
+    Unlike the server-side /api/elements/center, this uses actual rendered sizes
+    (accurate for text elements, images, etc).
+
+    Args:
+        child_ids: list of element IDs to align
+        parent_id: parent element ID
+        alignment: 'center', 'left', 'right', 'top', 'bottom',
+                   'top-left', 'top-right', 'bottom-left', 'bottom-right'
+        padding: pixels of padding from parent edges
+
+    Returns:
+        dict with success, updates
+    """
+    r = requests.post(f"{API}/align", json={
+        "parentId": parent_id,
+        "childIds": child_ids if isinstance(child_ids, list) else [child_ids],
+        "alignment": alignment,
+        "padding": padding,
+    }, timeout=15)
+    return r.json()
+
+
 def upload_svg(file_id, svg_path):
     with open(svg_path, "rb") as f:
         b64 = base64.b64encode(f.read()).decode()
@@ -243,18 +270,19 @@ def numbered_circle(prefix, number, cx, cy, size=50):
         "groupIds": [group_id]
     })
     
-    # Number text — centered in circle using measured text dimensions
-    tw, th = measure_text(str(number), font_size=18)
+    # Number text — initial position, then browser centers it accurately
     create({
         "id": text_id, "type": "text",
-        "x": round(cx - tw / 2),
-        "y": round(cy - th / 2),
+        "x": round(cx - 5), "y": round(cy - 11),
         "text": str(number),
         "fontSize": 18, "fontFamily": "2",
         "strokeColor": "#ffffff",
         "groupIds": [group_id]
     })
-    
+
+    # Browser-delegated centering — uses actual rendered text dimensions
+    align_in_parent(text_id, bg_id, alignment="center")
+
     return {
         "bg_id": bg_id, "text_id": text_id, "group_id": group_id,
         "bbox": {"x": cx - size/2, "y": cy - size/2, "w": size, "h": size, "cx": cx, "cy": cy}
