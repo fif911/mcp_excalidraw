@@ -170,8 +170,9 @@ def icon_label_component(prefix, file_id, label_text, cx, cy,
     Args:
         prefix: Unique prefix for element IDs
         file_id: Uploaded SVG file ID
-        label_text: Label text (can contain \\n for multi-line)
-        cx, cy: CENTER position of the entire component
+        label_text: Label text (can contain \\n for multi-line).
+                    Pass None or "" to skip label — icon centers directly at cy.
+        cx, cy: CENTER position of the entire component (icon + gap + label)
         icon_size: Icon width/height
         font_size: Label font size
         gap: Pixels between icon bottom and text top
@@ -182,23 +183,35 @@ def icon_label_component(prefix, file_id, label_text, cx, cy,
         font_family: Font family string (default "2" = Helvetica)
 
     Returns:
-        dict with keys: icon_id, icon_bg_id, label_id, group_id, bbox
+        dict with keys: icon_id, icon_bg_id, label_id (None if no label),
+        group_id, bbox (includes icon_cx, icon_cy = actual image center)
     """
     icon_id = f"img-{prefix}"
     icon_bg_id = f"{prefix}-ibg" if icon_bg_color else None
     label_id = f"{prefix}-lbl"
     group_id = f"g-{prefix}"
 
-    # Get accurate text dimensions from server
-    text_w, text_h = measure_text(label_text, font_size)
-    total_h = icon_size + gap + text_h
-    component_w = max(icon_size, text_w)
+    has_label = bool(label_text and label_text.strip())
 
-    # Position: center everything at (cx, cy)
-    icon_x = cx - icon_size / 2
-    icon_y = cy - total_h / 2
-    label_x = cx - text_w / 2
-    label_y = icon_y + icon_size + gap
+    if has_label:
+        # Get accurate text dimensions from server
+        text_w, text_h = measure_text(label_text, font_size)
+        total_h = icon_size + gap + text_h
+        component_w = max(icon_size, text_w)
+        # Position: center icon+gap+label at (cx, cy)
+        icon_x = cx - icon_size / 2
+        icon_y = cy - total_h / 2
+        label_x = cx - text_w / 2
+        label_y = icon_y + icon_size + gap
+    else:
+        # No label — icon centered directly at (cx, cy)
+        text_w, text_h = 0, 0
+        total_h = icon_size
+        component_w = icon_size
+        icon_x = cx - icon_size / 2
+        icon_y = cy - icon_size / 2
+        label_x = 0
+        label_y = 0
 
     # Icon background (created BEFORE icon for z-order)
     if icon_bg_color:
@@ -222,43 +235,50 @@ def icon_label_component(prefix, file_id, label_text, cx, cy,
         "groupIds": [group_id]
     })
 
-    # Create label — separate text element per line, each centered under icon
-    lines = label_text.split('\n')
-    line_h = font_size * 1.25
+    # Create label — only if there is text
+    if has_label:
+        lines = label_text.split('\n')
+        line_h = font_size * 1.25
 
-    if len(lines) == 1:
-        create({
-            "id": label_id, "type": "text",
-            "x": round(label_x, 1), "y": round(label_y, 1),
-            "text": label_text,
-            "fontSize": font_size, "fontFamily": font_family,
-            "strokeColor": text_color,
-            "groupIds": [group_id]
-        })
-    else:
-        for li, line in enumerate(lines):
-            line_w = measure_text(line, font_size)[0]
-            line_x = cx - line_w / 2
-            line_y = label_y + li * line_h
-            lid = f"{label_id}-{li}" if li > 0 else label_id
+        if len(lines) == 1:
             create({
-                "id": lid, "type": "text",
-                "x": round(line_x, 1), "y": round(line_y, 1),
-                "text": line,
+                "id": label_id, "type": "text",
+                "x": round(label_x, 1), "y": round(label_y, 1),
+                "text": label_text,
                 "fontSize": font_size, "fontFamily": font_family,
                 "strokeColor": text_color,
                 "groupIds": [group_id]
             })
+        else:
+            for li, line in enumerate(lines):
+                line_w = measure_text(line, font_size)[0]
+                line_x = cx - line_w / 2
+                line_y = label_y + li * line_h
+                lid = f"{label_id}-{li}" if li > 0 else label_id
+                create({
+                    "id": lid, "type": "text",
+                    "x": round(line_x, 1), "y": round(line_y, 1),
+                    "text": line,
+                    "fontSize": font_size, "fontFamily": font_family,
+                    "strokeColor": text_color,
+                    "groupIds": [group_id]
+                })
+
+    # Actual icon center (differs from cy when label is present)
+    icon_cx = cx
+    icon_cy = icon_y + icon_size / 2
 
     bbox = {
-        "x": min(icon_x, label_x),
+        "x": min(icon_x, label_x) if has_label else icon_x,
         "y": icon_y,
         "w": component_w,
         "h": total_h,
-        "cx": cx, "cy": cy
+        "cx": cx, "cy": cy,
+        "icon_cx": icon_cx, "icon_cy": icon_cy,
     }
 
-    return {"icon_id": icon_id, "icon_bg_id": icon_bg_id, "label_id": label_id,
+    return {"icon_id": icon_id, "icon_bg_id": icon_bg_id,
+            "label_id": label_id if has_label else None,
             "group_id": group_id, "bbox": bbox}
 
 

@@ -100,12 +100,14 @@ curl -s http://localhost:3000/api/elements > canvas-state-v{N}.json
 
 ### `icon_label_component(prefix, file_id, label_text, cx, cy, ...)`
 Icon centered above label, auto-grouped.
-- `cx, cy`: center position of the entire component
+- `cx, cy`: center position of the entire component (icon + gap + label)
+- `label_text`: label below icon. Pass `None` or `""` to skip label creation entirely — icon centers directly at `cy` with no vertical shift.
 - `icon_size`: default 65px
 - `font_size`: default 22px
 - `gap`: pixels between icon bottom and text top (default 8)
-- Returns: `{icon_id, label_id, group_id, bbox}`
+- Returns: `{icon_id, label_id, group_id, bbox}` where `bbox` includes `icon_cx`, `icon_cy` (the actual image center, which differs from `cy` when a label is present)
 - Multi-line text: use `\n` — each line is a separate centered text element
+- **Important:** When a label is present, the icon center is at `cy - (gap + text_h) / 2`, not at `cy`. Use `bbox.icon_cy` for arrow connections.
 
 ### `numbered_circle(prefix, number, cx, cy, size=50)`
 Dark circle (#1a1a1a) with white centered number.
@@ -283,44 +285,52 @@ See `references/reference.md` for the full two-layer validation checklist.
 
 ## Positioning Lessons (from build iterations)
 
-### Arrow Labels Must Not Overlap Arrow Lines
-When placing text annotations between a numbered circle and a service icon (e.g. "HTML, CSS, JavaScript" between circle 1 and AWS Amplify), the label must sit **fully above** (or below) the arrow line — never at the same y-coordinate. If the arrow runs at `row_y - 20`, a 2-line label (~35px tall at fontSize 14) needs `y = row_y - 58` to clear the arrow completely. A 1-line label needs `y = row_y - 42`.
-
-### Numbered Circles Must Never Overlap Arrows
-Circles must be placed **adjacent** to arrow paths, not on top of them. Never split an arrow into two segments around a circle — keep arrows as single elements. Instead, offset the circle so it sits clearly above, below, or to the side of the arrow.
-
-**Placement rules by position:**
-- **Start of horizontal arrow** (circles 1-4): Place circle at the arrow's left end. Arrow starts from `circle_cx + radius + 5`.
-- **Between containers** (circles 5, 7): Place in the gap between nested container borders, vertically aligned with the arrow's y but the arrow terminates at the container edge — circle is beside the arrow endpoint, not on it.
-- **Along a horizontal arrow** (circle 6): Offset vertically — place `cy = arrow_y - 28` so the circle sits just above the arrow line. Close enough to associate with the arrow, but no overlap.
+### Arrow Labels: Center Between Endpoints Using `measure_text`
+Arrow annotation labels must be **horizontally centered** between the arrow start and end points, and placed **fully above** (or below) the arrow line. Use `measure_text` to get the exact text width, then compute `x = midpoint - text_width / 2`.
 
 ```python
-# Bad: circle on the arrow path — number obscured
-numbered_circle("c6", 6, cx=1160, cy=arrow_y, ...)
-arrow("a1", tb_right, arrow_y, ai_left, arrow_y)
+ARROW_LEFT = CIRCLE_X + CIRCLE_R    # arrow start x
+ARROW_RIGHT = SVC_X - ICON_R        # arrow end x
+ARROW_MID_X = (ARROW_LEFT + ARROW_RIGHT) / 2
 
-# Good: circle offset just above the arrow — readable and associated
-numbered_circle("c6", 6, cx=1160, cy=arrow_y - 28, ...)
-arrow("a1", tb_right, arrow_y, ai_left, arrow_y)
+tw, th = measure_text(label_text, FONT_BODY)
+label_x = ARROW_MID_X - tw / 2      # horizontally centered
+label_y = row_y - th - 4            # above arrow with 4px gap
 ```
+
+Never use hardcoded x-offsets for labels — always measure and center. This prevents labels from overlapping arrowheads at either end.
+
+### Numbered Circle Placement: No Border Overlaps, No Arrow Overlaps
+Circles must never overlap container borders OR sit on arrow paths. Two hard rules:
+
+1. **No border crossings:** Every circle must be fully inside or fully outside every container. Center circles in the available gap between borders.
+2. **No arrow overlaps:** If a circle is near an arrow path, offset it vertically (`cy = arrow_y - CIRCLE_R - 5`) so it sits just above (or below) the arrow line — close enough to associate, but no overlap.
+
+**Placement decision:** If there's enough space outside a container (gap ≥ `circle_size + 30px`), place outside. Otherwise, place **inside** the container in the gap between borders.
+
+```python
+# Between two borders (outer container and inner sub-section)
+C57_X = (SF_X + PP_X) / 2   # centered in the gap, equal clearance from both
+
+# Inside container, between sub-section right and container right
+C6_X = (PP_X + PP_W + SF_X + SF_W) / 2   # centered in the gap
+# Offset above arrow to avoid overlap
+numbered_circle("c6", 6, cx=C6_X, cy=arrow_y - CIRCLE_R - 5, ...)
+
+# At arrow start (circle is source of the arrow)
+numbered_circle("c1", 1, cx=CIRCLE_X, cy=ROW_Y, ...)
+arrow("a1", CIRCLE_X + CIRCLE_R, ROW_Y, SVC_X - ICON_R, ROW_Y, ...)
+```
+
+**Minimum clearance:** circle edge must be at least 15px from any border.
 
 ### Hard Rule: No Icon or Circle May Cross Any Container Border
-Every icon (image element), icon background rectangle, and numbered circle must be **fully inside** or **fully outside** every container. Partial overlap with any border is forbidden. Validate programmatically:
+Every icon, icon background rectangle, and numbered circle must be **fully inside** or **fully outside** every container. Partial overlap with any border is forbidden.
 
-```python
-# After building, verify zero crossings
-for elem in [images + circles]:
-    for container in containers:
-        assert fully_inside(elem, container) or fully_outside(elem, container)
-```
-
-To ensure clearance, calculate: `element_edge = cx + radius` must be `< container_border - 5` (inside) or `> container_border + 5` (outside). Never place an element where any edge is within 5px of a border.
+To ensure clearance: `element_edge = cx + radius` must be `< container_border - 15` (inside) or `> container_border + 15` (outside).
 
 ### Account for Label Width Near Container Borders
 Service icon labels (e.g. "Amazon Rekognition" ~190px wide) extend far beyond the icon itself. When placing icons outside a container, ensure the **label's left edge** clears the container border by at least 30px. Calculate: `AI_X - (max_label_width / 2) > container_right_edge + 30`.
-
-### Leave Gap Between Nested Containers for Circles
-When numbered circles (like 5 and 7) sit between two nested container borders (e.g. Step Functions outer and Parallel Processing inner), the gap between borders must be at least `circle_size + 30px` (70px for 40px circles). Otherwise circles overlap one or both borders.
 
 ### No Borders on Icons or Circles
 Icon background rectangles and numbered circle ellipses must have `strokeWidth: 0` and `strokeColor: "transparent"`. This is enforced in `components.py` — the `icon_label_component` and `numbered_circle` functions set these automatically. Never override with a visible stroke.
@@ -455,41 +465,56 @@ text_box("tb-2", "prep and\ntranslate", cx=..., cy=..., font_size=FONT_BODY, min
 - `max_height` caps tall boxes (e.g. multi-line text) so they don't break row spacing
 - Define both as constants and pass to every `text_box` in the section
 
-### Arrow Endpoints: Calculate from Component Centers
-All arrows must start and end at calculated component edge positions — never use hardcoded pixel offsets. Define radius/half-size constants from component dimensions, then compute arrow endpoints as `center ± radius`.
+### Empty Labels: Skip Text Creation
+When an icon has no label, pass `None` (or empty string) as `label_text` to `icon_label_component`. The component will skip creating the text element entirely, and the icon will be centered directly at `(cx, cy)` — no vertical shift from a phantom label.
 
 ```python
-# Derive edge constants from component dimensions
-CIRCLE_R = CIRCLE_SIZE / 2   # numbered circle radius
-ICON_R   = SVC_ICON / 2      # service icon radius
-TB_HALF_W = TB_MIN_W / 2     # text box half-width
-TB_HALF_H = TB_MAX_H / 2     # text box half-height
+# Bad: empty string still shifted icon up in older versions
+icon_label_component("people", "file-users", "", cx=50, cy=560, ...)
 
-# Circle right edge → icon left edge (horizontal arrow)
-arrow("a1", CIRCLE_X + CIRCLE_R, row_y, SVC_X - ICON_R, row_y, ...)
+# Good: None skips label creation, icon centered at cy
+icon_label_component("people", "file-users", None, cx=50, cy=560, ...)
+```
 
-# Icon right edge → text box left edge
-arrow("a2", SVC_X + ICON_R, row_y, TB_X - TB_HALF_W, row_y, ...)
+### Arrow Endpoints: Connect at Image Center, Not Component Center
+`icon_label_component` centers the entire component (icon + gap + label) at `cy`. The **actual icon image center** is shifted up from `cy` by `ICON_VSHIFT = (gap + label_height) / 2`. All arrows must connect at image centers, and components must be positioned so image centers align.
 
-# Text box right edge → AI icon left edge
-arrow("a3", TB_X + TB_HALF_W, tb_y, AI_X - ICON_R, tb_y, ...)
+**Preferred approach — shift component `cy` so image center lands at the desired row Y:**
 
-# Vertical: text box bottom → next text box top
-arrow("a4", TB_X, TB1_Y + TB_HALF_H, TB_X, TB2_Y - TB_HALF_H, ...)
+```python
+COMP_GAP = 8                              # gap param in icon_label_component
+LABEL_1LINE_H = FONT_BODY * 1.25         # ~25px for single-line label
+ICON_VSHIFT = (COMP_GAP + LABEL_1LINE_H) / 2   # ~16.5px
+COMP_HALF_H = (SVC_ICON + COMP_GAP + LABEL_1LINE_H) / 2  # 51
 
-# External elements — same pattern with their own radii
-PEOPLE_R = PEOPLE_SZ / 2
-MOBILE_R = MOBILE_SZ / 2
-arrow("a-ext", PEOPLE_CX + PEOPLE_R, PEOPLE_CY, MOBILE_CX - MOBILE_R, MOBILE_CY, ...)
+# Place icons with cy = ROW_Y + ICON_VSHIFT → image center lands at ROW_Y
+icon_label_component("svc", "file-svc", "Service Name", cx=SVC_X, cy=ROW_Y + ICON_VSHIFT, ...)
+
+# Label-less icons: image center IS at cy, no shift needed
+icon_label_component("people", "file-users", None, cx=50, cy=ROW_Y, ...)
+
+# Circles, text boxes at ROW_Y — all centers aligned → arrows are straight
+numbered_circle("c1", 1, cx=CIRCLE_X, cy=ROW_Y, ...)
+text_box("tb-1", "extract text", cx=TB_X, cy=ROW_Y, ...)
+
+# Horizontal arrows at ROW_Y — connects all centers cleanly
+arrow("a1", CIRCLE_X + CIRCLE_R, ROW_Y, SVC_X - ICON_R, ROW_Y, ...)
+arrow("a2", TB_X + TB_HALF_W, ROW_Y, AI_X - ICON_R, ROW_Y, ...)
+
+# Vertical arrows between icons: start below source label, end at target icon top
+S3_LABEL_BOTTOM = ROW3_Y + ICON_VSHIFT + COMP_HALF_H   # below label text
+APIGW_ICON_TOP = ROW4_Y + ICON_VSHIFT - COMP_HALF_H    # at icon top edge (= ROW4_Y - ICON_R)
+arrow("a-vert", SVC_X, S3_LABEL_BOTTOM, SVC_X, APIGW_ICON_TOP, ...)
 ```
 
 **Rules:**
-- Every component has a center (`cx`, `cy`) and a size → derive radius or half-dimensions
-- Horizontal arrows: use `cx ± radius` for x, keep y at component center
-- Vertical arrows: use `cy ± half_height` for y, keep x at component center
-- Diagonal arrows: use the edge point closest to the target component
-- When icon size changes (`SVC_ICON`), arrow endpoints auto-adjust because they derive from `ICON_R = SVC_ICON / 2`
-- Arrow label midpoints also use calculated positions: `LBL_X = (start_x + end_x) / 2`
+- **Align at image center:** shift `cy` by `+ ICON_VSHIFT` so the icon image center lands at the intended row Y. This keeps arrow code simple — all arrows use `ROW_Y` directly.
+- **Label-less icons** (`label_text=None`): no shift needed — image center IS at `cy`
+- **Horizontal arrows:** both endpoints at the same Y for clean straight lines
+- **Vertical arrows between icons:** start below the source component's label (avoid text overlap), end at the target icon's top edge
+- **Vertical arrows to icons from below:** stop just below the label text, not at the icon itself — prevents the arrow line from crossing through the label
+- Arrow label midpoints: `LBL_X = (start_x + end_x) / 2`
+- `icon_label_component` returns `bbox.icon_cx`, `bbox.icon_cy` for verification
 
 ### Validation False Positives
 `validate_diagram()` and `validate_arrow_paths()` report TEXT_OVERLAP for arrows that intentionally pass through annotation text areas (e.g. arrows from circles through label text to service icons). These are **expected** for this diagram style. BORDER warnings for elements near container edges (e.g. AI service labels near the Step Functions border) are also expected when icons are intentionally placed outside containers.
@@ -509,7 +534,11 @@ arrow("a-ext", PEOPLE_CX + PEOPLE_R, PEOPLE_CY, MOBILE_CX - MOBILE_R, MOBILE_CY,
 | Skip validation before export | Always run `validate_diagram()` + `validate_arrow_paths()` |
 | Claim "done" without checking | Export PNG, run quality checklist, then deliver |
 | Place arrow labels at same y as arrows | Position labels fully above/below the arrow line |
-| Place numbered circles on arrow paths | Offset circles above/below/beside arrows so numbers are fully readable |
+| Hardcode arrow label x-offsets | Use `measure_text` to center labels between arrow endpoints |
+| Place numbered circles on arrow paths | Offset circles above/below/beside arrows (`cy = arrow_y - CIRCLE_R - 5`) |
+| Place circles near container borders | Center circles in the gap between borders (`cx = (border1 + border2) / 2`) |
+| Use `cy` as icon center for arrows | Shift `cy` by `+ ICON_VSHIFT` so image center aligns at row Y |
+| Pass empty string `""` as icon label | Pass `None` to skip label creation — avoids phantom text offset |
 | Ignore label width for border clearance | Calculate label extent and ensure 30px+ gap from borders |
 
 ## AWS Color Reference

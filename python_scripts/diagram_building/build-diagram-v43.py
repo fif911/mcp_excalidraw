@@ -120,6 +120,20 @@ TB4_Y = 620        # prep and translate
 TB5_Y = 750        # create audio
 TB6_Y = 880        # store audio
 
+# --- Arrow edge constants ---
+# icon_label_component centers (icon + gap + label) at cy — icon center is ABOVE cy
+COMP_GAP = 8                              # gap param in icon_label_component
+LABEL_1LINE_H = FONT_BODY * 1.25         # ~25px for single-line label
+ICON_VSHIFT = (COMP_GAP + LABEL_1LINE_H) / 2   # ~16.5px — icon center above cy
+# Actual icon center for a labeled component at cy:  cy - ICON_VSHIFT
+# Actual icon top:    cy - ICON_VSHIFT - ICON_R
+# Actual icon bottom: cy - ICON_VSHIFT + ICON_R
+CIRCLE_R = CIRCLE_SIZE / 2   # = 20
+ICON_R = SVC_ICON / 2        # = 34.5
+TB_HALF_W = TB_MIN_W / 2     # = 75 (text box half-width for arrow endpoints)
+TB_HALF_H = TB_MAX_H / 2     # = 25 (text box half-height for arrow endpoints)
+COMP_HALF_H = (SVC_ICON + COMP_GAP + LABEL_1LINE_H) / 2  # = 51 (icon+label component half-height)
+
 # ===================================================
 # 2. CONTAINERS (outside-in)
 # ===================================================
@@ -149,36 +163,38 @@ time.sleep(0.3)
 # ===================================================
 # 3. EXTERNAL ELEMENTS (left side)
 # ===================================================
-# External icon positions
-PEOPLE_CX = 50;  PEOPLE_CY = 560; PEOPLE_SZ = 50
+# External icon positions — image center Y values (not component cy)
 MOBILE_CX = 130; MOBILE_CY = 560; MOBILE_SZ = 50
 SDK_CX = 130;    SDK_CY = 380
+PEOPLE_CX = 50;  PEOPLE_CY = MOBILE_CY; PEOPLE_SZ = 50  # aligned with mobile icon center
 
 PEOPLE_R = PEOPLE_SZ / 2   # = 25
 MOBILE_R = MOBILE_SZ / 2   # = 25
 SDK_R = SVC_ICON / 2        # = 34.5
 
-# People/Users icon
-icon_label_component("people", "file-users", "", cx=PEOPLE_CX, cy=PEOPLE_CY, icon_size=PEOPLE_SZ,
+# People/Users icon (no label — icon centered directly at cy)
+icon_label_component("people", "file-users", None, cx=PEOPLE_CX, cy=PEOPLE_CY, icon_size=PEOPLE_SZ,
                       font_size=FONT_BODY, text_color=DARK)
 
-# Mobile client (phone + label)
-icon_label_component("mobile", "file-mobile", "mobile client", cx=MOBILE_CX, cy=MOBILE_CY,
+# Mobile client — shift cy so image center aligns at MOBILE_CY
+icon_label_component("mobile", "file-mobile", "mobile client", cx=MOBILE_CX, cy=MOBILE_CY + ICON_VSHIFT,
                       icon_size=MOBILE_SZ, font_size=FONT_BODY, text_color=DARK)
 
-# AWS SDK (purple bg, above mobile)
-icon_label_component("sdk", "file-sdk", "AWS SDK", cx=SDK_CX, cy=SDK_CY,
+# AWS SDK — shift cy so image center aligns at SDK_CY
+icon_label_component("sdk", "file-sdk", "AWS SDK", cx=SDK_CX, cy=SDK_CY + ICON_VSHIFT,
                       icon_size=SVC_ICON, font_size=FONT_BODY, text_color=DARK)
 
-# People right edge -> mobile left edge (horizontal at center y)
-arrow("a-people-mobile", PEOPLE_CX + PEOPLE_R, PEOPLE_CY, MOBILE_CX - MOBILE_R, MOBILE_CY,
+# People → mobile (horizontal at MOBILE_CY — both icon centers here)
+arrow("a-people-mobile", PEOPLE_CX + PEOPLE_R, MOBILE_CY, MOBILE_CX - MOBILE_R, MOBILE_CY,
       stroke_color=DARK, stroke_width=1)
 
-# Mobile top edge -> SDK bottom edge (vertical at center x)
-arrow("a-mobile-sdk", MOBILE_CX, MOBILE_CY - MOBILE_R, SDK_CX, SDK_CY + SDK_R,
+# Mobile icon top → just below SDK label text
+# SDK label bottom = SDK_CY + ICON_VSHIFT + COMP_HALF_H (using SVC_ICON comp half)
+SDK_COMP_BOTTOM = SDK_CY + ICON_VSHIFT + COMP_HALF_H
+arrow("a-mobile-sdk", MOBILE_CX, MOBILE_CY - MOBILE_R, SDK_CX, SDK_COMP_BOTTOM + 3,
       stroke_color=DARK, stroke_width=1)
 
-# SDK right edge -> cloud left edge (horizontal at SDK center y)
+# SDK icon right edge → cloud left edge (horizontal at SDK_CY = image center)
 arrow("a-sdk-cloud", SDK_CX + SDK_R, SDK_CY, CLOUD_X, SDK_CY,
       stroke_color=DARK, stroke_width=1,
       start_arrowhead=None, end_arrowhead=None)
@@ -189,20 +205,21 @@ time.sleep(0.3)
 # 4. FRONT-END SERVICES
 # ===================================================
 # AWS SVGs already include colored backgrounds — no icon_bg_color needed
+# Shift cy by ICON_VSHIFT so icon image centers align at ROW_Y (matching circles)
 # Row 1: Amplify
-icon_label_component("amplify", "file-amplify", "AWS Amplify", cx=SVC_X, cy=ROW1_Y,
+icon_label_component("amplify", "file-amplify", "AWS Amplify", cx=SVC_X, cy=ROW1_Y + ICON_VSHIFT,
                       icon_size=SVC_ICON, font_size=FONT_BODY, text_color=DARK)
 
 # Row 2: Cognito
-icon_label_component("cognito", "file-cognito", "Amazon Cognito", cx=SVC_X, cy=ROW2_Y,
+icon_label_component("cognito", "file-cognito", "Amazon Cognito", cx=SVC_X, cy=ROW2_Y + ICON_VSHIFT,
                       icon_size=SVC_ICON, font_size=FONT_BODY, text_color=DARK)
 
 # Row 3: S3
-icon_label_component("s3-fe", "file-s3", "Amazon S3", cx=SVC_X, cy=ROW3_Y,
+icon_label_component("s3-fe", "file-s3", "Amazon S3", cx=SVC_X, cy=ROW3_Y + ICON_VSHIFT,
                       icon_size=SVC_ICON, font_size=FONT_BODY, text_color=DARK)
 
 # Row 4: API Gateway (below front-end container)
-icon_label_component("apigw", "file-apigw", "Amazon API Gateway", cx=SVC_X, cy=ROW4_Y,
+icon_label_component("apigw", "file-apigw", "Amazon API Gateway", cx=SVC_X, cy=ROW4_Y + ICON_VSHIFT,
                       icon_size=SVC_ICON, font_size=FONT_BODY, text_color=DARK)
 
 time.sleep(0.3)
@@ -210,17 +227,15 @@ time.sleep(0.3)
 # ===================================================
 # 5. NUMBERED CIRCLES — same cy as service icons for center-aligned arrows
 # ===================================================
-CIRCLE_R = CIRCLE_SIZE / 2   # = 20
-ICON_R = SVC_ICON / 2        # = 34.5
-TB_HALF_W = TB_MIN_W / 2     # = 75 (text box half-width for arrow endpoints)
-TB_HALF_H = TB_MAX_H / 2     # = 25 (text box half-height for arrow endpoints)
-
+# Circles at ROW_Y — icon image centers also at ROW_Y (shifted by ICON_VSHIFT)
 numbered_circle("c1", 1, cx=CIRCLE_X, cy=ROW1_Y, size=CIRCLE_SIZE, bg_color=CIRCLE_BG, font_size=FONT_BODY)
 numbered_circle("c2", 2, cx=CIRCLE_X, cy=ROW2_Y, size=CIRCLE_SIZE, bg_color=CIRCLE_BG, font_size=FONT_BODY)
 numbered_circle("c3", 3, cx=CIRCLE_X, cy=ROW3_Y, size=CIRCLE_SIZE, bg_color=CIRCLE_BG, font_size=FONT_BODY)
 numbered_circle("c4", 4, cx=CIRCLE_X, cy=ROW4_Y, size=CIRCLE_SIZE, bg_color=CIRCLE_BG, font_size=FONT_BODY)
-numbered_circle("c5", 5, cx=SF_X + 5, cy=ROW1_Y, size=CIRCLE_SIZE, bg_color=CIRCLE_BG, font_size=FONT_BODY)
-numbered_circle("c7", 7, cx=SF_X + 5, cy=ROW2_Y, size=CIRCLE_SIZE, bg_color=CIRCLE_BG, font_size=FONT_BODY)
+# Circles 5, 7 centered between SF left border and PP left border
+C57_X = (SF_X + PP_X) / 2   # = 810, gives 20px clearance from both borders
+numbered_circle("c5", 5, cx=C57_X, cy=ROW1_Y, size=CIRCLE_SIZE, bg_color=CIRCLE_BG, font_size=FONT_BODY)
+numbered_circle("c7", 7, cx=C57_X, cy=ROW2_Y, size=CIRCLE_SIZE, bg_color=CIRCLE_BG, font_size=FONT_BODY)
 # Circle 6 created after AI icons (section 8) for correct z-order
 
 time.sleep(0.3)
@@ -228,38 +243,25 @@ time.sleep(0.3)
 # ===================================================
 # 6. ARROW LABELS (placed fully ABOVE arrow lines)
 # ===================================================
-# Arrows now run at ROW_Y (component centers). Labels above.
-# 2-line label at FONT_BODY=20 is ~50px tall, 1-line ~25px tall.
-# Label bottom must be above arrow y, so: y = ROW_Y - text_height - 2
-LBL_X = (CIRCLE_X + CIRCLE_R + SVC_X - ICON_R) / 2  # midpoint between circle edge and icon edge
+# Arrows run at ROW_Y. Labels centered between arrow endpoints (circle edge → icon edge).
+ARROW_LEFT = CIRCLE_X + CIRCLE_R   # arrow start x
+ARROW_RIGHT = SVC_X - ICON_R       # arrow end x
+ARROW_MID_X = (ARROW_LEFT + ARROW_RIGHT) / 2  # horizontal center of arrow span
 
-create({
-    "id": "lbl-html", "type": "text",
-    "x": LBL_X - 40, "y": ROW1_Y - 52,
-    "text": "HTML, CSS,\nJavaScript",
-    "fontSize": FONT_BODY, "fontFamily": "2", "strokeColor": DARK,
-})
-
-create({
-    "id": "lbl-auth", "type": "text",
-    "x": LBL_X - 30, "y": ROW2_Y - 27,
-    "text": "authenticate",
-    "fontSize": FONT_BODY, "fontFamily": "2", "strokeColor": DARK,
-})
-
-create({
-    "id": "lbl-store", "type": "text",
-    "x": LBL_X - 35, "y": ROW3_Y - 52,
-    "text": "store image\nfiles",
-    "fontSize": FONT_BODY, "fontFamily": "2", "strokeColor": DARK,
-})
-
-create({
-    "id": "lbl-api", "type": "text",
-    "x": LBL_X - 65, "y": ROW4_Y - 52,
-    "text": "dynamic API calls\nover HTTPS",
-    "fontSize": FONT_BODY, "fontFamily": "2", "strokeColor": DARK,
-})
+labels = [
+    ("lbl-html",  "HTML, CSS,\nJavaScript",     ROW1_Y),
+    ("lbl-auth",  "authenticate",                ROW2_Y),
+    ("lbl-store", "store image\nfiles",          ROW3_Y),
+    ("lbl-api",   "dynamic API calls\nover HTTPS", ROW4_Y),
+]
+for lid, text, row_y in labels:
+    tw, th = measure_text(text, FONT_BODY)
+    create({
+        "id": lid, "type": "text",
+        "x": round(ARROW_MID_X - tw / 2, 1), "y": round(row_y - th - 4, 1),
+        "text": text,
+        "fontSize": FONT_BODY, "fontFamily": "2", "strokeColor": DARK,
+    })
 
 # ===================================================
 # 7. TEXT BOXES (parallel processing workflow)
@@ -276,23 +278,25 @@ time.sleep(0.3)
 # ===================================================
 # 8. AI SERVICE ICONS (right side)
 # ===================================================
-icon_label_component("textract",    "file-textract",    "Amazon Textract",    cx=AI_X, cy=TB1_Y,
+# Shift cy by ICON_VSHIFT so icon image centers align with text box centers at TB_Y
+# icon_center = (TB_Y + ICON_VSHIFT) - ICON_VSHIFT = TB_Y  ← matches text box cy
+icon_label_component("textract",    "file-textract",    "Amazon Textract",    cx=AI_X, cy=TB1_Y + ICON_VSHIFT,
                       icon_size=SVC_ICON, font_size=FONT_BODY, text_color=DARK)
-icon_label_component("rekognition", "file-rekognition", "Amazon Rekognition", cx=AI_X, cy=TB2_Y,
+icon_label_component("rekognition", "file-rekognition", "Amazon Rekognition", cx=AI_X, cy=TB2_Y + ICON_VSHIFT,
                       icon_size=SVC_ICON, font_size=FONT_BODY, text_color=DARK)
-icon_label_component("sagemaker",   "file-sagemaker",   "Amazon SageMaker",  cx=AI_X, cy=TB3_Y,
+icon_label_component("sagemaker",   "file-sagemaker",   "Amazon SageMaker",  cx=AI_X, cy=TB3_Y + ICON_VSHIFT,
                       icon_size=SVC_ICON, font_size=FONT_BODY, text_color=DARK)
-icon_label_component("translate",   "file-translate",   "Amazon Translate",  cx=AI_X, cy=TB4_Y,
+icon_label_component("translate",   "file-translate",   "Amazon Translate",  cx=AI_X, cy=TB4_Y + ICON_VSHIFT,
                       icon_size=SVC_ICON, font_size=FONT_BODY, text_color=DARK)
-icon_label_component("polly",       "file-polly",       "Amazon Polly",      cx=AI_X, cy=TB5_Y,
+icon_label_component("polly",       "file-polly",       "Amazon Polly",      cx=AI_X, cy=TB5_Y + ICON_VSHIFT,
                       icon_size=SVC_ICON, font_size=FONT_BODY, text_color=DARK)
-icon_label_component("s3-out",      "file-s3",          "Amazon S3",         cx=AI_X, cy=TB6_Y,
+icon_label_component("s3-out",      "file-s3",          "Amazon S3",         cx=AI_X, cy=TB6_Y + ICON_VSHIFT,
                       icon_size=SVC_ICON, font_size=FONT_BODY, text_color=DARK)
 
-# Circle 6 (green) — positioned ABOVE the store audio -> S3 arrow, like reference
-# Sits above the arrow line so it never overlaps
-# cx must be >= SF right edge (1210) + radius (20) + margin = 1235
-numbered_circle("c6", 6, cx=1235, cy=TB6_Y - 30, size=CIRCLE_SIZE, bg_color=CIRCLE_BG, font_size=FONT_BODY)
+# Circle 6 — inside SF, centered between PP right border and SF right border
+# PP right = PP_X + PP_W = 1160, SF right = SF_X + SF_W = 1210, gap = 50px
+C6_X = (PP_X + PP_W + SF_X + SF_W) / 2   # = 1185, 25px from each border
+numbered_circle("c6", 6, cx=C6_X, cy=TB6_Y - CIRCLE_R - 5, size=CIRCLE_SIZE, bg_color=CIRCLE_BG, font_size=FONT_BODY)
 
 time.sleep(0.3)
 
@@ -300,7 +304,7 @@ time.sleep(0.3)
 # 9. ARROWS — all start/end at component center edges
 # ===================================================
 
-# --- Front-end: circle right edge -> service icon left edge (horizontal at ROW_Y) ---
+# --- Front-end: circle right edge -> service icon left edge (all at ROW_Y) ---
 for row_y, aid in [(ROW1_Y, "a-r1"), (ROW2_Y, "a-r2"), (ROW3_Y, "a-r3")]:
     arrow(aid, CIRCLE_X + CIRCLE_R, row_y, SVC_X - ICON_R, row_y,
           stroke_color=DARK, stroke_width=1)
@@ -309,14 +313,18 @@ for row_y, aid in [(ROW1_Y, "a-r1"), (ROW2_Y, "a-r2"), (ROW3_Y, "a-r3")]:
 arrow("a-r4", CIRCLE_X + CIRCLE_R, ROW4_Y, SVC_X - ICON_R, ROW4_Y,
       stroke_color=DARK, stroke_width=1)
 
-# --- Front end right edge -> Step Functions left edge (at row center) ---
+# --- Front end right edge -> Step Functions left edge ---
 arrow("a-fe-sf1", FE_X + FE_W, ROW1_Y, SF_X, ROW1_Y,
       stroke_color=DARK, stroke_width=1)
 arrow("a-fe-sf2", FE_X + FE_W, ROW2_Y, SF_X, ROW2_Y,
       stroke_color=DARK, stroke_width=1)
 
-# --- S3 icon bottom -> API Gateway icon top (vertical, at SVC_X center) ---
-arrow("a-s3-apigw", SVC_X, ROW3_Y + ICON_R, SVC_X, ROW4_Y - ICON_R,
+# --- S3 component bottom -> API Gateway icon top (vertical, at SVC_X center) ---
+# Icons at cy = ROW_Y + ICON_VSHIFT → label bottom = ROW_Y + ICON_VSHIFT + COMP_HALF_H
+# Icon top = ROW_Y + ICON_VSHIFT - COMP_HALF_H = ROW_Y - ICON_R
+S3_LABEL_BOTTOM = ROW3_Y + ICON_VSHIFT + COMP_HALF_H
+APIGW_ICON_TOP = ROW4_Y + ICON_VSHIFT - COMP_HALF_H
+arrow("a-s3-apigw", SVC_X, S3_LABEL_BOTTOM, SVC_X, APIGW_ICON_TOP,
       stroke_color=DARK, stroke_width=1,
       start_arrowhead="arrow", end_arrowhead="arrow")
 
@@ -335,7 +343,8 @@ arrow("a-tb-prep-audio", TB_X, TB4_Y + TB_HALF_H, TB_X, TB5_Y - TB_HALF_H,
 arrow("a-tb-audio-store", TB_X, TB5_Y + TB_HALF_H, TB_X, TB6_Y - TB_HALF_H,
       stroke_color=DARK, stroke_width=1)
 
-# --- Text box right edge -> AI service icon left edge (horizontal at TB_Y center) ---
+# --- Text box right edge -> AI service icon left edge (horizontal at TB_Y) ---
+# AI icons shifted so image centers align at TB_Y — arrows are perfectly horizontal
 for tb_y, ai_id in [(TB1_Y, "a-ai1"), (TB2_Y, "a-ai2"), (TB3_Y, "a-ai3"),
                      (TB4_Y, "a-ai4"), (TB5_Y, "a-ai5"), (TB6_Y, "a-ai6")]:
     arrow(ai_id, TB_X + TB_HALF_W, tb_y, AI_X - ICON_R, tb_y,
@@ -343,8 +352,7 @@ for tb_y, ai_id in [(TB1_Y, "a-ai1"), (TB2_Y, "a-ai2"), (TB3_Y, "a-ai3"),
 
 # --- SDK entry arrows branching into front-end rows ---
 BRANCH_X = CLOUD_X + 40  # vertical trunk inside cloud
-
-# Branch up to row 1
+# Branch up to row 1 (circles at ROW_Y)
 arrow("a-in-r1", CLOUD_X, SDK_CY, CIRCLE_X - CIRCLE_R, ROW1_Y,
       stroke_color=DARK, stroke_width=1,
       waypoints=[(BRANCH_X, SDK_CY), (BRANCH_X, ROW1_Y)])
@@ -377,6 +385,6 @@ issues += validate_arrow_paths()
 if issues:
     print(f"\n{len(issues)} issues found:")
     for iss in issues:
-        print(f"  - {iss}")
+        print(f"  - {iss.encode('ascii', 'replace').decode()}")
 else:
     print("\nAll validation passed - zero issues")
