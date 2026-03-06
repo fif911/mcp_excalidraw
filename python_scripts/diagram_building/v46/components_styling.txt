@@ -1,0 +1,90 @@
+Data Transfer Hub Architecture Diagram — Styling Plan
+=====================================================
+
+=== COLORS ===
+DARK = "#1a1a1a"          # Text, arrows, circle backgrounds
+GRAY = "#879196"          # Neutral container borders (AWS Cloud, Customer Account, Auth, Managed Account)
+PINK = "#d63384"          # Step Functions workflow border
+WHITE = "#ffffff"         # Circle number text
+
+=== FONTS ===
+FONT_HDR = 22             # Container header labels
+FONT_BODY = 16            # Service labels, circle numbers
+Font family: "2" (Helvetica) for all text
+
+=== ICONS ===
+SVC_ICON = 65             # All service icons (Cognito, AppSync, Lambda, etc.)
+HDR_ICON = 32             # Container header icons (AWS Cloud logo, Account icon, Step Functions)
+CIRCLE_SIZE = 40          # All numbered circles
+
+=== CONTAINERS ===
+
+1. AWS Cloud (outermost)
+   - Border: GRAY, solid, 2px
+   - Fill: transparent
+   - Header: AWS Cloud logo (32px) + "AWS Cloud" label
+   - Dimensions: ~1450 x 800
+
+2. Customer's AWS Account
+   - Border: GRAY, solid, 2px
+   - Fill: transparent
+   - Header: Cloud/Account icon (32px) + "Customer's AWS Account" label
+   - Dimensions: ~840 x 680
+
+3. Authentication (sub-section inside Customer Account)
+   - Border: GRAY, dashed, 1px
+   - Fill: transparent
+   - Header: "Authentication" label (no icon)
+   - Dimensions: ~280 x 170
+
+4. AWS Step Functions workflow (inside Customer Account, right side)
+   - Border: PINK, solid, 2px
+   - Fill: transparent
+   - Header: Step Functions icon (32px) + "AWS Step Functions\nworkflow" label
+   - Dimensions: ~250 x 350
+
+5. AWS Managed Account (right section)
+   - Border: GRAY, solid, 2px
+   - Fill: transparent
+   - Header: "AWS Managed Account" label
+   - Dimensions: ~380 x 680
+
+=== LAYOUT COORDINATES (approximate) ===
+
+Canvas: ~1500 x 850
+
+AWS Cloud:        x=30,  y=10,  w=1450, h=800
+Customer Account: x=60,  y=90,  w=840,  h=690
+Authentication:   x=100, y=150, w=280,  h=170
+Step Functions:   x=620, y=170, w=250,  h=350
+Managed Account:  x=940, y=90,  w=380,  h=690
+
+Row positions (cy for icon_label_component):
+- Auth row:    y ~ 240  (Cognito, OpenID Connect)
+- DynamoDB:    y ~ 210  (upper right)
+- AppSync row: y ~ 390  (circle 2, AppSync, circle 4, Lambda, circle 5)
+- Bottom row:  y ~ 600  (CloudFront, S3-customer)
+- Fargate:     y ~ 640  (below Step Functions)
+- DTH UI:      y ~ 550  (external, left side)
+- User:        y ~ 700  (external, bottom-left)
+
+Managed Account internal grid:
+- Row 1: y ~ 250 (S3 template, DynamoDB template)
+- Row 2: y ~ 430 (Amazon S3, ECR template)
+- Row 3: y ~ 620 (Amazon ECR, Docker image)
+
+=== ARROW STYLE ===
+- Color: DARK (#1a1a1a)
+- Width: 2px
+- Style: solid
+- End arrowhead: "arrow"
+- Start arrowhead: None (except bidirectional arrows)
+- All arrows orthogonal (horizontal/vertical segments only)
+- Use waypoints for L-shaped and multi-segment paths
+
+=== NUMBERED CIRCLES ===
+- Background: DARK (#1a1a1a)
+- Text: WHITE (#ffffff)
+- Size: 40px
+- Font size: FONT_BODY
+- Placed adjacent to their corresponding service icons

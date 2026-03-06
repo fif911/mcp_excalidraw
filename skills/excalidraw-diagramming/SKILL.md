@@ -470,15 +470,109 @@ label_x = ARROW_MID_X - tw / 2      # horizontally centered
 label_y = row_y - th - 4            # above arrow with 4px gap
 ```
 
-### Numbered Circle Placement: No Border Overlaps, No Arrow Overlaps
-Circles must never overlap container borders OR sit on arrow paths. Two hard rules:
+### Numbered Circle Placement: Offset from Arrows with 5px Margin
+Circles mark flow steps and must be placed **adjacent to** their arrow, not on it. Draw full continuous arrows, then place circles offset with a visible gap.
 
-1. **No border crossings:** Every circle must be fully inside or fully outside every container. Center circles in the available gap between borders.
-2. **No arrow overlaps:** If a circle is near an arrow path, offset it vertically (`cy = arrow_y - CIRCLE_R - 5`) so it sits just above (or below) the arrow line.
+**Offset rules:**
+- **Horizontal arrows:** circle sits **ABOVE or BELOW** the arrow. `CY = arrow_y ∓ COFFSET`
+- **Vertical arrows:** circle sits to the **LEFT or RIGHT**. `CX = arrow_x ∓ COFFSET`
+- **COFFSET** = `CIRCLE_R + 5 + stroke_width/2` (e.g. radius 20 + 5px gap + 1px half-stroke = 26)
+- **Choose the side with the most space** — avoid placing circles where they'd overlap with icons, labels, containers, or other circles. If a component sits above the arrow, place the circle below instead. If the left side is crowded, use the right.
 
-**Placement decision:** If there's enough space outside a container (gap >= `circle_size + 30px`), place outside. Otherwise, place inside the container in the gap between borders.
+**Three hard rules:**
+1. **Full continuous arrows:** Draw ONE arrow from source to target. Never split arrows.
+2. **5px visible margin:** Between the arrow line's visual edge and the circle's edge — no touching, no overlap.
+3. **No border crossings:** Every circle must be fully inside or fully outside every container (15px clearance from borders).
 
-**Minimum clearance:** circle edge must be at least 15px from any border.
+**Pattern:**
+```python
+COFFSET = CIRCLE_R + 5 + 1   # 26px: radius + 5px gap + half stroke
+
+# Horizontal arrow — circle above (or below if space above is tight)
+arrow("a-src-tgt", SRC_X + ICON_R, ROW_Y, TGT_X - ICON_R, ROW_Y, ...)
+numbered_circle("c1", 1, cx=MID_X, cy=ROW_Y - COFFSET, ...)  # above
+numbered_circle("c2", 2, cx=MID_X, cy=ROW_Y + COFFSET, ...)  # below (if above is blocked)
+
+# Vertical arrow — circle to whichever side has more room
+arrow("a-trunk", COL_X, START_Y, COL_X, END_Y, ...)
+numbered_circle("c3", 3, cx=COL_X - COFFSET, cy=MID_Y, ...)  # left
+numbered_circle("c4", 4, cx=COL_X + COFFSET, cy=MID_Y, ...)  # right (if left is blocked)
+
+# L-shaped arrow — circle beside the vertical segment
+BEND_X = 290
+arrow("a-src-tgt", SRC_X, SRC_Y, TGT_X, TGT_Y, ...,
+      waypoints=[(BEND_X, SRC_Y), (BEND_X, TGT_Y)])
+numbered_circle("c1", 1, cx=BEND_X - COFFSET, cy=MID_Y, ...)
+```
+
+**Choosing the offset side:**
+1. Check which side of the arrow has the most free space (no icons, labels, borders)
+2. Prefer above/left as default, but switch to below/right when that side is blocked
+3. Verify the chosen position doesn't overlap with any element or cross any border
+
+**Important:** Arrow waypoints must NOT reference circle positions. Define bend/turn coordinates independently, then derive circle positions from them.
+
+**WRONG:** Placing circles on arrows (overlapping), splitting arrows into segments, or having zero margin between arrow lines and circles.
+
+### Arrow Endpoints Must Not Touch Numbered Circles
+Arrowhead triangles extend ~10px backward from the tip. When a numbered circle sits on an arrow path, ensure it is positioned on the **body** of the arrow — away from both endpoints. The arrowhead tip and its triangle must have clear space (no overlap) with the circle edge.
+
+**Fix strategies:**
+- Move the circle further along the arrow body (away from the endpoint)
+- Move the circle slightly left/right if it's too close to where the arrowhead renders
+- For circles in tight spaces (e.g., between a container border and an icon), place them in a gap between containers rather than inside one
+
+```python
+# WRONG: circle right edge (475) overlaps arrowhead triangle extending from (487, 210)
+C8_CX = 455;  C8_CY = 184  # too close to arrow endpoint at (487, 210)
+
+# CORRECT: move circle left so arrowhead has clearance
+C8_CX = 435;  C8_CY = 184  # 20px further from arrowhead
+```
+
+### Arrows Must Not Cross Unrelated Section Boundaries
+Arrows must only cross a container border when they are **entering or leaving** that container. An arrow must NEVER pass through a container it has no business with.
+
+**Example violation:** An arrow from AppSync to DynamoDB routed vertically through the Authentication sub-section — the arrow has nothing to do with Auth, so it must not cross its border.
+
+**Fix:** Add waypoints to route the arrow AROUND the unrelated section:
+```python
+# WRONG: vertical segment at x=400 crosses through Auth (x=100..410, y=150..345)
+arrow("a-appsync-dynamo", 400, 357, 450, 210,
+      waypoints=[(400, 210)])  # passes through Auth!
+
+# CORRECT: jog right past Auth right edge first, then up
+AUTH_RIGHT = AUTH_X + AUTH_W  # 410
+ROUTE_X = AUTH_RIGHT + 15     # 425
+arrow("a-appsync-dynamo", 400, 357, 450, 210,
+      waypoints=[(ROUTE_X, 357), (ROUTE_X, 210)])  # avoids Auth
+```
+
+**Validation:** For every arrow segment, check that it does not intersect any container border it's not supposed to cross. Especially watch for:
+- Vertical segments passing through adjacent sub-sections
+- Horizontal segments crossing nested container tops/bottoms
+
+### Subsection Borders Must Stay Inside Parent Section Borders
+Every nested container (Auth, Step Functions, etc.) must be **fully contained** within its parent container, with at least 15px clearance from the parent border on all sides. When making room for circles or arrows, **always expand the outer (parent) container outward** — never shrink it to squeeze inner sections. Push sibling containers and the cloud boundary further out to accommodate.
+
+**Correct approach when circles need more gap between sibling containers:**
+1. **Expand** the parent container outward (increase its width/height)
+2. **Push** the sibling container further away (increase its X/Y offset)
+3. **Expand** the cloud boundary to fit everything
+4. **Shift** all elements inside the pushed container by the same delta
+
+**Wrong approach:** Shrinking the parent container to widen the gap — this risks inner subsections crossing or touching the parent border.
+
+```python
+# Verify after any layout change:
+assert SF_X + SF_W < CUST_X + CUST_W - 15, "SF right edge too close to Customer Account"
+assert AUTH_X + AUTH_W < CUST_X + CUST_W - 15, "Auth right edge too close to Customer Account"
+assert SF_Y >= CUST_Y + HDR_HEIGHT, "SF top crosses Customer Account header"
+assert SF_Y + SF_H < CUST_Y + CUST_H - 15, "SF bottom too close to Customer Account"
+
+# When pushing siblings, shift all their children by the same delta:
+# MA_X += 50  →  all MA internal elements += 50  →  CLOUD_W += 50
+```
 
 ### Hard Rule: No Icon or Circle May Cross Any Container Border
 Every icon, icon background rectangle, and numbered circle must be **fully inside** or **fully outside** every container. To ensure clearance: `element_edge = cx + radius` must be `< container_border - 15` (inside) or `> container_border + 15` (outside).
@@ -492,8 +586,12 @@ Icon background rectangles and numbered circle ellipses must have `strokeWidth: 
 ### AWS Icons Have Built-in Backgrounds — Don't Add `icon_bg_color`
 AWS official SVG icons already include colored background fills. Adding `icon_bg_color` creates a second, mismatched background. **Do not use `icon_bg_color` for AWS service icons.** Only use it for custom icons with no built-in background.
 
-### Z-Order: Create Background Elements First
-Elements render in creation order (first created = bottom layer). Create numbered circles **after** nearby icon components so the circle renders on top.
+### Z-Order: Containers → Icons → Arrows → Circles
+Elements render in creation order (first created = bottom layer). The correct build order is:
+1. **Containers** (background, lowest layer)
+2. **Service icons + labels** (on top of containers)
+3. **Arrows** (on top of icons — arrow lines connect between services)
+4. **Numbered circles** (highest layer — circles sit ON TOP of arrows, cleanly covering arrow endpoints where they split)
 
 ### Consistent Styling via Shared Constants
 Same-category elements must use **identical style parameters** defined as shared constants at the top of the script.
@@ -566,6 +664,19 @@ Wrong:
 - Only external/on-premise elements sit outside the cloud boundary
 - Cloud boundary must be **visibly larger** than nested containers on **all sides** — at least 30px clearance
 
+### Every Container Header MUST Have an Icon
+Every `container_box()` call MUST include an `icon_file_id` parameter. Headers without icons look inconsistent and break the visual pattern. If a container represents a cloud provider section, use the provider logo; if it represents an account or service, use the matching service icon.
+
+```python
+# CORRECT: every container has a header icon
+container_box("cloud", ..., icon_file_id="file-aws", label_text="AWS Cloud")
+container_box("account", ..., icon_file_id="file-account", label_text="Customer's AWS Account")
+container_box("stepfn", ..., icon_file_id="file-stepfunctions", label_text="AWS Step Functions\nworkflow")
+
+# WRONG: missing icon_file_id — header will have text only, no icon
+container_box("account", ..., label_text="AWS Managed Account")
+```
+
 ### Align Containers at Matching Levels
 1. **Outer containers** side-by-side must share the same `y` and `header_height` (`HDR_HEIGHT`).
 2. **Inner sub-sections** at same nesting level must share the same `y`. Derive from parent: `SUB_Y = PARENT_Y + HDR_HEIGHT + gap`.
@@ -573,8 +684,18 @@ Wrong:
 
 **SUB_Y gap rule:** Gap between `HDR_HEIGHT` and `SUB_Y` must clear tallest header text. For 2-line text at `FONT_HDR`, add at least `FONT_HDR * 1.25` as gap.
 
-### Header Text Centering: Use `header_height` as Reference
-Header text is vertically centered within the `header_height` band. When all side-by-side containers share the same `header_height`, headers are visually balanced.
+### Header Icon + Label Vertical Alignment
+The header icon is placed flush at the container's top-left corner. `header_height` is the **source of truth** — set it to fit the tallest header text (including multi-line). Then set `icon_header_size = header_height` so the icon fills the full header band.
+
+```python
+# CORRECT: header_height is source of truth, icon matches it
+HDR_HEIGHT = 55           # sized for multi-line headers
+HDR_ICON = HDR_HEIGHT     # icon matches header
+container_box("cloud", ..., icon_header_size=HDR_ICON, header_height=HDR_HEIGHT)
+
+# WRONG: icon smaller than header — icon sits higher than label
+container_box("cloud", ..., icon_header_size=32, header_height=55)
+```
 
 ### Uniform Text Box Sizing Within Sections
 All `text_box` elements within the same section must have identical dimensions via shared `min_width` and `max_height` constants.
@@ -626,8 +747,17 @@ arrow("a1", CIRCLE_X + CIRCLE_R, ROW_Y, SVC_X - ICON_R, ROW_Y, ...)
 | Claim "done" without checking | Export PNG, run quality checklist, then deliver |
 | Place arrow labels at same y as arrows | Position labels fully above/below the arrow line |
 | Hardcode arrow label x-offsets | Use `measure_text` to center labels between endpoints |
-| Place numbered circles on arrow paths | Offset circles above/below/beside arrows |
+| Create numbered circles before arrows | Create arrows first, then circles (z-order) |
+| Place circles on arrows or split arrows around circles | Offset circles with 5px margin (above for horizontal, side for vertical) |
 | Place circles near container borders | Center circles in the gap between borders |
+| Omit `icon_file_id` on `container_box()` | Always pass a header icon for every container |
+| Route arrows through unrelated sections | Add waypoints to route around unrelated containers |
+| Shrink parent container to widen gaps | Expand parent outward, push siblings further away, expand cloud boundary |
+| Place circles touching arrow lines (zero margin) | Use `COFFSET = CIRCLE_R + 5 + stroke/2` for a 5px visible gap |
+| Place circles near arrow endpoints (arrowheads) | Position circles on the arrow body, away from endpoints — arrowhead triangles extend ~10px back from the tip and must not touch circles |
+| Assume arrow directions without checking reference | Verify every arrow's direction (which end has arrowhead) against the reference image |
+| Add internal arrows in a section not shown in reference | Only add arrows that exist in the reference — standalone icons with no connections are valid |
+| `icon_header_size` smaller than `header_height` | `header_height` is source of truth; always `icon_header_size = header_height` |
 | Use `cy` as icon center for arrows | Shift `cy` by `+ ICON_VSHIFT` so image center aligns at row Y |
 | Pass empty string `""` as icon label | Pass `None` to skip label creation |
 | Ignore label width for border clearance | Calculate label extent and ensure 30px+ gap from borders |
