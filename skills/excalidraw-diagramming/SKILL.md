@@ -15,11 +15,11 @@ Build diagrams by writing Python scripts that call `components.py` — a library
 
 ```
 Python build script (your deliverable)
-    ↓ REST API calls
+    | REST API calls
 Canvas Server (localhost:3000, in-memory)
-    ↓ WebSocket sync
+    | WebSocket sync
 React Frontend (Excalidraw canvas in browser)
-    ↓ export/screenshot
+    | export/screenshot
 PNG output
 ```
 
@@ -27,6 +27,55 @@ PNG output
 - **Build scripts**: `clients/{client}/{project}/diagrams/` — one per diagram, versioned
 - **Icons**: `mcp_excalidraw/aws-icons-official/` — SVG icon packs
 - **Canvas state**: JSON snapshots for restore after server restart
+
+## Connection Mode Detection
+
+Before doing anything, determine which mode is available. Run these checks in order:
+
+### Check 1: MCPorter
+```bash
+mcporter list 2>/dev/null | grep excalidraw
+```
+If you see `excalidraw` with tools listed, use MCPorter mode: `mcporter call excalidraw.<tool> key=value`.
+
+### Check 2: MCP Server (Claude Code / direct MCP)
+```bash
+mcp-cli tools | grep excalidraw
+```
+If you see tools like `excalidraw/batch_create_elements`, use MCP mode directly.
+
+### Check 3: REST API (Fallback)
+```bash
+curl -s http://localhost:3000/health
+```
+If you get `{"status":"ok"}`, use REST API mode with HTTP endpoints.
+
+### Check 4: Nothing works
+Tell the user:
+> The Excalidraw canvas server is not running. To set up:
+> 1. Clone: `git clone https://github.com/fif911/mcp_excalidraw && cd mcp_excalidraw`
+> 2. Build: `npm ci && npm run build`
+> 3. Start canvas: `HOST=0.0.0.0 PORT=3000 npm run canvas`
+> 4. Open `http://localhost:3000` in a browser
+> 5. Add to MCPorter: `mcporter config add excalidraw --command node --arg /path/to/mcp_excalidraw/dist/index.js --scope home`
+
+### MCP vs MCPorter vs REST API Quick Reference
+
+| Operation | MCP Tool | MCPorter | REST API |
+|-----------|----------|----------|----------|
+| Create elements | `batch_create_elements` | `mcporter call excalidraw.batch_create_elements --args '{"elements":[...]}'` | `POST /api/elements/batch` |
+| Get all elements | `query_elements` | `mcporter call excalidraw.query_elements` | `GET /api/elements` |
+| Get one element | `get_element` | `mcporter call excalidraw.get_element id=myId` | `GET /api/elements/:id` |
+| Update element | `update_element` | `mcporter call excalidraw.update_element --args '{...}'` | `PUT /api/elements/:id` |
+| Delete element | `delete_element` | `mcporter call excalidraw.delete_element id=myId` | `DELETE /api/elements/:id` |
+| Clear canvas | `clear_canvas` | `mcporter call excalidraw.clear_canvas` | `DELETE /api/elements/clear` |
+| Describe scene | `describe_scene` | `mcporter call excalidraw.describe_scene` | `GET /api/elements` (parse manually) |
+| Screenshot | `get_canvas_screenshot` | `mcporter call excalidraw.get_canvas_screenshot` | Only via MCP (needs browser) |
+| Viewport | `set_viewport` | `mcporter call excalidraw.set_viewport scrollToContent=true` | `POST /api/viewport` (needs browser) |
+| Export image | `export_to_image` | `mcporter call excalidraw.export_to_image format=png` | `POST /api/export/image` (needs browser) |
+| Export URL | `export_to_excalidraw_url` | `mcporter call excalidraw.export_to_excalidraw_url` | Only via MCP |
+
+MCPorter uses the same MCP tool interface — all MCP mode patterns (labels, arrow binding, etc.) apply identically.
 
 ## Workflow
 
@@ -96,6 +145,130 @@ For each diagram iteration, save three files:
 curl -s http://localhost:3000/api/elements > canvas-state-v{N}.json
 ```
 
+**Never overwrite a previous version.** Old versions are your rollback safety net. Each export maps 1:1 to a build file.
+
+### MCP/REST Workflows (Without Python)
+
+#### MCP Mode
+1. **Call `read_diagram_guide`** first to load design best practices.
+2. **Plan your coordinate grid** (see Quality Gate) before writing any JSON.
+3. Optional: `clear_canvas` to start fresh.
+4. Use `batch_create_elements` with shapes AND arrows in one call.
+5. **Assign custom `id` to shapes** (e.g. `"id": "auth-svc"`). Set `text` field to label shapes.
+6. **Size shapes for their text** — use `width: max(160, textLength * 9)`.
+7. **Bind arrows** using `startElementId` / `endElementId` — arrows auto-route.
+8. `set_viewport` with `scrollToContent: true` to auto-fit the diagram.
+9. **Run Quality Checklist** — `get_canvas_screenshot` and critically evaluate.
+
+#### REST API Mode
+1. Read `references/reference.md` for design guidelines.
+2. **Plan your coordinate grid** before writing any JSON.
+3. Optional: `curl -X DELETE http://localhost:3000/api/elements/clear`
+4. Create elements in one call:
+   ```bash
+   curl -X POST http://localhost:3000/api/elements/batch \
+     -H "Content-Type: application/json" \
+     -d '{"elements": [
+       {"id": "svc-a", "type": "rectangle", "x": 0, "y": 0, "width": 160, "height": 60, "label": {"text": "Service A"}},
+       {"id": "svc-b", "type": "rectangle", "x": 0, "y": 200, "width": 160, "height": 60, "label": {"text": "Service B"}},
+       {"type": "arrow", "x": 0, "y": 0, "start": {"id": "svc-a"}, "end": {"id": "svc-b"}}
+     ]}'
+   ```
+5. **Use `"label": {"text": "..."}` for shape labels** (not `"text": "..."`).
+6. **Bind arrows with `"start": {"id": "..."}` / `"end": {"id": "..."}`**.
+7. **Size shapes for their text** — use `width: max(160, labelTextLength * 9)`.
+8. **Run Quality Checklist** — take screenshot, fix issues before adding more elements.
+
+#### Arrow Binding (MCP vs REST)
+
+**MCP Mode** — use `startElementId` / `endElementId`:
+```json
+{"elements": [
+  {"id": "svc-a", "type": "rectangle", "x": 0, "y": 0, "width": 120, "height": 60, "text": "Service A"},
+  {"id": "svc-b", "type": "rectangle", "x": 0, "y": 200, "width": 120, "height": 60, "text": "Service B"},
+  {"type": "arrow", "x": 0, "y": 0, "startElementId": "svc-a", "endElementId": "svc-b", "text": "calls"}
+]}
+```
+
+**REST API Mode** — use `start: {id}` / `end: {id}` and `label: {text}`:
+```json
+{"elements": [
+  {"id": "svc-a", "type": "rectangle", "x": 0, "y": 0, "width": 120, "height": 60, "label": {"text": "Service A"}},
+  {"id": "svc-b", "type": "rectangle", "x": 0, "y": 200, "width": 120, "height": 60, "label": {"text": "Service B"}},
+  {"type": "arrow", "x": 0, "y": 0, "start": {"id": "svc-a"}, "end": {"id": "svc-b"}, "label": {"text": "calls"}}
+]}
+```
+
+### Iterative Refinement
+
+Each iteration MUST include a quality check.
+
+1. Add elements (`batch_create_elements`, `create_element`, or Python script).
+2. `set_viewport` with `scrollToContent: true`.
+3. `get_canvas_screenshot` — **critically evaluate** against the Quality Checklist.
+4. **If issues found** — fix them (`update_element`, `delete_element`, resize, reposition).
+5. `get_canvas_screenshot` again — re-verify fix.
+6. **Only proceed to next iteration when ALL quality checks pass.**
+
+How to critically evaluate a screenshot:
+- Look at EVERY label — is any text cut off or overflowing its container?
+- Look at EVERY arrow — does any arrow pass through an unrelated element?
+- Look at ALL element pairs — do any overlap or touch?
+- Look at spacing — is anything crammed together?
+- **Be honest.** If you see ANY issue, say "I see [issue], fixing it" — not "looks great".
+
+### Other Workflows
+
+**Refine existing diagram:** `describe_scene` to understand state. Identify targets by id/type/label. `update_element` to move/resize/recolor. `get_canvas_screenshot` to verify.
+
+**File I/O:** `export_scene` to .excalidraw JSON. `import_scene` with `mode: "replace"` or `"merge"`. `export_to_image` for PNG/SVG (requires browser). CLI: `node scripts/export-elements.cjs --out diagram.elements.json`.
+
+**Snapshots:** `snapshot_scene` before risky changes. `restore_snapshot` to rollback.
+
+**Duplication:** `duplicate_elements` with `elementIds` and optional `offsetX`/`offsetY` (default 20,20).
+
+**Share:** `export_to_excalidraw_url` uploads encrypted scene, returns shareable URL.
+
+**Viewport:** `set_viewport` with `scrollToContent: true` (zoom-to-fit), `scrollToElementId` (center on element), or `zoom`/`offsetX`/`offsetY` (manual).
+
+## Quality Gate (MANDATORY)
+
+**After EVERY iteration, you MUST run a quality check before proceeding. NEVER say "looks great" unless ALL checks pass.**
+
+### Quality Checklist
+1. **Text truncation**: Is ALL text fully visible? Labels must fit inside their shapes.
+2. **Overlap**: Do ANY elements overlap each other? Background zones must fully contain their children with padding.
+3. **Arrow crossing**: Do arrows cross through unrelated elements or overlap with text labels? Use curved/elbowed arrows with waypoints to route around obstacles.
+4. **Arrow-text overlap**: Do arrow labels overlap with shapes? Adjust arrow path or label position.
+5. **Spacing**: At least 40px gap between elements.
+6. **Readability**: All labels readable at normal zoom. Font size >= 16 body, >= 20 titles.
+7. **Arrow bindings**: Every arrow has start/end binding. Run `validate_arrow_paths()`.
+8. **Element overlaps**: Run `validate_diagram()`.
+
+### If ANY issue is found:
+- **STOP adding new elements**
+- Fix the issue first (resize, reposition, delete and recreate)
+- Re-verify with a new screenshot
+- Only proceed after ALL checks pass
+
+### Sizing Rules
+- **Shape width**: `max(160, labelTextLength * 9)` pixels.
+- **Shape height**: 60px for single line, 80px for 2 lines, 100px for 3 lines.
+- **Background zones**: Add 50px padding on ALL sides around contained elements.
+- **Element spacing**: 60px vertical between tiers, 40px horizontal between siblings.
+- **Side panels**: Place at least 80px away from main diagram elements.
+- **Arrow labels**: Keep labels short (1-2 words).
+
+### Layout Planning
+Before creating elements, plan your coordinate grid:
+- Tier 1 (y=50-130): Client apps
+- Tier 2 (y=200-280): Gateway/Edge
+- Tier 3 (y=350-440): Services (each ~180px apart)
+- Tier 4 (y=510-590): Data stores
+- Side panels: x < 0 (left) or x > mainDiagramRight + 80 (right)
+
+**Do NOT place side panels at the same x-range as the main diagram — they WILL overlap.**
+
 ## Component Reference
 
 ### `icon_label_component(prefix, file_id, label_text, cx, cy, ...)`
@@ -120,6 +293,7 @@ Rectangle with optional header icon + label in top-left.
 - `icon_file_id`: optional header icon
 - `label_text`: optional header label
 - `stroke_style`: "solid" or "dashed"
+- `header_fill`: True|False to control header background rectangle
 - Returns: `{box_id, icon_id, label_id, group_id, bbox}`
 
 ### `service_in_container(prefix, file_id, label_text, container_id, ...)`
@@ -143,6 +317,11 @@ Simplified arrow creation with elbowed routing and element bindings.
 - Sets up start/end bindings
 - **Note:** Routing happens client-side (React frontend) — server stores 2-point path
 
+### `text_box(prefix, text, cx, cy, ...)`
+Text element with optional border rectangle.
+- `min_width`, `max_height`: constrain dimensions for uniform sizing
+- `font_size`: text size
+
 ### `measure_text(text, font_size=22)`
 Get accurate text width/height from server using per-character Helvetica width tables.
 
@@ -162,6 +341,63 @@ Check diagram for: border crossings, tight margins, text overlaps, non-standard 
 - `upload_all_icons()` — upload from all packs
 - `register_icon_pack(name, icons, base_path=None)` — register a new icon pack
 - Built-in packs: `"aws"` (16 service + resource icons)
+
+## Arrow Routing
+
+### Primary: Elbowed Arrows (built-in Excalidraw routing)
+
+Use `elbowed_arrow()` for all connections. Excalidraw's React frontend handles A* pathfinding client-side.
+
+```python
+elbowed_arrow("a1", "img-source", "img-target")
+```
+
+**How it works:** Python creates the arrow with `elbowed: true` and element bindings. The server stores a 2-point path. When the frontend renders it, Excalidraw's built-in router calculates the actual elbowed path.
+
+**Limitation:** Server-stored points are just start-end, not the actual routed path. Use visual inspection for validation.
+
+### Fallback: Python + MCP Tweaking
+
+If elbowed arrows don't route well:
+1. Create basic arrows with `arrow()` using explicit waypoints
+2. Inspect visually via MCP `get_canvas_screenshot` or browser
+3. Tweak individual arrows via MCP `update_element` to adjust points
+4. Re-inspect until routing looks clean
+
+### Manual Waypoints
+
+For precise control, use `arrow()` with explicit waypoints:
+
+```python
+# L-shaped: right then down
+arrow("a1", 100, 200, 400, 500,
+      waypoints=[(400, 200)])  # goes right to x=400, then down to y=500
+
+# Z-shaped: right, down, right
+arrow("a2", 100, 200, 500, 400,
+      waypoints=[(300, 200), (300, 400)])
+```
+
+All waypoints are absolute coordinates. The function converts to relative points internally.
+
+### Curved Arrows (MCP/REST)
+
+For non-Python usage, add intermediate waypoints + `roundness`:
+```json
+{
+  "type": "arrow", "x": 100, "y": 100,
+  "points": [[0, 0], [50, -40], [200, 0]],
+  "roundness": {"type": 2},
+  "strokeColor": "#1971c2"
+}
+```
+
+**When to use which:**
+- **Fan-out arrows** (one source, many targets): Curved arrows with waypoints spread vertically.
+- **Cross-lane arrows** (connecting to side panels): Elbowed arrows that route around the main diagram.
+- **Inter-service arrows** (horizontal connections): Curved arrows with slight vertical offset.
+
+**Rule:** If an arrow would cross through an unrelated element, add a waypoint to route around it.
 
 ## Critical Rules
 
@@ -186,59 +422,255 @@ Check diagram for: border crossings, tight margins, text overlaps, non-standard 
 - All component functions set `groupIds` automatically.
 - Pattern: `g-{prefix}` for icon+label, `g-{cid}` for containers.
 
-### Font
+### Supported Fonts
+
+| ID | Name(s) | Style |
+|----|---------|-------|
+| 1  | `virgil`, `hand`, `handwritten` | Hand-drawn sketch (Excalidraw default) |
+| 2  | `helvetica`, `sans`, `sans-serif` | Clean sans-serif (**recommended**) |
+| 3  | `cascadia`, `mono`, `monospace` | Monospace (code/technical labels) |
+| 5  | `excalifont` | Excalidraw's custom sketch font |
+| 6  | `nunito` | Rounded sans-serif |
+| 7  | `lilita`, `lilita one` | Bold display font |
+| 8  | `comic shanns`, `comic` | Comic Sans alternative |
+
 - Use fontFamily `"2"` (Helvetica) for all text — must be string, not number.
 - Use consistent fontSize: 22px for labels, 18px for circle numbers.
 - `fillStyle: "solid"` required for background colors to show.
+- **All text elements AND labels MUST use the same fontFamily** unless there's a specific design reason.
+- **Labels accept fontFamily**: `"label": {"text": "Service A", "fontFamily": "helvetica"}`. Without `fontFamily`, labels render in Virgil. Also accepts `fontSize` and `strokeColor`.
+- **Dark-filled shapes with labels**: Labels inherit `strokeColor` from parent. On dark shapes, labels are invisible. Fix: `"label": {"text": "1", "strokeColor": "#ffffff", "fontFamily": "helvetica"}`.
 
-## Arrow Routing
+### REST API Gotchas
+1. **Labels**: Use `"label": {"text": "My Label"}` (not `"text": "My Label"`). MCP tools auto-convert, REST API does not.
+2. **Arrow binding**: Use `"start": {"id": "svc-a"}, "end": {"id": "svc-b"}` (not `"startElementId"`/`"endElementId"`).
+3. **fontFamily**: Pass a string name or numeric ID — both work, server normalizes automatically.
+4. **Updating labels**: When updating via `PUT /api/elements/:id`, include the full `label` in the update body to preserve it.
+5. **Screenshot in REST mode**: `POST /api/export/image` returns `{"data": "<base64>"}`. Requires browser open.
 
-### Primary: Elbowed Arrows (built-in Excalidraw routing)
+### Points Format
+The `points` field accepts both formats:
+- Tuple: `[[0, 0], [100, 50]]`
+- Object: `[{"x": 0, "y": 0}, {"x": 100, "y": 50}]`
 
-Use `elbowed_arrow()` for all connections. Excalidraw's React frontend handles A* pathfinding client-side — arrows auto-route around obstacles when rendered.
+Both are normalized to tuples automatically.
 
-```python
-elbowed_arrow("a1", "img-source", "img-target")
-```
+## Positioning Lessons (from build iterations)
 
-**How it works:** Python creates the arrow with `elbowed: true` and element bindings. The server stores a 2-point path. When the frontend renders it, Excalidraw's built-in router calculates the actual elbowed path around obstacles.
-
-**Limitation:** The server-stored points are just start→end, not the actual routed path. Programmatic validation of arrow paths won't work. Use visual inspection instead.
-
-### Fallback: Python + MCP Tweaking
-
-If elbowed arrows don't route well (e.g. awkward paths, arrows too close together):
-
-1. **Create basic arrows with Python** using `arrow()` with explicit waypoints
-2. **Inspect visually** via MCP `get_canvas_screenshot` or browser
-3. **Tweak individual arrows** via MCP `update_element` to adjust points
-4. **Re-inspect** until the routing looks clean
-
-```python
-# Step 1: Create arrow with approximate waypoints
-arrow("a1", sx, sy, ex, ey, waypoints=[(mid_x, sy), (mid_x, ey)])
-
-# Step 2-3: Inspect and tweak via MCP tools or REST API
-# update("a1", {"points": [[0,0], [dx1,0], [dx1,dy1], [dx2,dy1], [dx2,dy2]]})
-```
-
-### Manual Waypoints
-
-For precise control, use `arrow()` with explicit waypoints:
+### Arrow Labels: Center Between Endpoints Using `measure_text`
+Arrow annotation labels must be **horizontally centered** between the arrow start and end points, and placed **fully above** (or below) the arrow line. Use `measure_text` to get the exact text width, then compute `x = midpoint - text_width / 2`.
 
 ```python
-# L-shaped: right then down
-arrow("a1", 100, 200, 400, 500,
-      waypoints=[(400, 200)])  # goes right to x=400, then down to y=500
+ARROW_LEFT = CIRCLE_X + CIRCLE_R    # arrow start x
+ARROW_RIGHT = SVC_X - ICON_R        # arrow end x
+ARROW_MID_X = (ARROW_LEFT + ARROW_RIGHT) / 2
 
-# Z-shaped: right, down, right
-arrow("a2", 100, 200, 500, 400,
-      waypoints=[(300, 200), (300, 400)])
+tw, th = measure_text(label_text, FONT_BODY)
+label_x = ARROW_MID_X - tw / 2      # horizontally centered
+label_y = row_y - th - 4            # above arrow with 4px gap
 ```
 
-All waypoints are absolute coordinates. The function converts to relative points internally.
+### Numbered Circle Placement: No Border Overlaps, No Arrow Overlaps
+Circles must never overlap container borders OR sit on arrow paths. Two hard rules:
 
-## Icon Management
+1. **No border crossings:** Every circle must be fully inside or fully outside every container. Center circles in the available gap between borders.
+2. **No arrow overlaps:** If a circle is near an arrow path, offset it vertically (`cy = arrow_y - CIRCLE_R - 5`) so it sits just above (or below) the arrow line.
+
+**Placement decision:** If there's enough space outside a container (gap >= `circle_size + 30px`), place outside. Otherwise, place inside the container in the gap between borders.
+
+**Minimum clearance:** circle edge must be at least 15px from any border.
+
+### Hard Rule: No Icon or Circle May Cross Any Container Border
+Every icon, icon background rectangle, and numbered circle must be **fully inside** or **fully outside** every container. To ensure clearance: `element_edge = cx + radius` must be `< container_border - 15` (inside) or `> container_border + 15` (outside).
+
+### Account for Label Width Near Container Borders
+Service icon labels (e.g. "Amazon Rekognition" ~190px wide) extend far beyond the icon itself. When placing icons outside a container, ensure the **label's left edge** clears the container border by at least 30px: `AI_X - (max_label_width / 2) > container_right_edge + 30`.
+
+### No Borders on Icons or Circles
+Icon background rectangles and numbered circle ellipses must have `strokeWidth: 0` and `strokeColor: "transparent"`. Enforced in `components.py` — never override with a visible stroke.
+
+### AWS Icons Have Built-in Backgrounds — Don't Add `icon_bg_color`
+AWS official SVG icons already include colored background fills. Adding `icon_bg_color` creates a second, mismatched background. **Do not use `icon_bg_color` for AWS service icons.** Only use it for custom icons with no built-in background.
+
+### Z-Order: Create Background Elements First
+Elements render in creation order (first created = bottom layer). Create numbered circles **after** nearby icon components so the circle renders on top.
+
+### Consistent Styling via Shared Constants
+Same-category elements must use **identical style parameters** defined as shared constants at the top of the script.
+
+```python
+# Shared style constants (top of script)
+CIRCLE_BG = "#1a1a1a"   # All numbered circles — same color
+CIRCLE_SIZE = 40         # All numbered circles — same size
+SVC_ICON = 69            # All service icons — one constant controls all sizes
+HDR_ICON = SVC_ICON      # Header icons match service icons
+FONT_HDR = 28            # Container header labels only
+FONT_BODY = 20           # Everything else: icon labels, numbers, arrows, text boxes
+```
+
+**Font size rule:** A diagram uses exactly **2 font sizes** — `FONT_HDR` for container headers, `FONT_BODY` for all other text. No exceptions.
+
+Categories that must be uniform within a diagram:
+- **Font sizes**: exactly 2 — `FONT_HDR` for container headers, `FONT_BODY` for everything else
+- **Numbered circles**: same `size`, `bg_color`, and `font_size`
+- **Service icons**: same `icon_size` via single `SVC_ICON` constant
+- **Container headers**: same `icon_header_size` via `HDR_ICON = SVC_ICON`, same `label_font_size` via `FONT_HDR`
+- **Text boxes**: same `font_size`, `stroke_width`, `corner_radius`, `min_width`, and `max_height` within a section
+- **Arrows**: same `stroke_width` for same-type connections
+
+### Icon Scaling Ripple Effects
+Changing `SVC_ICON` triggers a cascade of layout adjustments:
+
+| What | Rule |
+|------|------|
+| `HDR_ICON` | Must equal `SVC_ICON` — auto-updates if defined as `HDR_ICON = SVC_ICON` |
+| `header_height` | Should equal `SVC_ICON` so header bg matches icon |
+| Container heights | Grow by ~1.15x the icon delta per row inside |
+| Inner sub-section heights | Same proportional growth |
+| Row Y spacing | Add ~10-15px gap per row to prevent icon/label overlap |
+| Sub-container Y offsets | Push down to account for taller headers |
+| Arrow endpoints | Start/end offsets from icons grow with icon size (use +/-icon_size*0.8 as guide) |
+| External elements | Reposition to stay vertically aligned with new row centers |
+
+**Key principle:** When `SVC_ICON` changes, treat it as a full layout reflow — adjust every Y position and every container dimension.
+
+### Font Scaling Ripple Effects
+Changing `FONT_HDR` or `FONT_BODY` also triggers layout adjustments:
+
+| What | Rule |
+|------|------|
+| `header_height` | Must fit tallest header text. For multi-line: `lines x font_size x 1.25` |
+| Sub-container Y offsets | Push down when header text grows |
+| Arrow label Y offsets | Recalculate offset above arrow y |
+| Container heights | Larger body text makes rows taller |
+| Row Y spacing | Add ~5px per row for every +4px in FONT_BODY |
+| Text box dimensions | Vertical chain arrows must account for taller boxes |
+
+### Cloud Provider Boundary Is Always the Outermost Container
+The cloud provider boundary (e.g., "AWS Cloud") is **always the outermost container** encompassing all cloud services. Service-specific containers are **nested inside** — never as siblings.
+
+```
+Correct hierarchy:
+  AWS Cloud (outer, gray solid)
+    +-- Front end (dashed sub-section)
+    +-- Step Functions workflow (pink solid, nested inside cloud)
+    +-- AI service icons
+    +-- API Gateway, other services
+
+Wrong:
+  AWS Cloud (left)     Step Functions (right, sibling)
+```
+
+**Rules:**
+- Cloud boundary must encompass **all** nested containers and their children (including labels)
+- Only external/on-premise elements sit outside the cloud boundary
+- Cloud boundary must be **visibly larger** than nested containers on **all sides** — at least 30px clearance
+
+### Align Containers at Matching Levels
+1. **Outer containers** side-by-side must share the same `y` and `header_height` (`HDR_HEIGHT`).
+2. **Inner sub-sections** at same nesting level must share the same `y`. Derive from parent: `SUB_Y = PARENT_Y + HDR_HEIGHT + gap`.
+3. **Stacked containers** must share the same `x` and width.
+
+**SUB_Y gap rule:** Gap between `HDR_HEIGHT` and `SUB_Y` must clear tallest header text. For 2-line text at `FONT_HDR`, add at least `FONT_HDR * 1.25` as gap.
+
+### Header Text Centering: Use `header_height` as Reference
+Header text is vertically centered within the `header_height` band. When all side-by-side containers share the same `header_height`, headers are visually balanced.
+
+### Uniform Text Box Sizing Within Sections
+All `text_box` elements within the same section must have identical dimensions via shared `min_width` and `max_height` constants.
+
+### Empty Labels: Skip Text Creation
+Pass `None` as `label_text` to `icon_label_component` — skips label creation, icon centers directly at `(cx, cy)`.
+
+### Arrow Endpoints: Connect at Image Center, Not Component Center
+`icon_label_component` centers the entire component (icon + gap + label) at `cy`. The **actual icon image center** is shifted up by `ICON_VSHIFT = (gap + label_height) / 2`. All arrows must connect at image centers.
+
+```python
+COMP_GAP = 8
+LABEL_1LINE_H = FONT_BODY * 1.25         # ~25px
+ICON_VSHIFT = (COMP_GAP + LABEL_1LINE_H) / 2   # ~16.5px
+
+# Place icons with cy = ROW_Y + ICON_VSHIFT so image center lands at ROW_Y
+icon_label_component("svc", "file-svc", "Service Name", cx=SVC_X, cy=ROW_Y + ICON_VSHIFT, ...)
+
+# Label-less icons: image center IS at cy, no shift needed
+icon_label_component("people", "file-users", None, cx=50, cy=ROW_Y, ...)
+
+# Horizontal arrows at ROW_Y — connects all centers cleanly
+arrow("a1", CIRCLE_X + CIRCLE_R, ROW_Y, SVC_X - ICON_R, ROW_Y, ...)
+```
+
+**Rules:**
+- Shift `cy` by `+ ICON_VSHIFT` so image center lands at row Y
+- Label-less icons: no shift needed
+- Horizontal arrows: both endpoints at same Y
+- Vertical arrows between icons: start below source label, end at target icon top
+
+### Validation False Positives
+`validate_diagram()` and `validate_arrow_paths()` report TEXT_OVERLAP for arrows that intentionally pass through annotation text areas. BORDER warnings for elements near container edges are also expected when icons are intentionally placed outside containers.
+
+## Anti-Patterns
+
+| Don't | Do Instead |
+|-------|-----------|
+| Place cloud boundary and service containers as siblings | Nest service containers inside the cloud boundary |
+| Hand-tune pixel positions | Use component functions with calculated positions |
+| Batch-create 200 elements blindly | Build incrementally: containers, services, arrows, validate |
+| Trust vision models for arrow tracing | Use programmatic validation (`validate_arrow_paths`) |
+| Call raw Puppeteer for export | Use `export_screenshot()` or `headless-export.cjs` |
+| Guess text width | Call `measure_text()` for every positioning calculation |
+| Set explicit `width` on text | Let Excalidraw auto-size, position with `measure_text()` |
+| Use `diagram_helpers.py` | Use `components.py` (diagram_helpers is deprecated) |
+| Mix fontFamily across elements | Pick one (fontFamily `"2"`) and use everywhere |
+| Skip validation before export | Always run `validate_diagram()` + `validate_arrow_paths()` |
+| Claim "done" without checking | Export PNG, run quality checklist, then deliver |
+| Place arrow labels at same y as arrows | Position labels fully above/below the arrow line |
+| Hardcode arrow label x-offsets | Use `measure_text` to center labels between endpoints |
+| Place numbered circles on arrow paths | Offset circles above/below/beside arrows |
+| Place circles near container borders | Center circles in the gap between borders |
+| Use `cy` as icon center for arrows | Shift `cy` by `+ ICON_VSHIFT` so image center aligns at row Y |
+| Pass empty string `""` as icon label | Pass `None` to skip label creation |
+| Ignore label width for border clearance | Calculate label extent and ensure 30px+ gap from borders |
+
+## AWS Color Reference
+
+### Container Border Style Hierarchy
+
+| Level | Style | Stroke Width | Example |
+|-------|-------|-------------|---------|
+| Cloud provider boundary (outermost) | solid | 2px | AWS Cloud |
+| Service-specific boundary (nested) | solid | 2px | Step Functions, VPC |
+| Logical sub-section (nested inside service) | dashed | 1px | Front-end group |
+
+**Rules:**
+- Cloud provider boundary is **always outermost**
+- Service-specific containers use **solid** borders with brand color
+- Logical sub-sections use **dashed** borders
+- Stroke color: gray (#879196) for neutral, brand color for service-specific
+- Only external elements sit outside the cloud boundary
+
+### Common Container Colors
+| Purpose | Stroke | Fill | Style |
+|---------|--------|------|-------|
+| Neutral outer boundary | #879196 (gray) | transparent | solid, 2px |
+| Neutral sub-section | #879196 (gray) | transparent | dashed, 1px |
+| Branded outer boundary | service color (e.g. #d63384 pink) | transparent | solid, 2px |
+| Filled themed section | service color | light tint (e.g. #f0fdfa) | solid |
+
+### Icon Background Colors
+AWS official SVG icons include their own background colors:
+| Service | SVG built-in fill |
+|---------|------------------|
+| S3 | #7AA116 (green) |
+| Amplify | #DD344C (red) |
+| Cognito | #DD344C (red) |
+| API Gateway | #8C4FFF (purple) |
+| AI services (Textract, Rekognition, etc.) | #01A88D (teal) |
+
+### Numbered Circle Colors
+All numbered circles should use the **same** `bg_color`. Define a single `CIRCLE_BG` constant. Default: `#1a1a1a` (dark).
+
+## Icon Packs
 
 ### Available Packs
 - **aws**: 16 AWS service + resource icons (SVG)
@@ -260,365 +692,8 @@ register_icon_pack("gcp", {
 - Use generic Resource icons for generic concepts (database, user, toolkit)
 - Use service icons ONLY for specific cloud services
 
-## MCP Tools for Inspection
-
-When configured as an MCP server, these tools are available for read-only inspection:
-
-| Tool | Purpose |
-|------|---------|
-| `describe_scene` | Get structured text description of canvas state |
-| `get_canvas_screenshot` | Capture current canvas as image |
-
-These supplement Python scripts — use them for visual verification, not for building.
-
-## Quality Checklist
-
-See `references/reference.md` for the full two-layer validation checklist.
-
-**Quick check after every iteration:**
-1. All text fully visible? No truncation or overflow.
-2. No element overlaps? Run `validate_diagram()`.
-3. Arrows route cleanly? Run `validate_arrow_paths()`. No crossings through unrelated elements.
-4. Consistent spacing? At least 40px between elements.
-5. All labels readable at 50% zoom? Font size >= 16 body, >= 20 titles.
-6. Arrow bindings intact? Every arrow has start/end binding.
-
-## Positioning Lessons (from build iterations)
-
-### Arrow Labels: Center Between Endpoints Using `measure_text`
-Arrow annotation labels must be **horizontally centered** between the arrow start and end points, and placed **fully above** (or below) the arrow line. Use `measure_text` to get the exact text width, then compute `x = midpoint - text_width / 2`.
-
-```python
-ARROW_LEFT = CIRCLE_X + CIRCLE_R    # arrow start x
-ARROW_RIGHT = SVC_X - ICON_R        # arrow end x
-ARROW_MID_X = (ARROW_LEFT + ARROW_RIGHT) / 2
-
-tw, th = measure_text(label_text, FONT_BODY)
-label_x = ARROW_MID_X - tw / 2      # horizontally centered
-label_y = row_y - th - 4            # above arrow with 4px gap
-```
-
-Never use hardcoded x-offsets for labels — always measure and center. This prevents labels from overlapping arrowheads at either end.
-
-### Numbered Circle Placement: No Border Overlaps, No Arrow Overlaps
-Circles must never overlap container borders OR sit on arrow paths. Two hard rules:
-
-1. **No border crossings:** Every circle must be fully inside or fully outside every container. Center circles in the available gap between borders.
-2. **No arrow overlaps:** If a circle is near an arrow path, offset it vertically (`cy = arrow_y - CIRCLE_R - 5`) so it sits just above (or below) the arrow line — close enough to associate, but no overlap.
-
-**Placement decision:** If there's enough space outside a container (gap ≥ `circle_size + 30px`), place outside. Otherwise, place **inside** the container in the gap between borders.
-
-```python
-# Between two borders (outer container and inner sub-section)
-C57_X = (SF_X + PP_X) / 2   # centered in the gap, equal clearance from both
-
-# Inside container, between sub-section right and container right
-C6_X = (PP_X + PP_W + SF_X + SF_W) / 2   # centered in the gap
-# Offset above arrow to avoid overlap
-numbered_circle("c6", 6, cx=C6_X, cy=arrow_y - CIRCLE_R - 5, ...)
-
-# At arrow start (circle is source of the arrow)
-numbered_circle("c1", 1, cx=CIRCLE_X, cy=ROW_Y, ...)
-arrow("a1", CIRCLE_X + CIRCLE_R, ROW_Y, SVC_X - ICON_R, ROW_Y, ...)
-```
-
-**Minimum clearance:** circle edge must be at least 15px from any border.
-
-### Hard Rule: No Icon or Circle May Cross Any Container Border
-Every icon, icon background rectangle, and numbered circle must be **fully inside** or **fully outside** every container. Partial overlap with any border is forbidden.
-
-To ensure clearance: `element_edge = cx + radius` must be `< container_border - 15` (inside) or `> container_border + 15` (outside).
-
-### Account for Label Width Near Container Borders
-Service icon labels (e.g. "Amazon Rekognition" ~190px wide) extend far beyond the icon itself. When placing icons outside a container, ensure the **label's left edge** clears the container border by at least 30px. Calculate: `AI_X - (max_label_width / 2) > container_right_edge + 30`.
-
-### No Borders on Icons or Circles
-Icon background rectangles and numbered circle ellipses must have `strokeWidth: 0` and `strokeColor: "transparent"`. This is enforced in `components.py` — the `icon_label_component` and `numbered_circle` functions set these automatically. Never override with a visible stroke.
-
-### AWS Icons Have Built-in Backgrounds — Don't Add `icon_bg_color`
-AWS official SVG icons (from `aws-icons-official/`) already include colored background fills (e.g. S3: `#7AA116`, Amplify: `#DD344C`). Adding `icon_bg_color` creates a second, mismatched background rectangle that shows as a visible "border" around the icon. **Do not use `icon_bg_color` for AWS service icons.** Only use it for custom icons that have no built-in background.
-
-```python
-# Bad: double background creates visible border artifact
-icon_label_component("s3", "file-s3", "Amazon S3", cx=..., cy=...,
-                      icon_size=SVC_ICON, icon_bg_color="#3f8624")  # mismatches SVG's #7AA116
-
-# Good: let the SVG's built-in background show
-icon_label_component("s3", "file-s3", "Amazon S3", cx=..., cy=...,
-                      icon_size=SVC_ICON)
-```
-
-### Z-Order: Create Background Elements First
-Elements render in creation order (first created = bottom layer). Create numbered circles **after** nearby icon components so the circle renders on top and isn't hidden behind icon backgrounds.
-
-### Consistent Styling via Shared Constants
-Same-category elements must use **identical style parameters** defined as shared constants at the top of the script. Never hardcode style values per-element — change the constant once to update all.
-
-```python
-# Shared style constants (top of script)
-CIRCLE_BG = "#1a1a1a"   # All numbered circles — same color
-CIRCLE_SIZE = 40         # All numbered circles — same size
-SVC_ICON = 69            # All service icons — one constant controls all sizes
-HDR_ICON = SVC_ICON      # Header icons match service icons
-FONT_HDR = 28            # Container header labels only
-FONT_BODY = 20           # Everything else: icon labels, numbers, arrows, text boxes
-
-# Then reuse everywhere
-numbered_circle("c1", 1, cx=..., cy=..., size=CIRCLE_SIZE, bg_color=CIRCLE_BG, font_size=FONT_BODY)
-icon_label_component("amplify", "file-amplify", "AWS Amplify", cx=..., cy=...,
-                      icon_size=SVC_ICON, font_size=FONT_BODY)
-container_box("cloud", ..., icon_header_size=HDR_ICON, label_font_size=FONT_HDR)
-text_box("tb-1", "extract text", cx=..., cy=..., font_size=FONT_BODY)
-# Arrow annotation labels — also use FONT_BODY
-create({"id": "lbl-1", "type": "text", ..., "fontSize": FONT_BODY})
-```
-
-**Font size rule:** A diagram uses exactly **2 font sizes** — `FONT_HDR` for container headers, `FONT_BODY` for all other text (icon labels, circle numbers, arrow annotations, text boxes). No exceptions. Pass these explicitly to every component call — do not rely on defaults.
-
-Categories that must be uniform within a diagram:
-- **Font sizes**: exactly 2 — `FONT_HDR` for container headers, `FONT_BODY` for everything else
-- **Numbered circles**: same `size`, `bg_color`, and `font_size`
-- **Service icons**: same `icon_size` via single `SVC_ICON` constant
-- **Container headers**: same `icon_header_size` via `HDR_ICON = SVC_ICON`, same `label_font_size` via `FONT_HDR`
-- **Text boxes**: same `font_size`, `stroke_width`, `corner_radius`, `min_width`, and `max_height` within a section
-- **Arrows**: same `stroke_width` for same-type connections
-
-### Icon Scaling Ripple Effects
-Changing `SVC_ICON` triggers a cascade of layout adjustments. Every item below must be recalculated:
-
-| What | Rule | Example (1.25× scale, +14px icon) |
-|------|------|-----------------------------------|
-| `HDR_ICON` | Must equal `SVC_ICON` — auto-updates if defined as `HDR_ICON = SVC_ICON` | 55→69 |
-| `header_height` | Should equal `SVC_ICON` so header bg matches icon | 55→69 |
-| Container heights | Grow by ~1.15× the icon delta per row inside | 790→910 (~+15% for 6 rows) |
-| Inner sub-section heights | Same proportional growth | 345→400, 450→520 |
-| Row Y spacing | Add ~10-15px gap per row to prevent icon/label overlap | 120px gaps → 130-135px |
-| Sub-container Y offsets | Push down to account for taller headers | +15-20px |
-| Arrow endpoints | Start/end offsets from icons grow with icon size (use `±icon_size*0.8` as guide) | +5-10px per endpoint |
-| External elements | Reposition to stay vertically aligned with new row centers | people/mobile/SDK all shift |
-
-**Key principle:** A single `SVC_ICON` constant controls all icon sizes (service + header). When it changes, treat it as a full layout reflow — adjust every Y position and every container dimension, don't just change the icon size alone.
-
-### Font Scaling Ripple Effects
-Changing `FONT_HDR` or `FONT_BODY` also triggers layout adjustments:
-
-| What | Rule |
-|------|------|
-| `header_height` | Must fit the tallest header text. For multi-line headers, calculate: `lines × font_size × 1.25`. If this exceeds `SVC_ICON`, set `header_height` explicitly. |
-| Sub-container Y offsets | Push down when header text grows — taller headers eat into content area |
-| Arrow label Y offsets | Recalculate: 2-line offset = `-(lines × FONT_BODY × 1.25 + 20)`, 1-line = `-(FONT_BODY × 1.25 + 20)` above arrow y |
-| Container heights | Larger body text makes icon labels taller → rows need more vertical space → containers grow |
-| Row Y spacing | Add ~5px per row for every +4px in FONT_BODY |
-| Text box dimensions | `text_box()` auto-sizes from `font_size`, but vertical chain arrows must account for taller boxes |
-
-### Cloud Provider Boundary Is Always the Outermost Container
-In cloud architecture diagrams, the cloud provider boundary (e.g., "AWS Cloud", "Azure", "GCP") is **always the outermost container** that encompasses all cloud services. Service-specific containers (Step Functions, VPC, ECS Cluster, etc.) are **nested inside** the cloud boundary — never placed as siblings beside it.
-
-```
-Correct hierarchy:
-  AWS Cloud (outer, gray solid)
-    ├── Front end (dashed sub-section)
-    │     ├── Amplify, Cognito, S3
-    ├── Step Functions workflow (pink solid, nested inside cloud)
-    │     ├── Parallel processing (dashed sub-section)
-    ├── AI service icons (Textract, Rekognition, etc.)
-    └── API Gateway, other services
-
-Wrong:
-  AWS Cloud (left container)     Step Functions (right container, sibling)
-    ├── Front end                  ├── Parallel processing
-```
-
-**Rules:**
-- The cloud boundary must be large enough to encompass **all** nested service containers and their child elements (including icon labels that extend beyond icons)
-- Only external/on-premise elements sit outside the cloud boundary (users, mobile clients, on-prem servers, third-party APIs)
-- Service-specific containers keep their own border styling (e.g., pink for Step Functions) but are geometrically nested inside the cloud boundary
-- The cloud boundary must be **visibly larger** than nested service containers on **all sides** (top, bottom, left, right) — at least 30px clearance so the nesting hierarchy is obvious at a glance
-- When calculating cloud boundary dimensions: find the outermost edges of all nested content, add 30px+ padding on each side
-
-```python
-# Cloud boundary extends beyond Step Functions on all sides
-CLOUD_Y = SF_Y - 30                                 # 30px above SF top
-CLOUD_H = SF_H + 60 + 20                            # extends 50px below SF bottom
-CLOUD_W = rightmost_label_edge - CLOUD_X + 30       # clears AI service labels
-
-# Step Functions is independently positioned inside the cloud
-SF_Y = 10                                            # fixed, not derived from CLOUD_Y
-SUB_Y = SF_Y + HDR_HEIGHT + 25                       # sub-containers derive from SF_Y
-```
-
-### Align Containers at Matching Levels
-Side-by-side containers must share aligned edges. Use shared constants to enforce this:
-
-1. **Outer containers** placed side-by-side must share the same `y` and the same `header_height` (`HDR_HEIGHT`). This ensures their header bands and content areas start at the same vertical position.
-2. **Inner sub-sections** at the same nesting level must share the same `y`. Derive it from the parent: `SUB_Y = PARENT_Y + HDR_HEIGHT + gap`.
-3. **Stacked containers** (one above the other) must share the same `x` and width for visual alignment.
-
-```python
-HDR_HEIGHT = 75                          # Shared — fits tallest header (2-line at FONT_HDR)
-SUB_Y = CLOUD_Y + HDR_HEIGHT + 25       # Both dashed sub-sections start here (clears 2-line text)
-
-container_box("cloud", ..., header_height=HDR_HEIGHT)
-container_box("step-fn", ..., SF_Y=CLOUD_Y, header_height=HDR_HEIGHT)  # same Y, same height
-container_box("front-end", ..., FE_Y=SUB_Y)     # aligned
-container_box("parallel",  ..., PP_Y=SUB_Y)     # aligned
-```
-
-**SUB_Y gap rule:** The gap between `HDR_HEIGHT` and `SUB_Y` must clear the tallest header text (including multi-line overflow). For 2-line text at `FONT_HDR`, the second line extends below the header band, so add at least `FONT_HDR * 1.25` as gap — not just 10px.
-
-### Header Text Centering: Use `header_height` as Reference
-Header text is vertically centered within the `header_height` band (not the icon size). This means single-line and multi-line headers are each centered within the same height, keeping both visually balanced relative to the header area:
-
-```python
-# components.py — center text block within header_height band
-_, text_h = measure_text(label_text, label_font_size)
-center_h = header_height or icon_sz
-ly = y + (center_h - text_h) / 2
-```
-
-When all side-by-side containers share the same `header_height` (`HDR_HEIGHT`), each header's text is centered within an identical band, producing consistent visual weight.
-
-### Header Fill Control
-`container_box` supports `header_fill=True|False` to control the header background rectangle. When `header_fill=False`, the header background is not drawn even if `header_bg_color` is provided. Use this when header text should sit on a clean background:
-
-```python
-# Pink border, but no pink fill behind header text
-container_box("step-fn", ..., header_bg_color=PINK+"30", header_fill=False)
-```
-
-### Uniform Text Box Sizing Within Sections
-All `text_box` elements within the same section or sub-section must have identical dimensions, controlled by shared `min_width` and `max_height` constants. This ensures visual consistency even when text content varies in length.
-
-```python
-TB_MIN_W = 150   # All text boxes at least this wide
-TB_MAX_H = 50    # All text boxes capped at this height
-
-text_box("tb-1", "extract text",        cx=..., cy=..., font_size=FONT_BODY, min_width=TB_MIN_W, max_height=TB_MAX_H)
-text_box("tb-2", "prep and\ntranslate", cx=..., cy=..., font_size=FONT_BODY, min_width=TB_MIN_W, max_height=TB_MAX_H)
-```
-
-- `min_width` prevents narrow boxes for short text — all boxes share a consistent minimum width
-- `max_height` caps tall boxes (e.g. multi-line text) so they don't break row spacing
-- Define both as constants and pass to every `text_box` in the section
-
-### Empty Labels: Skip Text Creation
-When an icon has no label, pass `None` (or empty string) as `label_text` to `icon_label_component`. The component will skip creating the text element entirely, and the icon will be centered directly at `(cx, cy)` — no vertical shift from a phantom label.
-
-```python
-# Bad: empty string still shifted icon up in older versions
-icon_label_component("people", "file-users", "", cx=50, cy=560, ...)
-
-# Good: None skips label creation, icon centered at cy
-icon_label_component("people", "file-users", None, cx=50, cy=560, ...)
-```
-
-### Arrow Endpoints: Connect at Image Center, Not Component Center
-`icon_label_component` centers the entire component (icon + gap + label) at `cy`. The **actual icon image center** is shifted up from `cy` by `ICON_VSHIFT = (gap + label_height) / 2`. All arrows must connect at image centers, and components must be positioned so image centers align.
-
-**Preferred approach — shift component `cy` so image center lands at the desired row Y:**
-
-```python
-COMP_GAP = 8                              # gap param in icon_label_component
-LABEL_1LINE_H = FONT_BODY * 1.25         # ~25px for single-line label
-ICON_VSHIFT = (COMP_GAP + LABEL_1LINE_H) / 2   # ~16.5px
-COMP_HALF_H = (SVC_ICON + COMP_GAP + LABEL_1LINE_H) / 2  # 51
-
-# Place icons with cy = ROW_Y + ICON_VSHIFT → image center lands at ROW_Y
-icon_label_component("svc", "file-svc", "Service Name", cx=SVC_X, cy=ROW_Y + ICON_VSHIFT, ...)
-
-# Label-less icons: image center IS at cy, no shift needed
-icon_label_component("people", "file-users", None, cx=50, cy=ROW_Y, ...)
-
-# Circles, text boxes at ROW_Y — all centers aligned → arrows are straight
-numbered_circle("c1", 1, cx=CIRCLE_X, cy=ROW_Y, ...)
-text_box("tb-1", "extract text", cx=TB_X, cy=ROW_Y, ...)
-
-# Horizontal arrows at ROW_Y — connects all centers cleanly
-arrow("a1", CIRCLE_X + CIRCLE_R, ROW_Y, SVC_X - ICON_R, ROW_Y, ...)
-arrow("a2", TB_X + TB_HALF_W, ROW_Y, AI_X - ICON_R, ROW_Y, ...)
-
-# Vertical arrows between icons: start below source label, end at target icon top
-S3_LABEL_BOTTOM = ROW3_Y + ICON_VSHIFT + COMP_HALF_H   # below label text
-APIGW_ICON_TOP = ROW4_Y + ICON_VSHIFT - COMP_HALF_H    # at icon top edge (= ROW4_Y - ICON_R)
-arrow("a-vert", SVC_X, S3_LABEL_BOTTOM, SVC_X, APIGW_ICON_TOP, ...)
-```
-
-**Rules:**
-- **Align at image center:** shift `cy` by `+ ICON_VSHIFT` so the icon image center lands at the intended row Y. This keeps arrow code simple — all arrows use `ROW_Y` directly.
-- **Label-less icons** (`label_text=None`): no shift needed — image center IS at `cy`
-- **Horizontal arrows:** both endpoints at the same Y for clean straight lines
-- **Vertical arrows between icons:** start below the source component's label (avoid text overlap), end at the target icon's top edge
-- **Vertical arrows to icons from below:** stop just below the label text, not at the icon itself — prevents the arrow line from crossing through the label
-- Arrow label midpoints: `LBL_X = (start_x + end_x) / 2`
-- `icon_label_component` returns `bbox.icon_cx`, `bbox.icon_cy` for verification
-
-### Validation False Positives
-`validate_diagram()` and `validate_arrow_paths()` report TEXT_OVERLAP for arrows that intentionally pass through annotation text areas (e.g. arrows from circles through label text to service icons). These are **expected** for this diagram style. BORDER warnings for elements near container edges (e.g. AI service labels near the Step Functions border) are also expected when icons are intentionally placed outside containers.
-
-## Anti-Patterns
-
-| Don't | Do Instead |
-|-------|-----------|
-| Place cloud boundary and service containers as siblings | Nest service containers inside the cloud boundary |
-| Hand-tune pixel positions | Use component functions with calculated positions |
-| Batch-create 200 elements blindly | Build incrementally: containers → services → arrows → validate |
-| Trust vision models for arrow tracing | Use programmatic validation (`validate_arrow_paths`) |
-| Call raw Puppeteer for export | Use `export_screenshot()` or `headless-export.cjs` |
-| Guess text width | Call `measure_text()` for every positioning calculation |
-| Set explicit `width` on text | Let Excalidraw auto-size, position with `measure_text()` |
-| Use `diagram_helpers.py` | Use `components.py` (diagram_helpers is deprecated) |
-| Mix fontFamily across elements | Pick one (fontFamily `"2"`) and use everywhere |
-| Skip validation before export | Always run `validate_diagram()` + `validate_arrow_paths()` |
-| Claim "done" without checking | Export PNG, run quality checklist, then deliver |
-| Place arrow labels at same y as arrows | Position labels fully above/below the arrow line |
-| Hardcode arrow label x-offsets | Use `measure_text` to center labels between arrow endpoints |
-| Place numbered circles on arrow paths | Offset circles above/below/beside arrows (`cy = arrow_y - CIRCLE_R - 5`) |
-| Place circles near container borders | Center circles in the gap between borders (`cx = (border1 + border2) / 2`) |
-| Use `cy` as icon center for arrows | Shift `cy` by `+ ICON_VSHIFT` so image center aligns at row Y |
-| Pass empty string `""` as icon label | Pass `None` to skip label creation — avoids phantom text offset |
-| Ignore label width for border clearance | Calculate label extent and ensure 30px+ gap from borders |
-
-## AWS Color Reference
-
-### Container Border Style Hierarchy
-
-| Level | Style | Stroke Width | Example |
-|-------|-------|-------------|---------|
-| Cloud provider boundary (outermost) | solid | 2px | AWS Cloud — encompasses everything |
-| Service-specific boundary (nested inside cloud) | solid | 2px | Step Functions workflow, VPC |
-| Logical sub-section (nested inside service) | dashed | 1px | Front-end group, parallel processing group |
-
-**Rules:**
-- The cloud provider boundary is **always outermost** — all service containers nest inside it.
-- Service-specific containers use **solid** borders with their brand color (e.g., pink for Step Functions).
-- Logical sub-sections use **dashed** borders — they group related elements that don't include everything in the parent.
-- Stroke color is typically gray (#879196) for neutral containers, or a brand color for service-specific boundaries.
-- Only external elements (users, on-premise clients) sit outside the cloud boundary.
-
-### Common Container Colors
-| Purpose | Stroke | Fill | Style |
-|---------|--------|------|-------|
-| Neutral outer boundary | #879196 (gray) | transparent | solid, 2px |
-| Neutral sub-section | #879196 (gray) | transparent | dashed, 1px |
-| Branded outer boundary | service color (e.g. #d63384 pink) | transparent | solid, 2px |
-| Filled themed section | service color | light tint (e.g. #f0fdfa) | solid |
-
-### Icon Background Colors
-AWS official SVG icons already include their own background colors — do not add `icon_bg_color`. The SVG built-in colors are:
-| Service | SVG built-in fill |
-|---------|------------------|
-| S3 | #7AA116 (green) |
-| Amplify | #DD344C (red) |
-| Cognito | #DD344C (red) |
-| API Gateway | #8C4FFF (purple) |
-| AI services (Textract, Rekognition, etc.) | #01A88D (teal) |
-
-### Numbered Circle Colors
-All numbered circles in a diagram should use the **same** `bg_color` for visual consistency. Define a single `CIRCLE_BG` constant and apply it to every circle. Default: `#1a1a1a` (dark).
-
 ## References
 
 - **Reference & checklist**: `skills/excalidraw-diagramming/references/reference.md`
 - **Example build script**: `skills/excalidraw-diagramming/references/example-build.py`
 - **components.py source**: `mcp_excalidraw/scripts/components.py`
-- **smart_arrow.py**: `mcp_excalidraw/scripts/smart_arrow.py` (archived — experimental, not reliable)
