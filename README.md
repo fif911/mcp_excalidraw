@@ -370,7 +370,7 @@ Config location: `~/.gemini/antigravity/mcp_config.json`
 This repo includes a skill at `skills/excalidraw-skill/` that provides:
 
 - **Workflow playbook** (`SKILL.md`): step-by-step guidance for drawing, refining, and exporting diagrams
-- **Cheatsheet** (`references/cheatsheet.md`): MCP tool and REST API reference
+- **Reference** (`references/reference.md`): MCP tool/REST API reference and quality checklist
 - **Helper scripts** (`scripts/*.cjs`): export, import, clear, healthcheck, CRUD operations
 
 The skill complements the MCP server by giving your AI agent structured workflows to follow.
@@ -419,7 +419,7 @@ EXPRESS_SERVER_URL=http://127.0.0.1:3000 node skills/excalidraw-skill/scripts/im
 - Automated smoke tests: create/update/delete a known element to validate a deployment.
 - Repeatable diagrams: keep a library of element JSON snippets and import them.
 
-See `skills/excalidraw-skill/SKILL.md` and `skills/excalidraw-skill/references/cheatsheet.md`.
+See `skills/excalidraw-skill/SKILL.md` and `skills/excalidraw-skill/references/reference.md`.
 
 ## MCP Tools (26 Total)
 
@@ -434,7 +434,7 @@ See `skills/excalidraw-skill/SKILL.md` and `skills/excalidraw-skill/references/c
 | **Design Guide** | `read_diagram_guide` |
 | **Resources** | `get_resource` |
 
-Full schemas are discoverable via `tools/list` or in `skills/excalidraw-skill/references/cheatsheet.md`.
+Full schemas are discoverable via `tools/list` or in `skills/excalidraw-skill/references/reference.md`.
 
 ## Testing
 

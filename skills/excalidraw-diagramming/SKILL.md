@@ -271,7 +271,7 @@ These supplement Python scripts — use them for visual verification, not for bu
 
 ## Quality Checklist
 
-See `references/checklist.md` for the full two-layer validation checklist.
+See `references/reference.md` for the full two-layer validation checklist.
 
 **Quick check after every iteration:**
 1. All text fully visible? No truncation or overflow.
@@ -350,20 +350,27 @@ CIRCLE_BG = "#1a1a1a"   # All numbered circles — same color
 CIRCLE_SIZE = 40         # All numbered circles — same size
 SVC_ICON = 69            # All service icons — one constant controls all sizes
 HDR_ICON = SVC_ICON      # Header icons match service icons
+FONT_HDR = 28            # Container header labels only
+FONT_BODY = 20           # Everything else: icon labels, numbers, arrows, text boxes
 
 # Then reuse everywhere
-numbered_circle("c1", 1, cx=..., cy=..., size=CIRCLE_SIZE, bg_color=CIRCLE_BG)
-numbered_circle("c2", 2, cx=..., cy=..., size=CIRCLE_SIZE, bg_color=CIRCLE_BG)
+numbered_circle("c1", 1, cx=..., cy=..., size=CIRCLE_SIZE, bg_color=CIRCLE_BG, font_size=FONT_BODY)
 icon_label_component("amplify", "file-amplify", "AWS Amplify", cx=..., cy=...,
-                      icon_size=SVC_ICON)
-container_box("cloud", ..., icon_header_size=HDR_ICON)
+                      icon_size=SVC_ICON, font_size=FONT_BODY)
+container_box("cloud", ..., icon_header_size=HDR_ICON, label_font_size=FONT_HDR)
+text_box("tb-1", "extract text", cx=..., cy=..., font_size=FONT_BODY)
+# Arrow annotation labels — also use FONT_BODY
+create({"id": "lbl-1", "type": "text", ..., "fontSize": FONT_BODY})
 ```
 
+**Font size rule:** A diagram uses exactly **2 font sizes** — `FONT_HDR` for container headers, `FONT_BODY` for all other text (icon labels, circle numbers, arrow annotations, text boxes). No exceptions. Pass these explicitly to every component call — do not rely on defaults.
+
 Categories that must be uniform within a diagram:
-- **Numbered circles**: same `size` and `bg_color`
+- **Font sizes**: exactly 2 — `FONT_HDR` for container headers, `FONT_BODY` for everything else
+- **Numbered circles**: same `size`, `bg_color`, and `font_size`
 - **Service icons**: same `icon_size` via single `SVC_ICON` constant
-- **Container headers**: same `icon_header_size` via `HDR_ICON = SVC_ICON`
-- **Text boxes**: same `font_size`, `stroke_width`, `corner_radius`
+- **Container headers**: same `icon_header_size` via `HDR_ICON = SVC_ICON`, same `label_font_size` via `FONT_HDR`
+- **Text boxes**: same `font_size`, `stroke_width`, `corner_radius`, `min_width`, and `max_height` within a section
 - **Arrows**: same `stroke_width` for same-type connections
 
 ### Icon Scaling Ripple Effects
@@ -382,19 +389,107 @@ Changing `SVC_ICON` triggers a cascade of layout adjustments. Every item below m
 
 **Key principle:** A single `SVC_ICON` constant controls all icon sizes (service + header). When it changes, treat it as a full layout reflow — adjust every Y position and every container dimension, don't just change the icon size alone.
 
-### Align Container Headers at the Top
-All containers that start at the same `y` must use the same `icon_header_size` so their header icons and labels align horizontally. Define a single `HDR_ICON` constant (equal to `SVC_ICON`) and apply it to every `container_box` call.
+### Font Scaling Ripple Effects
+Changing `FONT_HDR` or `FONT_BODY` also triggers layout adjustments:
 
-### Header Text Must Be Vertically Centered Using Full Text Height
-For multi-line header labels, the label y-position must be calculated from the **full text height** (via `measure_text()`), not just the single-line `font_size`. This is fixed in `components.py`'s `container_box`:
+| What | Rule |
+|------|------|
+| `header_height` | Must fit the tallest header text. For multi-line headers, calculate: `lines × font_size × 1.25`. If this exceeds `SVC_ICON`, set `header_height` explicitly. |
+| Sub-container Y offsets | Push down when header text grows — taller headers eat into content area |
+| Arrow label Y offsets | Recalculate: 2-line offset = `-(lines × FONT_BODY × 1.25 + 20)`, 1-line = `-(FONT_BODY × 1.25 + 20)` above arrow y |
+| Container heights | Larger body text makes icon labels taller → rows need more vertical space → containers grow |
+| Row Y spacing | Add ~5px per row for every +4px in FONT_BODY |
+| Text box dimensions | `text_box()` auto-sizes from `font_size`, but vertical chain arrows must account for taller boxes |
+
+### Align Containers at Matching Levels
+Side-by-side containers must share aligned edges. Use shared constants to enforce this:
+
+1. **Outer containers** placed side-by-side must share the same `y` and the same `header_height` (`HDR_HEIGHT`). This ensures their header bands and content areas start at the same vertical position.
+2. **Inner sub-sections** at the same nesting level must share the same `y`. Derive it from the parent: `SUB_Y = PARENT_Y + HDR_HEIGHT + gap`.
+3. **Stacked containers** (one above the other) must share the same `x` and width for visual alignment.
 
 ```python
-# components.py — correct: centers using actual text height
-_, text_h = measure_text(label_text, label_font_size)
-ly = y + (icon_sz - text_h) / 2
+HDR_HEIGHT = 75                          # Shared — fits tallest header (2-line at FONT_HDR)
+SUB_Y = CLOUD_Y + HDR_HEIGHT + 25       # Both dashed sub-sections start here (clears 2-line text)
+
+container_box("cloud", ..., header_height=HDR_HEIGHT)
+container_box("step-fn", ..., SF_Y=CLOUD_Y, header_height=HDR_HEIGHT)  # same Y, same height
+container_box("front-end", ..., FE_Y=SUB_Y)     # aligned
+container_box("parallel",  ..., PP_Y=SUB_Y)     # aligned
 ```
 
-With this fix, `header_height = icon_size` works correctly — the text is centered within the icon area rather than starting too low and overflowing. The header background matches the icon height, and the text fits inside it.
+**SUB_Y gap rule:** The gap between `HDR_HEIGHT` and `SUB_Y` must clear the tallest header text (including multi-line overflow). For 2-line text at `FONT_HDR`, the second line extends below the header band, so add at least `FONT_HDR * 1.25` as gap — not just 10px.
+
+### Header Text Centering: Use `header_height` as Reference
+Header text is vertically centered within the `header_height` band (not the icon size). This means single-line and multi-line headers are each centered within the same height, keeping both visually balanced relative to the header area:
+
+```python
+# components.py — center text block within header_height band
+_, text_h = measure_text(label_text, label_font_size)
+center_h = header_height or icon_sz
+ly = y + (center_h - text_h) / 2
+```
+
+When all side-by-side containers share the same `header_height` (`HDR_HEIGHT`), each header's text is centered within an identical band, producing consistent visual weight.
+
+### Header Fill Control
+`container_box` supports `header_fill=True|False` to control the header background rectangle. When `header_fill=False`, the header background is not drawn even if `header_bg_color` is provided. Use this when header text should sit on a clean background:
+
+```python
+# Pink border, but no pink fill behind header text
+container_box("step-fn", ..., header_bg_color=PINK+"30", header_fill=False)
+```
+
+### Uniform Text Box Sizing Within Sections
+All `text_box` elements within the same section or sub-section must have identical dimensions, controlled by shared `min_width` and `max_height` constants. This ensures visual consistency even when text content varies in length.
+
+```python
+TB_MIN_W = 150   # All text boxes at least this wide
+TB_MAX_H = 50    # All text boxes capped at this height
+
+text_box("tb-1", "extract text",        cx=..., cy=..., font_size=FONT_BODY, min_width=TB_MIN_W, max_height=TB_MAX_H)
+text_box("tb-2", "prep and\ntranslate", cx=..., cy=..., font_size=FONT_BODY, min_width=TB_MIN_W, max_height=TB_MAX_H)
+```
+
+- `min_width` prevents narrow boxes for short text — all boxes share a consistent minimum width
+- `max_height` caps tall boxes (e.g. multi-line text) so they don't break row spacing
+- Define both as constants and pass to every `text_box` in the section
+
+### Arrow Endpoints: Calculate from Component Centers
+All arrows must start and end at calculated component edge positions — never use hardcoded pixel offsets. Define radius/half-size constants from component dimensions, then compute arrow endpoints as `center ± radius`.
+
+```python
+# Derive edge constants from component dimensions
+CIRCLE_R = CIRCLE_SIZE / 2   # numbered circle radius
+ICON_R   = SVC_ICON / 2      # service icon radius
+TB_HALF_W = TB_MIN_W / 2     # text box half-width
+TB_HALF_H = TB_MAX_H / 2     # text box half-height
+
+# Circle right edge → icon left edge (horizontal arrow)
+arrow("a1", CIRCLE_X + CIRCLE_R, row_y, SVC_X - ICON_R, row_y, ...)
+
+# Icon right edge → text box left edge
+arrow("a2", SVC_X + ICON_R, row_y, TB_X - TB_HALF_W, row_y, ...)
+
+# Text box right edge → AI icon left edge
+arrow("a3", TB_X + TB_HALF_W, tb_y, AI_X - ICON_R, tb_y, ...)
+
+# Vertical: text box bottom → next text box top
+arrow("a4", TB_X, TB1_Y + TB_HALF_H, TB_X, TB2_Y - TB_HALF_H, ...)
+
+# External elements — same pattern with their own radii
+PEOPLE_R = PEOPLE_SZ / 2
+MOBILE_R = MOBILE_SZ / 2
+arrow("a-ext", PEOPLE_CX + PEOPLE_R, PEOPLE_CY, MOBILE_CX - MOBILE_R, MOBILE_CY, ...)
+```
+
+**Rules:**
+- Every component has a center (`cx`, `cy`) and a size → derive radius or half-dimensions
+- Horizontal arrows: use `cx ± radius` for x, keep y at component center
+- Vertical arrows: use `cy ± half_height` for y, keep x at component center
+- Diagonal arrows: use the edge point closest to the target component
+- When icon size changes (`SVC_ICON`), arrow endpoints auto-adjust because they derive from `ICON_R = SVC_ICON / 2`
+- Arrow label midpoints also use calculated positions: `LBL_X = (start_x + end_x) / 2`
 
 ### Validation False Positives
 `validate_diagram()` and `validate_arrow_paths()` report TEXT_OVERLAP for arrows that intentionally pass through annotation text areas (e.g. arrows from circles through label text to service icons). These are **expected** for this diagram style. BORDER warnings for elements near container edges (e.g. AI service labels near the Step Functions border) are also expected when icons are intentionally placed outside containers.
@@ -455,7 +550,7 @@ All numbered circles in a diagram should use the **same** `bg_color` for visual 
 
 ## References
 
-- **Quality checklist**: `skills/excalidraw-diagramming/references/checklist.md`
+- **Reference & checklist**: `skills/excalidraw-diagramming/references/reference.md`
 - **Example build script**: `skills/excalidraw-diagramming/references/example-build.py`
 - **components.py source**: `mcp_excalidraw/scripts/components.py`
 - **smart_arrow.py**: `mcp_excalidraw/scripts/smart_arrow.py` (archived — experimental, not reliable)

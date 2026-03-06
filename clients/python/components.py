@@ -309,6 +309,7 @@ def container_box(cid, x, y, w, h, stroke_color, fill_color="transparent",
                    stroke_width=2, stroke_style="solid", corner_radius=0,
                    icon_header_size=None,
                    header_bg_color=None, header_height=None,
+                   header_fill=True,
                    label_font_size=22):
     """
     Create a container rectangle with optional header (icon + label in top-left).
@@ -316,6 +317,7 @@ def container_box(cid, x, y, w, h, stroke_color, fill_color="transparent",
     Args:
         header_bg_color: Optional colored bar spanning full width at top
         header_height: Height of the header bar (default: icon_size + 10)
+        header_fill: If False, skip drawing the header background even if header_bg_color is set
         label_font_size: Font size for the header label (default 22)
 
     Returns:
@@ -325,6 +327,13 @@ def container_box(cid, x, y, w, h, stroke_color, fill_color="transparent",
     icon_id = None
     label_id = None
     header_bg_id = None
+
+    # Auto-expand width to fit header text on one line
+    if label_text:
+        icon_sz = icon_header_size or 55
+        text_w, _ = measure_text(label_text, label_font_size)
+        min_w = (icon_sz + 5 + text_w + 20) if icon_file_id else (10 + text_w + 20)
+        w = max(w, min_w)
 
     # Box
     create({
@@ -341,7 +350,7 @@ def container_box(cid, x, y, w, h, stroke_color, fill_color="transparent",
     })
 
     # Header background bar (created BEFORE icon/label for z-order)
-    if header_bg_color:
+    if header_bg_color and header_fill:
         icon_sz = icon_header_size or 55
         hdr_h = header_height or (icon_sz + 10)
         header_bg_id = f"{cid}-hdr-bg"
@@ -365,13 +374,14 @@ def container_box(cid, x, y, w, h, stroke_color, fill_color="transparent",
             "groupIds": [group_id]
         })
 
-    # Header label (right of icon) — vertically centered using full text height
+    # Header label (right of icon) — text block centered with icon/header height
     if label_text:
         label_id = f"{cid}-lbl"
         icon_sz = icon_header_size or 55
         lx = x + icon_sz + 5 if icon_file_id else x + 10
         _, text_h = measure_text(label_text, label_font_size)
-        ly = y + (icon_sz - text_h) / 2 if icon_file_id else y + 8
+        center_h = header_height or icon_sz
+        ly = y + (center_h - text_h) / 2 if icon_file_id else y + 8
         create({
             "id": label_id, "type": "text",
             "x": lx, "y": round(ly, 1),
@@ -471,7 +481,7 @@ def grid_2x2(prefix, items, container_id, header_h=45, icon_size=55, font_size=2
 
 
 def text_box(prefix, text, cx, cy,
-             width=None, height=None, padding=12,
+             width=None, height=None, min_width=0, max_height=0, padding=12,
              font_size=18, font_family="2",
              text_color="#1a1a1a", stroke_color="#1a1a1a",
              fill_color="transparent", stroke_width=1,
@@ -482,6 +492,10 @@ def text_box(prefix, text, cx, cy,
     Used for workflow step labels like "extract text", "describe face", etc.
     Auto-sizes from text if width/height not provided.
 
+    Args:
+        min_width: Minimum box width — ensures consistent sizing across text boxes
+        max_height: Maximum box height — caps the height for uniform rows
+
     Returns:
         dict with keys: box_id, text_id, group_id, bbox
     """
@@ -490,8 +504,10 @@ def text_box(prefix, text, cx, cy,
     group_id = f"g-{prefix}"
 
     tw, th = measure_text(text, font_size)
-    w = width or (tw + 2 * padding)
+    w = max(width or (tw + 2 * padding), min_width)
     h = height or (th + 2 * padding)
+    if max_height:
+        h = min(h, max_height)
 
     # Rectangle
     create({

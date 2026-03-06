@@ -188,7 +188,7 @@ The `fontFamily` parameter accepts string names or numeric IDs. The server norma
 1. Run **Step 0** above to detect your connection mode.
 2. Open the canvas URL in a browser (required for image export/screenshot).
 3. **MCP mode**: Use MCP tools for all operations. **REST mode**: Use HTTP endpoints from cheatsheet.
-4. For full tool/endpoint reference, read `references/cheatsheet.md`.
+4. For full tool/endpoint reference, read `references/reference.md`.
 
 ## Workflow: Draw A Diagram
 
@@ -204,7 +204,7 @@ The `fontFamily` parameter accepts string names or numeric IDs. The server norma
 9. **Run Quality Checklist** — `get_canvas_screenshot` and critically evaluate. Fix issues before proceeding.
 
 ### REST API Mode
-1. Read `references/cheatsheet.md` for design guidelines.
+1. Read `references/reference.md` for design guidelines.
 2. **Plan your coordinate grid** (see Quality Gate → Layout Planning) before writing any JSON.
 3. Optional: `curl -X DELETE http://localhost:3000/api/elements/clear`
 4. Create elements in one call (use `@file.json` for large payloads):
@@ -362,4 +362,4 @@ Both are normalized to tuples automatically.
 
 ## References
 
-- `references/cheatsheet.md`: Complete MCP tool list (26 tools) + REST API endpoints + payload shapes.
+- `references/reference.md`: Complete MCP tool list + REST API endpoints + quality checklist.
