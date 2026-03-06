@@ -10,7 +10,7 @@ description: >
 
 # Diagram Review Skill
 
-Review architecture diagrams using an agentic **Think → Act → Observe** loop inspired by
+Review architecture diagrams using an agentic **Think > Act > Observe** loop inspired by
 Gemini's Agentic Vision. Instead of a single static glance, iteratively zoom into regions
 to catch fine-grained issues that full-image review misses.
 
@@ -44,7 +44,7 @@ python3 scripts/crop_region.py <image> <x> <y> <width> <height> <output>.png
 ```
 
 **Minimum inspection passes:**
-- Pass 1: 3×3 grid (9 cells) — structural overview
+- Pass 1: 3x3 grid (9 cells) — structural overview
 - Pass 2: Targeted crops of every container header (icon+label alignment)
 - Pass 3: Targeted crops of every icon+label group (centering)
 - Pass 4: Targeted crops of every arrow endpoint (connection accuracy)
@@ -81,11 +81,24 @@ End with a summary:
 
 ## Key Inspection Patterns
 
+### Container Hierarchy & Nesting
+The cloud provider boundary (e.g. "AWS Cloud") must be the **outermost** container. All service containers are nested inside it, never as siblings. Only external elements (users, mobile apps) sit outside.
+
+**What to check:**
+- Every sub-section is fully inside its parent — at least 15px clearance from parent border on all sides
+- No element straddles a container border (partially inside, partially outside)
+- Cloud boundary is visibly larger than all nested containers
+- When a gap between siblings seems too tight, the fix should be expanding the parent outward — not shrinking it
+
 ### Container Headers
 Crop the top-left corner of every container. Check:
-- Icon touches the border (0px padding)
+- Every container has a header icon — text-only headers are a bug
+- Icon touches the border (0px padding between icon edge and container border)
 - Label is right of icon with ~5px gap
 - Label vertically centered with icon
+- Icon size matches header height (not smaller, which creates misalignment)
+- Containers at the same level share the same Y position and header height
+- Icon-less sub-sections (like "Authentication") have centered labels instead
 
 ### Icon+Label Centering
 For each service icon inside a container:
@@ -93,24 +106,63 @@ For each service icon inside a container:
 - Icon should be horizontally centered
 - Label below icon, also centered on same vertical axis
 - Both centered vertically in available space (below container header)
+- Every icon+label pair must be grouped — they move together
+
+### Icon Backgrounds
+- AWS official SVG icons already include colored background fills (S3=green, Cognito=red, etc.)
+- If you see a **double background** (colored square behind the icon's built-in color), that's a bug — `icon_bg_color` should not be used for AWS icons
+- Icon background rectangles and circle ellipses must have **no visible border/stroke**
+
+### Label Width Near Borders
+Service labels can be much wider than their icons (e.g. "Amazon Rekognition" ~190px). Check that:
+- Label text does not extend past container borders
+- At least 30px clearance between label edge and nearest container border
 
 ### Arrow Endpoints
 Crop each arrow's start and end points. Check:
-- Arrow starts/ends at component edge or center
+- **Arrows connect at icon image centers**, not at the component center (which includes the label below). When an icon has a label, the component center is between icon and label — but arrows should aim at the icon's visual center, which is higher up
 - Arrow doesn't float in empty space
-- Arrow direction is correct
+- Arrow direction is correct (verify against reference)
+- Arrow only crosses container borders it's actually entering/leaving — never passes through unrelated containers
+
+### Arrow Labels
+- Labels must be centered between arrow start and end points (use `measure_text` width)
+- Labels sit fully above or below the arrow line — never overlapping it
+- No overlap with shapes or other arrows
 
 ### Numbered Circles
 Crop each numbered circle. Check:
 - Circle is perfectly round (width === height)
 - Number is centered (white on black)
-- Circle doesn't overlap adjacent elements
+- **Circle is offset from its arrow** — not sitting ON the arrow line. There must be a visible ~5px gap between the arrow line and the circle edge
+- Circle is on the arrow **body**, away from both endpoints — arrowhead triangles extend ~10px back from the tip and must have clear space
+- Circle doesn't overlap adjacent elements (icons, labels, text)
+- Circle is fully inside or fully outside every container — at least 15px from any container border
+- All circles use the same size and color
+
+### Z-Order (Layer Stacking)
+Elements must be layered correctly:
+1. **Containers** — bottom layer
+2. **Service icons + labels** — above containers
+3. **Arrows** — above icons
+4. **Numbered circles** — topmost layer (circles sit ON TOP of arrows)
+
+If an arrow is drawn over a circle, or a container covers an icon, the z-order is wrong.
 
 ### Text Readability
 At every zoom level, verify:
 - Text doesn't overlap any borders or lines
 - Text isn't clipped by containers
 - Multi-line text is properly centered
+
+### Consistent Styling
+Same-category elements must be uniform:
+- Exactly **2 font sizes** in the diagram: one for container headers, one for everything else
+- All numbered circles: same size, same background color, same font size
+- All service icons: same icon size
+- All container headers: same icon size, same label font size
+- All arrows of the same type: same stroke width
+- Color used semantically (same color = same domain)
 
 ## What NOT to Do
 
@@ -120,3 +172,9 @@ At every zoom level, verify:
 - Don't report issues without specific fix instructions
 - Don't accept ovals as circles
 - Don't accept icons with gaps from their container borders
+- Don't accept arrows that visually connect to the component center instead of the icon center
+- Don't accept circles sitting directly on arrow lines (must be offset with gap)
+- Don't accept arrows passing through unrelated containers
+- Don't accept text-only container headers (every container needs a header icon)
+- Don't accept mixed font sizes within the same category
+- Don't accept double backgrounds on AWS service icons
