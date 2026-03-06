@@ -411,6 +411,42 @@ Changing `FONT_HDR` or `FONT_BODY` also triggers layout adjustments:
 | Row Y spacing | Add ~5px per row for every +4px in FONT_BODY |
 | Text box dimensions | `text_box()` auto-sizes from `font_size`, but vertical chain arrows must account for taller boxes |
 
+### Cloud Provider Boundary Is Always the Outermost Container
+In cloud architecture diagrams, the cloud provider boundary (e.g., "AWS Cloud", "Azure", "GCP") is **always the outermost container** that encompasses all cloud services. Service-specific containers (Step Functions, VPC, ECS Cluster, etc.) are **nested inside** the cloud boundary — never placed as siblings beside it.
+
+```
+Correct hierarchy:
+  AWS Cloud (outer, gray solid)
+    ├── Front end (dashed sub-section)
+    │     ├── Amplify, Cognito, S3
+    ├── Step Functions workflow (pink solid, nested inside cloud)
+    │     ├── Parallel processing (dashed sub-section)
+    ├── AI service icons (Textract, Rekognition, etc.)
+    └── API Gateway, other services
+
+Wrong:
+  AWS Cloud (left container)     Step Functions (right container, sibling)
+    ├── Front end                  ├── Parallel processing
+```
+
+**Rules:**
+- The cloud boundary must be large enough to encompass **all** nested service containers and their child elements (including icon labels that extend beyond icons)
+- Only external/on-premise elements sit outside the cloud boundary (users, mobile clients, on-prem servers, third-party APIs)
+- Service-specific containers keep their own border styling (e.g., pink for Step Functions) but are geometrically nested inside the cloud boundary
+- The cloud boundary must be **visibly larger** than nested service containers on **all sides** (top, bottom, left, right) — at least 30px clearance so the nesting hierarchy is obvious at a glance
+- When calculating cloud boundary dimensions: find the outermost edges of all nested content, add 30px+ padding on each side
+
+```python
+# Cloud boundary extends beyond Step Functions on all sides
+CLOUD_Y = SF_Y - 30                                 # 30px above SF top
+CLOUD_H = SF_H + 60 + 20                            # extends 50px below SF bottom
+CLOUD_W = rightmost_label_edge - CLOUD_X + 30       # clears AI service labels
+
+# Step Functions is independently positioned inside the cloud
+SF_Y = 10                                            # fixed, not derived from CLOUD_Y
+SUB_Y = SF_Y + HDR_HEIGHT + 25                       # sub-containers derive from SF_Y
+```
+
 ### Align Containers at Matching Levels
 Side-by-side containers must share aligned edges. Use shared constants to enforce this:
 
@@ -523,6 +559,7 @@ arrow("a-vert", SVC_X, S3_LABEL_BOTTOM, SVC_X, APIGW_ICON_TOP, ...)
 
 | Don't | Do Instead |
 |-------|-----------|
+| Place cloud boundary and service containers as siblings | Nest service containers inside the cloud boundary |
 | Hand-tune pixel positions | Use component functions with calculated positions |
 | Batch-create 200 elements blindly | Build incrementally: containers → services → arrows → validate |
 | Trust vision models for arrow tracing | Use programmatic validation (`validate_arrow_paths`) |
@@ -547,14 +584,16 @@ arrow("a-vert", SVC_X, S3_LABEL_BOTTOM, SVC_X, APIGW_ICON_TOP, ...)
 
 | Level | Style | Stroke Width | Example |
 |-------|-------|-------------|---------|
-| Outer boundary (top-level sections) | solid | 2px | Cloud boundary, workflow boundary |
-| Inner sub-section (logical grouping) | dashed | 1px | Front-end group, parallel processing group |
+| Cloud provider boundary (outermost) | solid | 2px | AWS Cloud — encompasses everything |
+| Service-specific boundary (nested inside cloud) | solid | 2px | Step Functions workflow, VPC |
+| Logical sub-section (nested inside service) | dashed | 1px | Front-end group, parallel processing group |
 
 **Rules:**
-- Outer containers use **solid** borders. Inner sub-sections use **dashed** borders.
-- Dashed = logical grouping of related elements that don't necessarily include everything in the parent.
-- If a sub-section only wraps some elements (e.g. parallel steps but not sequential ones), use dashed to signal it's a grouping, not a full boundary.
-- Stroke color is typically gray (#879196) for neutral containers, or a brand color (e.g. pink for Step Functions) for top-level service boundaries.
+- The cloud provider boundary is **always outermost** — all service containers nest inside it.
+- Service-specific containers use **solid** borders with their brand color (e.g., pink for Step Functions).
+- Logical sub-sections use **dashed** borders — they group related elements that don't include everything in the parent.
+- Stroke color is typically gray (#879196) for neutral containers, or a brand color for service-specific boundaries.
+- Only external elements (users, on-premise clients) sit outside the cloud boundary.
 
 ### Common Container Colors
 | Purpose | Stroke | Fill | Style |
