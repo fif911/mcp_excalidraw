@@ -101,19 +101,25 @@ time.sleep(0.5)
 upload_icons("aws")  # or upload_all_icons()
 time.sleep(0.3)
 
-# 2. Create containers (outside-in)
-container_box("cloud", 30, 5, 1780, 980, "#879196", ...)
+# 2. Define layout constants and validate containment
+CLOUD_X, CLOUD_Y, CLOUD_W, CLOUD_H = 30, 5, 1780, 980
+CHILD_X, CHILD_Y, CHILD_W, CHILD_H = 60, 80, 500, 400
+assert CHILD_X + CHILD_W <= CLOUD_X + CLOUD_W - 15, "child overflows parent"
+# ... assert for EVERY parent-child container pair
 
-# 3. Create service components
+# 3. Create containers (outside-in)
+container_box("cloud", CLOUD_X, CLOUD_Y, CLOUD_W, CLOUD_H, "#879196", ...)
+
+# 4. Create service components
 icon_label_component("s3", "file-s3", "Amazon S3", cx=400, cy=300)
 service_in_container("svc", "file-svc", "Service Name", "container-id")
 
-# 4. Create arrows
+# 5. Create arrows (stop at container borders for cross-container arrows)
 arrow("a1", sx, sy, ex, ey, waypoints=[(wx, wy)])
 # or for simple connections:
 elbowed_arrow("a2", "source-id", "target-id")
 
-# 5. Validate
+# 6. Validate
 issues = validate_arrow_paths()
 issues += validate_diagram()
 if issues:
@@ -552,58 +558,105 @@ arrow("a-appsync-dynamo", 400, 357, 450, 210,
 - Vertical segments passing through adjacent sub-sections
 - Horizontal segments crossing nested container tops/bottoms
 
-### Subsection Borders Must Stay Inside Parent Section Borders
-Every nested container (Auth, Step Functions, etc.) must be **fully contained** within its parent container, with at least 15px clearance from the parent border on all sides. When making room for circles or arrows, **always expand the outer (parent) container outward** — never shrink it to squeeze inner sections. Push sibling containers and the cloud boundary further out to accommodate.
+### Mandatory Containment Validation (Every Build Script)
 
-**Correct approach when circles need more gap between sibling containers:**
-1. **Expand** the parent container outward (increase its width/height)
-2. **Push** the sibling container further away (increase its X/Y offset)
-3. **Expand** the cloud boundary to fit everything
-4. **Shift** all elements inside the pushed container by the same delta
+Every build script MUST include **containment assertions** for ALL nested containers. This is not optional — silent overflow is the #1 source of visual bugs.
 
-**Wrong approach:** Shrinking the parent container to widen the gap — this risks inner subsections crossing or touching the parent border.
-
-**Beware of `container_box` auto-expansion:** `container_box` automatically expands its width to fit the header text + icon. If you set `SF_W = 230` but the header "AWS Step Functions\nworkflow" + icon needs 285px, the container silently grows to 285px. This can cause a nested container to overflow its parent. **Always set the width large enough that auto-expansion doesn't change it**, or verify the actual rendered width matches your layout math.
+**The pattern:** For every child container, assert all 4 edges are inside its parent with clearance:
 
 ```python
-# WRONG: SF_W = 230 but auto-expands to 283, overflowing parent (right edge 953 > 950)
-SF_X = 670; SF_W = 230  # actual right edge = 670 + 283 = 953!
+CLEARANCE = 15  # minimum px between child edge and parent edge
 
-# CORRECT: Set SF_W to match or exceed auto-expansion, and adjust SF_X for clearance
-SF_X = 645; SF_W = 285  # right edge = 645 + 285 = 930, well within parent (950)
+# Generic containment check — add for EVERY parent-child pair
+def assert_contained(child_name, cx, cy, cw, ch, parent_name, px, py, pw, ph, hdr_h):
+    """Assert child container is fully inside parent with clearance."""
+    assert cx >= px + CLEARANCE, \
+        f"{child_name} left edge ({cx}) too close to {parent_name} left ({px})"
+    assert cx + cw <= px + pw - CLEARANCE, \
+        f"{child_name} right edge ({cx+cw}) overflows {parent_name} right ({px+pw})"
+    assert cy >= py + hdr_h, \
+        f"{child_name} top ({cy}) crosses {parent_name} header (ends at {py+hdr_h})"
+    assert cy + ch <= py + ph - CLEARANCE, \
+        f"{child_name} bottom ({cy+ch}) overflows {parent_name} bottom ({py+ph})"
+
+# Example: validate every nesting relationship
+assert_contained("Auth",    AUTH_X, AUTH_Y, AUTH_W, AUTH_H,
+                 "Customer", CUST_X, CUST_Y, CUST_W, CUST_H, HDR_HEIGHT)
+assert_contained("StepFn",  SF_X,   SF_Y,   SF_W,   SF_H,
+                 "Customer", CUST_X, CUST_Y, CUST_W, CUST_H, HDR_HEIGHT)
+assert_contained("Customer", CUST_X, CUST_Y, CUST_W, CUST_H,
+                 "Cloud",    CLOUD_X, CLOUD_Y, CLOUD_W, CLOUD_H, HDR_HEIGHT)
+assert_contained("Managed",  MA_X,   MA_Y,   MA_W,   MA_H,
+                 "Cloud",    CLOUD_X, CLOUD_Y, CLOUD_W, CLOUD_H, HDR_HEIGHT)
 ```
 
-```python
-# Verify after any layout change:
-assert SF_X + SF_W < CUST_X + CUST_W - 15, "SF right edge too close to Customer Account"
-assert AUTH_X + AUTH_W < CUST_X + CUST_W - 15, "Auth right edge too close to Customer Account"
-assert SF_Y >= CUST_Y + HDR_HEIGHT, "SF top crosses Customer Account header"
-assert SF_Y + SF_H < CUST_Y + CUST_H - 15, "SF bottom too close to Customer Account"
+**Place these assertions BEFORE any `container_box()` calls** so the script fails fast on layout errors, not after creating 80+ elements.
 
+### Container Auto-Expansion Trap
+
+`container_box` silently expands its width to fit header text + icon. Your layout math assumes one width, but the rendered container is wider. This overflow is invisible in code and causes nested containers to break out of their parent.
+
+**How to prevent:**
+1. **Estimate minimum width** before setting constants: `min_w = icon_header_size + 10 + len(header_text) * font_size * 0.6`
+2. **Always set width >= estimated minimum** so auto-expansion doesn't kick in
+3. **Run containment assertions** (above) which catch overflow even if estimation is off
+
+```python
+# WRONG: set width too small, auto-expansion silently overflows parent
+CHILD_W = 230   # renders as 283px after auto-expansion → overflows parent at 950
+
+# CORRECT: set width to match or exceed what auto-expansion needs
+CHILD_W = 285   # no auto-expansion, right edge = CHILD_X + 285 = well within parent
+```
+
+**When you change any container's header text, icon size, or font size**, re-check that the explicit width still exceeds auto-expansion. This is the most common trigger for overflow bugs.
+
+### Subsection Borders Must Stay Inside Parent
+
+Every nested container must be **fully contained** within its parent with at least 15px clearance on all sides. When space is tight:
+
+1. **Expand** the parent container outward (increase width/height)
+2. **Push** sibling containers further away (increase X/Y offset)
+3. **Expand** the cloud boundary to fit
+4. **Shift** all elements inside pushed containers by the same delta
+
+**Never shrink** a parent to make room — always grow outward.
+
+```python
 # When pushing siblings, shift all their children by the same delta:
-# MA_X += 50  →  all MA internal elements += 50  →  CLOUD_W += 50
+# MA_X += 50  →  all MA internal elements (icons, labels, arrows) += 50  →  CLOUD_W += 50
 ```
 
-### Cross-Account Arrows Must Stop at Container Borders
-When an arrow connects a service in one container to a service inside a nested container in another section, the arrow must **end at the nested container's border** — not reach deep inside to the target icon. The visual convention is that the arrow enters the container at its edge.
+### Arrows Crossing Container Borders
+
+**Rule: an arrow must stop at the border of any container it enters.** It must NOT reach deep inside to target an icon within a nested container. The visual convention is a "hand-off" at the container edge.
+
+**When to apply:** Any arrow whose source is OUTSIDE a container and whose logical target is a service INSIDE that container.
 
 ```python
-# WRONG: arrow reaches 53px inside Step Functions to CloudFormation icon
-arrow("a-s3ma-cfn", S3_MA_CX - ICON_R, S3_MA_CY,
-      CLOUDFORM_CX - ICON_R, CLOUDFORM_CY, ...)  # ends at icon inside SF
+# WRONG: arrow from outside pierces through container to reach icon inside
+arrow("a1", source_cx + ICON_R, source_cy,
+      target_icon_cx - ICON_R, target_icon_cy, ...)  # ends at icon deep inside
 
-# CORRECT: arrow stops at Step Functions right border
-arrow("a-s3ma-cfn", S3_MA_CX - ICON_R, S3_MA_CY,
-      SF_X + SF_W, CLOUDFORM_CY, ...)  # ends at SF border
+# CORRECT: arrow stops at the container border
+arrow("a1", source_cx + ICON_R, source_cy,
+      container_x + container_w, target_icon_cy, ...)  # ends at container edge
+# (use container_x for left border, container_x + container_w for right border, etc.)
 ```
 
-This applies to arrows crossing any nested container boundary — the arrow should logically "hand off" at the border, not visually pierce through the container to reach an internal icon.
+**How to decide which border:** Use the border face the arrow approaches from:
+- Arrow coming from the right → stop at `container_x + container_w` (right edge)
+- Arrow coming from the left → stop at `container_x` (left edge)
+- Arrow coming from below → stop at `container_y + container_h` (bottom edge)
+- Arrow coming from above → stop at `container_y + hdr_height` (top edge, below header)
+
+**Arrows between services in the SAME container** connect directly to icon centers as normal — this rule only applies when crossing a container boundary from outside.
 
 ### Hard Rule: No Icon or Circle May Cross Any Container Border
 Every icon, icon background rectangle, and numbered circle must be **fully inside** or **fully outside** every container. To ensure clearance: `element_edge = cx + radius` must be `< container_border - 15` (inside) or `> container_border + 15` (outside).
 
 ### Account for Label Width Near Container Borders
-Service icon labels (e.g. "Amazon Rekognition" ~190px wide) extend far beyond the icon itself. When placing icons outside a container, ensure the **label's left edge** clears the container border by at least 30px: `AI_X - (max_label_width / 2) > container_right_edge + 30`.
+Service icon labels (e.g. "Amazon Rekognition" ~190px wide) extend far beyond the icon itself. When placing icons near a container edge, ensure the **label's edge** clears the container border by at least 30px: `icon_cx - (max_label_width / 2) > container_right_edge + 30`.
 
 ### No Borders on Icons or Circles
 Icon background rectangles and numbered circle ellipses must have `strokeWidth: 0` and `strokeColor: "transparent"`. Enforced in `components.py` — never override with a visible stroke.
@@ -772,6 +825,9 @@ arrow("a1", CIRCLE_X + CIRCLE_R, ROW_Y, SVC_X - ICON_R, ROW_Y, ...)
 | Use `diagram_helpers.py` | Use `components.py` (diagram_helpers is deprecated) |
 | Mix fontFamily across elements | Pick one (fontFamily `"2"`) and use everywhere |
 | Skip validation before export | Always run `validate_diagram()` + `validate_arrow_paths()` |
+| Skip containment assertions | Add `assert_contained()` for EVERY parent-child container pair BEFORE creating elements |
+| Set container width without checking auto-expansion | Estimate min width from header text + icon, set explicit width >= estimate |
+| End cross-container arrows at the target icon | Stop arrows at the container border they're entering |
 | Claim "done" without checking | Export PNG, run quality checklist, then deliver |
 | Place arrow labels at same y as arrows | Position labels fully above/below the arrow line |
 | Hardcode arrow label x-offsets | Use `measure_text` to center labels between endpoints |
