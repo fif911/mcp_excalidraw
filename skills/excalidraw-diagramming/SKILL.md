@@ -241,7 +241,7 @@ How to critically evaluate a screenshot:
 3. **Arrow crossing**: Do arrows cross through unrelated elements or overlap with text labels? Use curved/elbowed arrows with waypoints to route around obstacles.
 4. **Arrow-text overlap**: Do arrow labels overlap with shapes? Adjust arrow path or label position.
 5. **Spacing**: At least 40px gap between elements.
-6. **Readability**: All labels readable at normal zoom. Font size >= 16 body, >= 20 titles.
+6. **Readability**: All labels readable at normal zoom. Font size >= 18 body, >= 20 titles.
 7. **Arrow bindings**: Every arrow has start/end binding. Run `validate_arrow_paths()`.
 8. **Element overlaps**: Run `validate_diagram()`.
 
@@ -563,6 +563,16 @@ Every nested container (Auth, Step Functions, etc.) must be **fully contained** 
 
 **Wrong approach:** Shrinking the parent container to widen the gap — this risks inner subsections crossing or touching the parent border.
 
+**Beware of `container_box` auto-expansion:** `container_box` automatically expands its width to fit the header text + icon. If you set `SF_W = 230` but the header "AWS Step Functions\nworkflow" + icon needs 285px, the container silently grows to 285px. This can cause a nested container to overflow its parent. **Always set the width large enough that auto-expansion doesn't change it**, or verify the actual rendered width matches your layout math.
+
+```python
+# WRONG: SF_W = 230 but auto-expands to 283, overflowing parent (right edge 953 > 950)
+SF_X = 670; SF_W = 230  # actual right edge = 670 + 283 = 953!
+
+# CORRECT: Set SF_W to match or exceed auto-expansion, and adjust SF_X for clearance
+SF_X = 645; SF_W = 285  # right edge = 645 + 285 = 930, well within parent (950)
+```
+
 ```python
 # Verify after any layout change:
 assert SF_X + SF_W < CUST_X + CUST_W - 15, "SF right edge too close to Customer Account"
@@ -573,6 +583,21 @@ assert SF_Y + SF_H < CUST_Y + CUST_H - 15, "SF bottom too close to Customer Acco
 # When pushing siblings, shift all their children by the same delta:
 # MA_X += 50  →  all MA internal elements += 50  →  CLOUD_W += 50
 ```
+
+### Cross-Account Arrows Must Stop at Container Borders
+When an arrow connects a service in one container to a service inside a nested container in another section, the arrow must **end at the nested container's border** — not reach deep inside to the target icon. The visual convention is that the arrow enters the container at its edge.
+
+```python
+# WRONG: arrow reaches 53px inside Step Functions to CloudFormation icon
+arrow("a-s3ma-cfn", S3_MA_CX - ICON_R, S3_MA_CY,
+      CLOUDFORM_CX - ICON_R, CLOUDFORM_CY, ...)  # ends at icon inside SF
+
+# CORRECT: arrow stops at Step Functions right border
+arrow("a-s3ma-cfn", S3_MA_CX - ICON_R, S3_MA_CY,
+      SF_X + SF_W, CLOUDFORM_CY, ...)  # ends at SF border
+```
+
+This applies to arrows crossing any nested container boundary — the arrow should logically "hand off" at the border, not visually pierce through the container to reach an internal icon.
 
 ### Hard Rule: No Icon or Circle May Cross Any Container Border
 Every icon, icon background rectangle, and numbered circle must be **fully inside** or **fully outside** every container. To ensure clearance: `element_edge = cx + radius` must be `< container_border - 15` (inside) or `> container_border + 15` (outside).
@@ -696,6 +721,9 @@ container_box("cloud", ..., icon_header_size=HDR_ICON, header_height=HDR_HEIGHT)
 # WRONG: icon smaller than header — icon sits higher than label
 container_box("cloud", ..., icon_header_size=32, header_height=55)
 ```
+
+### Icon-less Container Headers Are Centered
+When a container has no icon (`icon_file_id` omitted), the header label is **horizontally centered** within the container width. This matches how reference diagrams style sub-sections like "Authentication" that have a label but no icon. `components.py` handles this automatically.
 
 ### Uniform Text Box Sizing Within Sections
 All `text_box` elements within the same section must have identical dimensions via shared `min_width` and `max_height` constants.
@@ -821,6 +849,76 @@ register_icon_pack("gcp", {
 - Wait briefly after upload before creating elements (WebSocket sync delay)
 - Use generic Resource icons for generic concepts (database, user, toolkit)
 - Use service icons ONLY for specific cloud services
+
+### Light vs Dark Variants
+Many icons ship with **Light** and **Dark** variants. These refer to the **background** they are designed for, NOT their own color:
+- `_Light` / no suffix → designed for **light/white backgrounds** (renders as dark/visible icon)
+- `_Dark` → designed for **dark backgrounds** (renders as light/faint icon on white canvas)
+
+**Always use the Light variant (or no-suffix) when the canvas background is white.** Using a `_Dark` variant on a white canvas produces a barely visible icon.
+
+Icons with Light/Dark variants:
+- **Group icons**: `AWS-Cloud_32.svg` vs `AWS-Cloud_32_Dark.svg`, `AWS-Cloud-logo_32.svg` vs `AWS-Cloud-logo_32_Dark.svg`
+- **Resource general icons**: `Res_User_48_Light.svg` vs `Res_User_48_Dark.svg`, `Res_Client_48_Light.svg` vs `Res_Client_48_Dark.svg`, `Res_Document_48_Light.svg` vs `Res_Document_48_Dark.svg`, etc.
+
+Icons WITHOUT Light/Dark variants (single version only):
+- **Architecture Service Icons** (`Arch_*`) — always have a colored square background
+- **Category-specific Resource Icons** (e.g., `Res_AWS-CloudFormation_Template_48.svg`) — single version
+
+### Architecture vs Resource Icon Types
+The same AWS service often has icons in **multiple icon types** with different visual styles. Choose the right type for your diagram:
+
+| Icon Type | Path Pattern | Visual Style | When to Use |
+|---|---|---|---|
+| **Architecture** | `Arch_*_48.svg` | Colored square bg + white icon | Service-level representation (e.g., "Amazon S3" as a service) |
+| **Resource** | `Res_*_48.svg` | Outline/flat icon, no square bg | Sub-resource or instance-level (e.g., a specific S3 bucket, a user, a template) |
+| **Group** | `*_32.svg` | Small boundary/header icons | Container headers (AWS Cloud, Account, Region, VPC) |
+
+**Match the reference diagram's style.** Many AWS reference architectures mix both types:
+- Architecture icons for primary services (Lambda, AppSync, DynamoDB)
+- Resource icons for specific instances (S3 Bucket, CloudFormation Template, ECR Image, User)
+
+**Example:** Amazon S3 has both:
+- `Arch_Amazon-Simple-Storage-Service_48.svg` → green square with white bucket (Architecture)
+- `Res_Amazon-Simple-Storage-Service_Bucket_48.svg` → olive/green bucket outline (Resource)
+
+Use `search_aws_icons` MCP tool with `icon_type` filter to find the right variant:
+```python
+# Find architecture-level icon
+search_aws_icons(query="s3", icon_type="architecture")
+# Find resource-level icon
+search_aws_icons(query="s3 bucket", icon_type="resource")
+```
+
+**Beware of color differences between icon types.** Resource icons in the same category share a color (e.g., Management-Governance resources are all pink `#E7157B`). Architecture icons also share colors by category but with a filled square background. If the reference shows an outline icon in a specific color, search across categories — the right icon may be a Resource icon from a different category than expected.
+
+### Custom Color Variants
+
+When an icon's default color doesn't match the visual context in the reference diagram, create a **custom recolored SVG** rather than using the wrong-color original. This is common with Resource icons whose category color clashes with the section they appear in.
+
+**When to recolor:**
+- The reference diagram shows a specific icon in a different color than the AWS icon library provides
+- A Resource icon's category color (e.g., pink for Management-Governance) doesn't match the section it sits in (e.g., orange for Containers/Compute)
+- A third-party/open-standard icon (e.g., OpenID Connect) doesn't exist in the AWS icon library at all
+
+**How to create a custom color variant:**
+1. Copy the original SVG from `icons/aws-icons-official/` to `icons/custom/`
+2. Change the `fill` attribute(s) to the target color
+3. Add the color name to the filename: `Res_AWS-CloudFormation_Template_48_Orange.svg`
+4. Register in the icon pack using the `custom/` path prefix:
+   ```python
+   register_icon_pack("my-diagram", {
+       "file-cfn-tpl-orange": "custom/Res_AWS-CloudFormation_Template_48_Orange.svg",
+   })
+   ```
+
+**Naming convention:** `{OriginalName}_{Color}.svg` — e.g., `Res_AWS-CloudFormation_Template_48_Orange.svg`
+
+**For non-AWS icons** (open standards like OpenID Connect, Docker, etc.), save the custom SVG in `icons/custom/` with a descriptive name: `icons8-openid.svg`
+
+### Custom Icon File ID Caching
+
+Excalidraw caches uploaded files by `file_id` in the browser. If you replace an icon SVG but reuse the same `file_id`, the old icon persists. **Always use a new `file_id`** when changing which SVG file an icon points to (e.g., `file-openid` → `file-openid-v2`, `file-cfn-template` → `file-cfn-tpl-orange`).
 
 ## References
 

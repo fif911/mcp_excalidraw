@@ -89,6 +89,7 @@ The cloud provider boundary (e.g. "AWS Cloud") must be the **outermost** contain
 - No element straddles a container border (partially inside, partially outside)
 - Cloud boundary is visibly larger than all nested containers
 - When a gap between siblings seems too tight, the fix should be expanding the parent outward — not shrinking it
+- **Watch for auto-expanded containers:** `container_box` silently expands width to fit header text + icon. A container set to 230px wide may render at 283px, causing it to overflow its parent. Zoom into the right/bottom edges of nested containers to verify they don't touch or cross the parent border
 
 ### Container Headers
 Crop the top-left corner of every container. Check:
@@ -113,6 +114,23 @@ For each service icon inside a container:
 - If you see a **double background** (colored square behind the icon's built-in color), that's a bug — `icon_bg_color` should not be used for AWS icons
 - Icon background rectangles and circle ellipses must have **no visible border/stroke**
 
+### Icon Variant Correctness
+Icons can have **Light/Dark variants** and exist in **multiple icon types**. Both must be verified:
+
+**Light vs Dark variants:**
+- `_Light` or no suffix = designed for light/white backgrounds (dark/visible icon)
+- `_Dark` = designed for dark backgrounds (faint/invisible on white canvas)
+- If an icon appears washed out, barely visible, or as a faint outline on a white canvas, it's likely the `_Dark` variant — **this is a bug**
+- Group icons (`AWS-Cloud_32.svg` vs `AWS-Cloud_32_Dark.svg`) and general Resource icons (`Res_User_48_Light.svg` vs `Res_User_48_Dark.svg`) are the most common offenders
+
+**Architecture vs Resource icon types:**
+- **Architecture icons** (`Arch_*`): colored square background + white icon inside — use for service-level representation
+- **Resource icons** (`Res_*`): outline/flat icon with no square background — use for specific instances (a bucket, a template, an image)
+- If the reference shows an outline-style icon but the diagram shows a colored square, the wrong icon type was used (Architecture instead of Resource), or vice versa
+- **Color mismatch between icon types:** Resource icons inherit their category color (e.g., Management-Governance = pink `#E7157B`). If the reference shows an orange template icon but the diagram shows pink, the icon may be from the wrong category or the wrong icon type entirely
+- **Custom color variants for color mismatches:** When no matching color exists in the AWS icon library, create a custom recolored SVG in `icons/custom/` — copy the original SVG, change the `fill` color, and add the color name to the filename (e.g., `Res_AWS-CloudFormation_Template_48_Orange.svg`). This is the correct approach when an icon's category color doesn't match the visual context in the reference diagram
+- **Non-AWS icons:** Open standards (OpenID Connect, SAML, Docker, etc.) are not in the AWS icon library. Use custom SVGs from `icons/custom/` for these — do NOT substitute a vaguely similar AWS icon
+
 ### Label Width Near Borders
 Service labels can be much wider than their icons (e.g. "Amazon Rekognition" ~190px). Check that:
 - Label text does not extend past container borders
@@ -124,6 +142,7 @@ Crop each arrow's start and end points. Check:
 - Arrow doesn't float in empty space
 - Arrow direction is correct (verify against reference)
 - Arrow only crosses container borders it's actually entering/leaving — never passes through unrelated containers
+- **Cross-container arrows stop at the border** — when an arrow connects to a service inside a nested container (e.g., Step Functions), it must end at the container's border, not reach deep inside to the target icon. If an arrow visually pierces through a container to reach an internal service, that's a bug
 
 ### Arrow Labels
 - Labels must be centered between arrow start and end points (use `measure_text` width)

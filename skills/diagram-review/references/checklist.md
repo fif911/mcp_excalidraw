@@ -10,6 +10,7 @@
 - [ ] Every nested sub-section is **fully contained** within its parent container — at least 15px clearance from parent border on all sides
 - [ ] No element sits partially inside and partially outside a container
 - [ ] Nested containers have clear visual hierarchy (max 3 nesting levels)
+- [ ] **No auto-expansion overflow** — `container_box` silently expands width to fit header text + icon. Verify rendered container edges don't touch or cross parent borders (zoom into right/bottom edges)
 
 ### Header Styling
 - [ ] Every container header has an icon — no text-only headers (inconsistent visual pattern)
@@ -40,13 +41,22 @@
 - [ ] AWS official SVG icons already include colored backgrounds — no extra `icon_bg_color` rectangle visible (double background = bug)
 - [ ] No visible borders/strokes on icon background rectangles or numbered circle ellipses (`strokeWidth: 0`)
 
+### Icon Variant Correctness
+- [ ] **No `_Dark` icons on light canvas** — if any icon appears washed out, faint, or barely visible, it's likely using the `_Dark` variant (designed for dark backgrounds). Replace with `_Light` or no-suffix variant
+- [ ] **Correct icon type** — Architecture icons (`Arch_*`) show as colored squares with white icons; Resource icons (`Res_*`) show as outline/flat icons. Match the reference diagram's style:
+  - Reference shows outline icon → use Resource icon
+  - Reference shows colored square icon → use Architecture icon
+- [ ] **Icon color matches reference** — Resource icons inherit category colors (e.g., Management-Governance = pink, Storage = green, Containers = orange). If the reference shows a different color, the icon may be from the wrong category or wrong icon type. When no matching color exists in the AWS icon library, create a custom recolored SVG in `icons/custom/` with the color name in the filename (e.g., `Res_AWS-CloudFormation_Template_48_Orange.svg`)
+- [ ] **Non-AWS icons use custom SVGs** — Open standards (OpenID Connect, Docker, etc.) are not in the AWS icon library. Check `icons/custom/` for existing custom icons or create new ones
+- [ ] **Group icons use correct variant** — `AWS-Cloud_32.svg` (light bg) vs `AWS-Cloud_32_Dark.svg` (dark bg). Container header icons on white canvas must use the non-Dark variant
+
 ### Label Width Near Borders
 - [ ] Service icon labels (e.g. "Amazon Rekognition" ~190px wide) do not extend past container borders — at least 30px clearance between label edge and nearest container border
 
 ## Text
 
 ### Readability
-- [ ] All text readable at export resolution — not too small
+- [ ] All text readable at export resolution — not too small (minimum `FONT_BODY >= 18`, `FONT_HDR >= 20`)
 - [ ] No text overlapping borders, lines, or other text
 - [ ] Multi-line text properly wrapped and centered
 - [ ] Text not cut off by container boundaries
@@ -78,6 +88,7 @@
 - [ ] Arrow endpoints connect at **icon image centers**, not at the component center (which includes the label) — if an icon has a label below it, the arrow should aim at the icon's visual center, not midway between icon and label
 - [ ] Arrow start/end at element edges (not floating in space)
 - [ ] Arrows do NOT cross through unrelated containers — an arrow only crosses a container border when entering/leaving that container
+- [ ] **Cross-container arrows stop at the border** — arrows targeting a service inside a nested container must end at that container's border, not reach deep inside to the icon
 - [ ] No arrows passing through icons, labels, or text they don't connect to
 
 ### Style

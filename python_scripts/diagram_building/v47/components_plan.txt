@@ -1,0 +1,73 @@
+Data Transfer Hub Architecture Diagram — Component Plan
+=======================================================
+
+Overview: AWS architecture showing a Data Transfer Hub system with a Customer's AWS Account
+(containing authentication, AppSync, Lambda, Step Functions, DynamoDB, CloudFront, S3, Fargate)
+and an AWS Managed Account (containing S3, ECR, and replication templates).
+User connects from external, numbered circles 1-8 mark the flow.
+
+Layout: Left-to-right with two main account sections side-by-side inside AWS Cloud.
+
+=== HIERARCHY ===
+
+AWS Cloud (outermost)
++-- Customer's AWS Account (left section, solid border)
+|   +-- Authentication (dashed sub-section, upper-left)
+|   |   +-- Amazon Cognito (icon + label)
+|   |   +-- OpenID Connect (icon + label)
+|   +-- Amazon DynamoDB (icon + label, upper-right of account, outside Step Functions)
+|   +-- AWS AppSync (icon + label, middle-left)
+|   +-- AWS Lambda (icon + label, middle-center -- outside Step Functions)
+|   +-- AWS Step Functions workflow (pink solid border, right side of account)
+|   |   +-- AWS Lambda (icon + label, upper)
+|   |   +-- AWS CloudFormation (icon + label, lower)
+|   +-- Amazon CloudFront (icon + label, bottom-left)
+|   +-- Amazon S3 (icon + label, bottom-center)
+|   +-- AWS Fargate (icon + label, bottom-right)
++-- AWS Managed Account (right section, solid border)
+|   +-- S3 replication component template (icon + label, top-left)
+|   +-- DynamoDB replication component template (icon + label, top-right)
+|   +-- Amazon S3 (icon + label, middle-left)
+|   +-- ECR replication component template (icon + label, middle-right)
+|   +-- Amazon ECR (icon + label, bottom-left)
+|   +-- ECR replication Docker image (icon + label, bottom-right)
+External:
++-- User (person icon + label, bottom-left outside AWS Cloud)
++-- Data Transfer Hub UI (computer icon + label, left side outside Customer Account)
+
+=== NUMBERED CIRCLES (1-8) ===
+
+Circle 1: Near Amazon CloudFront (bottom area), left of vertical segment at x=290
+Circle 2: Above horizontal arrow at AppSync row (y=390), at x=290
+Circle 3: Left of vertical trunk at DTH_CX, y=450
+Circle 4: Above horizontal arrow between AppSync and Lambda, at x=480
+Circle 5: Above horizontal arrow between Lambda and Step Functions, at x=631
+Circle 6: In gap between Customer and Managed accounts, at S3 managed y
+Circle 7: In gap between accounts, at ECR y
+Circle 8: Above horizontal segment near DynamoDB, at x=435
+
+=== ARROWS / CONNECTIONS ===
+
+External flow:
+- Arrow from left edge -> into Authentication (Amazon Cognito y-level)
+- User -> Data Transfer Hub UI (arrow up)
+- Data Transfer Hub UI vertical trunk -> up to Authentication bottom edge (no arrowheads)
+- Data Transfer Hub UI -> AWS AppSync (arrow right, at AppSync y)
+- Data Transfer Hub UI -> Amazon CloudFront (L-shape: right then down-right, waypoints)
+
+Middle row flow:
+- AWS AppSync -> AWS Lambda (arrow right, circle 4 above)
+- AWS Lambda -> Step Functions left edge (arrow right, circle 5 above)
+
+Upper row:
+- AppSync -> DynamoDB (L-shape: up then right, waypoints routing right of Auth box, circle 8 above horizontal)
+
+Step Functions -> external:
+- CloudFormation -> AWS Fargate (arrow down from SF bottom edge)
+
+Cross-account connections:
+- Amazon S3 (managed) -> CloudFormation (arrow left, circle 6 in gap)
+- Amazon ECR -> AWS Fargate (arrow left, circle 7 in gap)
+
+Bottom row:
+- Amazon CloudFront -> Amazon S3 customer (arrow right)
