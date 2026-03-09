@@ -29,3 +29,4 @@ __pycache__/
 *.pyc
 /tmp_mcp_learnings_docs
 /.idea
+*.png

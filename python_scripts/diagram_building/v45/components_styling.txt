@@ -1,0 +1,87 @@
+AWS Step Functions Image Processing Architecture — Styling Plan (v45)
+======================================================================
+
+COLORS:
+- DARK: #1a1a1a (text, arrows, circle backgrounds)
+- GRAY: #879196 (AWS Cloud border, Front end border, Parallel processing border)
+- PINK: #d63384 (Step Functions border)
+- WHITE: #ffffff (circle number text)
+
+FONTS:
+- Header labels: Helvetica (family "2"), 28px
+- Body text (icon labels, arrow labels, text boxes, circle numbers): Helvetica, 20px
+
+ICON SIZING:
+- Service icons (Amplify, Cognito, S3, API Gateway, AI services): 69px x 69px
+- External icons (mobile, people): 50px x 50px
+- AWS SDK icon: 69px x 69px
+- Container header icons: 69px x 69px
+- Numbered circles: 40px diameter
+
+CONTAINER STYLING:
+1. AWS Cloud:
+   - Border: solid, gray (#879196), 2px stroke
+   - Fill: transparent
+   - Header: AWS Cloud logo icon (69px) + "AWS Cloud" label
+   - Header height: 75px
+
+2. Front end:
+   - Border: dashed, gray (#879196), 1px stroke
+   - Fill: transparent
+   - Header: "Front end" text label only (no icon)
+
+3. AWS Step Functions workflow:
+   - Border: solid, pink (#d63384), 2px stroke
+   - Fill: transparent
+   - Header: Step Functions icon (69px) + "AWS Step Functions workflow" label
+   - Header height: 75px
+
+4. Parallel processing:
+   - Border: dashed, gray (#879196), 1px stroke
+   - Fill: transparent
+   - Header: "Parallel processing" text label only (no icon)
+
+NUMBERED CIRCLES:
+- Background: #1a1a1a (dark)
+- Text: #ffffff (white)
+- Size: 40px diameter
+- Font: 20px Helvetica
+- Text centered via align_in_parent()
+
+TEXT BOXES (workflow steps):
+- Border: solid, #1a1a1a, 1px stroke
+- Fill: transparent
+- Corner radius: 8px
+- Min width: 150px
+- Max height: 50px
+- Font: 20px Helvetica, #1a1a1a
+
+ARROW LABELS:
+- Font: 20px Helvetica, #1a1a1a
+- Italic style for descriptive labels
+- Positioned above the arrow line, centered between endpoints
+
+ARROWS:
+- Stroke: #1a1a1a, 1px width
+- All arrows use solid style
+- End arrowhead: standard arrow (most arrows)
+- S3 <-> API Gateway: bidirectional (both start and end arrowheads)
+- SDK -> Cloud entry: no arrowheads (plain line)
+- All segments purely horizontal or vertical (orthogonal routing)
+
+LAYOUT DIMENSIONS:
+- Canvas: ~1500px wide x 1000px tall
+- AWS Cloud: x=220, y=-20, w=1250, h=1000
+- Step Functions: x=770, y=10, w=440, h=920
+- Front end: x=270, y=110, w=440, h=540
+- Parallel processing: x=850, y=110, w=310, h=460
+- Numbered circles column: x=330
+- Front-end service icons column: x=580
+- Text boxes column: x=950
+- AI service icons column: x=1340
+
+ICON_VSHIFT ALIGNMENT:
+- When icon+label component is centered at cy, the icon image center
+  is at cy - ICON_VSHIFT where ICON_VSHIFT = (gap + label_height) / 2
+- This ensures horizontal arrows connect at icon image centers
+- Circles are placed at the same Y as icon image centers (not component centers)

@@ -1,0 +1,97 @@
+AWS Step Functions Image Processing Architecture — Component Plan (v45)
+========================================================================
+
+OVERVIEW:
+A mobile-to-cloud AI processing pipeline. A mobile client sends images through
+AWS front-end services, which are then processed in parallel by AI services
+via AWS Step Functions, with results stored back to S3.
+
+SECTIONS (left to right, nested hierarchy):
+1. External clients (leftmost, OUTSIDE AWS Cloud)
+2. AWS Cloud container (outermost cloud boundary, gray solid border)
+   2a. Front end sub-container (dashed gray border)
+   2b. AWS Step Functions workflow container (pink solid border, INSIDE AWS Cloud)
+       2b-i. Parallel processing sub-container (dashed gray border)
+   2c. AI service icons (inside AWS Cloud, right side)
+
+COMPONENTS:
+
+--- Section 1: External Clients ---
+- People/Users icon (group of people silhouette, no label)
+- Mobile client icon (phone icon, labeled "mobile client")
+- AWS SDK icon (purple toolkit icon, labeled "AWS SDK")
+- Arrows: people -> mobile (horizontal), mobile -> SDK (vertical up), SDK -> cloud entry (horizontal)
+
+--- Section 2: AWS Cloud Container ---
+Header: AWS Cloud logo + "AWS Cloud" text
+Border: solid gray
+
+  --- Section 2a: Front End Sub-Container ---
+  Header: "Front end" text label
+  Border: dashed gray
+
+  Row 1: Circle "1" -> label "HTML, CSS, JavaScript" -> AWS Amplify icon + label
+  Row 2: Circle "2" -> label "authenticate" -> Amazon Cognito icon + label
+  Row 3: Circle "3" -> label "store image files" -> Amazon S3 icon + label
+
+  Below front-end (still inside AWS Cloud):
+  Row 4: Circle "4" -> label "dynamic API calls over HTTPS" -> Amazon API Gateway icon + label
+
+  Vertical bidirectional arrow: Amazon S3 <-> Amazon API Gateway
+
+--- Section 2b: AWS Step Functions Workflow Container (nested inside AWS Cloud) ---
+Header: Step Functions icon + "AWS Step Functions workflow" text
+Border: solid pink
+
+  --- Section 2b-i: Parallel Processing Sub-Container ---
+  Header: "Parallel processing" text label
+  Border: dashed gray
+
+  Circle "5" and Circle "7" positioned between SF left border and PP left border
+
+  Text boxes (workflow steps inside PP):
+  - "extract text"
+  - "describe face"
+  - "describe image"
+
+  Below parallel processing (still inside Step Functions):
+  - "prep and translate" text box
+  - "create audio" text box
+  - "store audio" text box
+
+  Vertical arrows: describe image -> prep and translate -> create audio -> store audio
+  Circle "6" positioned near "store audio" between PP right border and SF right border
+
+--- Section 2c: AI Service Icons (inside AWS Cloud, right side) ---
+Each text box has a horizontal arrow pointing to its corresponding AI service:
+- extract text -> Amazon Textract
+- describe face -> Amazon Rekognition
+- describe image -> Amazon SageMaker
+- prep and translate -> Amazon Translate
+- create audio -> Amazon Polly
+- store audio -> Amazon S3 (output bucket)
+
+CONNECTIONS (Arrows):
+1. people -> mobile client (horizontal right)
+2. mobile client -> AWS SDK (vertical up)
+3. AWS SDK -> AWS Cloud entry (horizontal right, no arrowheads)
+4. Cloud entry branches vertically to circles 1-4 (branching arrows with waypoints)
+5. Circle 1 -> AWS Amplify (horizontal right, through label)
+6. Circle 2 -> Amazon Cognito (horizontal right, through label)
+7. Circle 3 -> Amazon S3 (horizontal right, through label)
+8. Circle 4 -> Amazon API Gateway (horizontal right, through label)
+9. Amazon S3 <-> Amazon API Gateway (vertical, bidirectional)
+10. Front end right edge -> Step Functions (at row 1 level)
+11. Front end right edge -> Step Functions (at row 2 level)
+12. describe image -> prep and translate (vertical down)
+13. prep and translate -> create audio (vertical down)
+14. create audio -> store audio (vertical down)
+15-20. Each text box -> corresponding AI service icon (horizontal right)
+
+HIERARCHY:
+- AWS Cloud (outermost) contains: Front end, Step Functions, AI services, API Gateway, branching arrows
+  - Front end contains: Circles 1-3, Amplify, Cognito, S3
+  - Step Functions contains: Parallel processing, Circles 5/6/7, text boxes below PP
+    - Parallel processing contains: extract text, describe face, describe image
+  - AI services: Textract, Rekognition, SageMaker, Translate, Polly, S3 (output)
+- External (outside AWS Cloud): People, mobile client, AWS SDK

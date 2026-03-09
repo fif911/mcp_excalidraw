@@ -15,7 +15,7 @@ from components import *
 register_icon_pack("v46", {
     # Container headers
     "file-cloud":         "Architecture-Group-Icons_01302026/AWS-Cloud-logo_32.svg",
-    "file-account":       "Architecture-Group-Icons_01302026/AWS-Account_32.svg",
+    "file-account":       "Architecture-Group-Icons_01302026/AWS-Cloud_32_Dark.svg",
     "file-stepfn":        "Architecture-Service-Icons_01302026/Arch_Application-Integration/48/Arch_AWS-Step-Functions_48.svg",
     # Services — Customer Account
     "file-cognito":       "Architecture-Service-Icons_01302026/Arch_Security-Identity/48/Arch_Amazon-Cognito_48.svg",
@@ -35,7 +35,7 @@ register_icon_pack("v46", {
     "file-ecr-image":     "Resource-Icons_01302026/Res_Containers/Res_Amazon-Elastic-Container-Registry_Image_48.svg",
     # OpenID Connect — no official AWS icon exists (it's an open standard).
     # Using STS-Alternate as closest proxy (authentication token concept).
-    "file-openid":        "Resource-Icons_01302026/Res_Security-Identity/Res_AWS-Identity-Access-Management_AWS-STS-Alternate_48.svg",
+    "file-openid":        "Resource-Icons_01302026/Res_General-Icons/Res_48_Light/Res_Authenticated-User_48_Light.svg",
 })
 
 # ===================================================
