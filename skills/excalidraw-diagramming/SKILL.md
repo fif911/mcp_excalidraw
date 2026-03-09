@@ -539,19 +539,19 @@ C8_CX = 435;  C8_CY = 184  # 20px further from arrowhead
 ### Arrows Must Not Cross Unrelated Section Boundaries
 Arrows must only cross a container border when they are **entering or leaving** that container. An arrow must NEVER pass through a container it has no business with.
 
-**Example violation:** An arrow from AppSync to DynamoDB routed vertically through the Authentication sub-section — the arrow has nothing to do with Auth, so it must not cross its border.
+**Example violation:** An arrow between two services routed vertically through an unrelated sub-section — the arrow has no logical connection to that section, so it must not cross its border.
 
 **Fix:** Add waypoints to route the arrow AROUND the unrelated section:
 ```python
-# WRONG: vertical segment at x=400 crosses through Auth (x=100..410, y=150..345)
-arrow("a-appsync-dynamo", 400, 357, 450, 210,
-      waypoints=[(400, 210)])  # passes through Auth!
+# WRONG: vertical segment crosses through an unrelated container
+arrow("a-src-tgt", src_cx, src_cy, tgt_cx, tgt_cy,
+      waypoints=[(src_cx, tgt_cy)])  # passes through unrelated section!
 
-# CORRECT: jog right past Auth right edge first, then up
-AUTH_RIGHT = AUTH_X + AUTH_W  # 410
-ROUTE_X = AUTH_RIGHT + 15     # 425
-arrow("a-appsync-dynamo", 400, 357, 450, 210,
-      waypoints=[(ROUTE_X, 357), (ROUTE_X, 210)])  # avoids Auth
+# CORRECT: jog past the section's edge first, then up/down
+SECTION_RIGHT = SECTION_X + SECTION_W
+ROUTE_X = SECTION_RIGHT + 15  # clear the border
+arrow("a-src-tgt", src_cx, src_cy, tgt_cx, tgt_cy,
+      waypoints=[(ROUTE_X, src_cy), (ROUTE_X, tgt_cy)])  # routes around
 ```
 
 **Validation:** For every arrow segment, check that it does not intersect any container border it's not supposed to cross. Especially watch for:
@@ -579,15 +579,16 @@ def assert_contained(child_name, cx, cy, cw, ch, parent_name, px, py, pw, ph, hd
     assert cy + ch <= py + ph - CLEARANCE, \
         f"{child_name} bottom ({cy+ch}) overflows {parent_name} bottom ({py+ph})"
 
-# Example: validate every nesting relationship
-assert_contained("Auth",    AUTH_X, AUTH_Y, AUTH_W, AUTH_H,
-                 "Customer", CUST_X, CUST_Y, CUST_W, CUST_H, HDR_HEIGHT)
-assert_contained("StepFn",  SF_X,   SF_Y,   SF_W,   SF_H,
-                 "Customer", CUST_X, CUST_Y, CUST_W, CUST_H, HDR_HEIGHT)
-assert_contained("Customer", CUST_X, CUST_Y, CUST_W, CUST_H,
-                 "Cloud",    CLOUD_X, CLOUD_Y, CLOUD_W, CLOUD_H, HDR_HEIGHT)
-assert_contained("Managed",  MA_X,   MA_Y,   MA_W,   MA_H,
-                 "Cloud",    CLOUD_X, CLOUD_Y, CLOUD_W, CLOUD_H, HDR_HEIGHT)
+# Call for EVERY parent-child pair in your diagram. Example for a 2-account layout:
+assert_contained("SectionA",  SEC_A_X, SEC_A_Y, SEC_A_W, SEC_A_H,
+                 "Account1",  ACCT1_X, ACCT1_Y, ACCT1_W, ACCT1_H, HDR_HEIGHT)
+assert_contained("SectionB",  SEC_B_X, SEC_B_Y, SEC_B_W, SEC_B_H,
+                 "Account1",  ACCT1_X, ACCT1_Y, ACCT1_W, ACCT1_H, HDR_HEIGHT)
+assert_contained("Account1",  ACCT1_X, ACCT1_Y, ACCT1_W, ACCT1_H,
+                 "Cloud",     CLOUD_X, CLOUD_Y, CLOUD_W, CLOUD_H, HDR_HEIGHT)
+assert_contained("Account2",  ACCT2_X, ACCT2_Y, ACCT2_W, ACCT2_H,
+                 "Cloud",     CLOUD_X, CLOUD_Y, CLOUD_W, CLOUD_H, HDR_HEIGHT)
+# Add more for every nesting relationship in your specific diagram
 ```
 
 **Place these assertions BEFORE any `container_box()` calls** so the script fails fast on layout errors, not after creating 80+ elements.
@@ -602,11 +603,13 @@ assert_contained("Managed",  MA_X,   MA_Y,   MA_W,   MA_H,
 3. **Run containment assertions** (above) which catch overflow even if estimation is off
 
 ```python
-# WRONG: set width too small, auto-expansion silently overflows parent
-CHILD_W = 230   # renders as 283px after auto-expansion → overflows parent at 950
+# WRONG: width smaller than header needs → auto-expands silently, may overflow parent
+CHILD_W = 230   # header "Service Name\nworkflow" + icon needs ~285px → expands past parent!
 
-# CORRECT: set width to match or exceed what auto-expansion needs
-CHILD_W = 285   # no auto-expansion, right edge = CHILD_X + 285 = well within parent
+# CORRECT: estimate first, set width >= estimate
+header_text = "Service Name\nworkflow"
+est_w = HDR_ICON + 10 + len(max(header_text.split("\n"), key=len)) * FONT_HDR * 0.6
+CHILD_W = max(est_w, 285)  # explicit width exceeds auto-expansion threshold
 ```
 
 **When you change any container's header text, icon size, or font size**, re-check that the explicit width still exceeds auto-expansion. This is the most common trigger for overflow bugs.
@@ -623,8 +626,8 @@ Every nested container must be **fully contained** within its parent with at lea
 **Never shrink** a parent to make room — always grow outward.
 
 ```python
-# When pushing siblings, shift all their children by the same delta:
-# MA_X += 50  →  all MA internal elements (icons, labels, arrows) += 50  →  CLOUD_W += 50
+# When pushing a sibling container, shift ALL its internal elements by the same delta:
+# SIBLING_X += 50  →  all sibling's icons, labels, arrows += 50  →  CLOUD_W += 50
 ```
 
 ### Arrows Crossing Container Borders
@@ -747,12 +750,12 @@ Every `container_box()` call MUST include an `icon_file_id` parameter. Headers w
 
 ```python
 # CORRECT: every container has a header icon
-container_box("cloud", ..., icon_file_id="file-aws", label_text="AWS Cloud")
-container_box("account", ..., icon_file_id="file-account", label_text="Customer's AWS Account")
-container_box("stepfn", ..., icon_file_id="file-stepfunctions", label_text="AWS Step Functions\nworkflow")
+container_box("cloud", ..., icon_file_id="file-cloud-logo", label_text="AWS Cloud")
+container_box("account", ..., icon_file_id="file-account", label_text="Account Name")
+container_box("service", ..., icon_file_id="file-service", label_text="Service Name\nworkflow")
 
 # WRONG: missing icon_file_id — header will have text only, no icon
-container_box("account", ..., label_text="AWS Managed Account")
+container_box("account", ..., label_text="Account Name")
 ```
 
 ### Align Containers at Matching Levels
@@ -931,8 +934,8 @@ The same AWS service often has icons in **multiple icon types** with different v
 | **Group** | `*_32.svg` | Small boundary/header icons | Container headers (AWS Cloud, Account, Region, VPC) |
 
 **Match the reference diagram's style.** Many AWS reference architectures mix both types:
-- Architecture icons for primary services (Lambda, AppSync, DynamoDB)
-- Resource icons for specific instances (S3 Bucket, CloudFormation Template, ECR Image, User)
+- Architecture icons for primary services (e.g., compute, API, database, networking services)
+- Resource icons for specific instances (e.g., a bucket, a template, a container image, a user)
 
 **Example:** Amazon S3 has both:
 - `Arch_Amazon-Simple-Storage-Service_48.svg` → green square with white bucket (Architecture)

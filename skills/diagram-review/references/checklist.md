@@ -46,7 +46,7 @@
 - [ ] **Correct icon type** — Architecture icons (`Arch_*`) show as colored squares with white icons; Resource icons (`Res_*`) show as outline/flat icons. Match the reference diagram's style:
   - Reference shows outline icon → use Resource icon
   - Reference shows colored square icon → use Architecture icon
-- [ ] **Icon color matches reference** — Resource icons inherit category colors (e.g., Management-Governance = pink, Storage = green, Containers = orange). If the reference shows a different color, the icon may be from the wrong category or wrong icon type. When no matching color exists in the AWS icon library, create a custom recolored SVG in `icons/custom/` with the color name in the filename (e.g., `Res_AWS-CloudFormation_Template_48_Orange.svg`)
+- [ ] **Icon color matches reference** — Resource icons inherit category colors (e.g., Management-Governance = pink, Storage = green, Containers = orange). If the reference shows a different color, the icon may be from the wrong category or wrong icon type. When no matching color exists in the AWS icon library, create a custom recolored SVG in `icons/custom/` with the color name in the filename (e.g., `Res_{ServiceName}_{ResourceType}_{Size}_{Color}.svg`)
 - [ ] **Non-AWS icons use custom SVGs** — Open standards (OpenID Connect, Docker, etc.) are not in the AWS icon library. Check `icons/custom/` for existing custom icons or create new ones
 - [ ] **Group icons use correct variant** — `AWS-Cloud_32.svg` (light bg) vs `AWS-Cloud_32_Dark.svg` (dark bg). Container header icons on white canvas must use the non-Dark variant
 
