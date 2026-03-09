@@ -394,14 +394,18 @@ def container_box(cid, x, y, w, h, stroke_color, fill_color="transparent",
             "groupIds": [group_id]
         })
 
-    # Header label (right of icon) — text block centered with icon/header height
+    # Header label — right of icon, or centered horizontally when no icon
     if label_text:
         label_id = f"{cid}-lbl"
         icon_sz = icon_header_size or 55
-        lx = x + icon_sz + 5 if icon_file_id else x + 10
-        _, text_h = measure_text(label_text, label_font_size)
-        center_h = header_height or icon_sz
-        ly = y + (center_h - text_h) / 2 if icon_file_id else y + 8
+        text_w, text_h = measure_text(label_text, label_font_size)
+        if icon_file_id:
+            lx = x + icon_sz + 5
+            center_h = header_height or icon_sz
+            ly = y + (center_h - text_h) / 2
+        else:
+            lx = x + (w - text_w) / 2   # centered horizontally
+            ly = y + 8
         create({
             "id": label_id, "type": "text",
             "x": lx, "y": round(ly, 1),
@@ -871,7 +875,7 @@ def _segment_intersects_bbox(seg, bbox):
 
 # ─── Icon management ───
 
-ICONS_BASE = os.path.join(REPO_ROOT, "aws-icons-official")
+ICONS_BASE = os.path.join(REPO_ROOT, "icons")
 
 # Configurable icon packs. Each pack maps file_id → relative path from ICONS_BASE.
 # Register new packs with register_icon_pack().

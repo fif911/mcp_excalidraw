@@ -20,6 +20,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import logger from './utils/logger.js';
+import { searchIcons } from './utils/aws-icon-index.js';
 import {
   generateId,
   EXCALIDRAW_ELEMENT_TYPES,
@@ -268,6 +269,16 @@ const QuerySchema = z.object({
 
 const ResourceSchema = z.object({
   resource: z.enum(['scene', 'library', 'theme', 'elements'])
+});
+
+const SearchAwsIconsSchema = z.object({
+  query: z.string().optional(),
+  category: z.string().optional(),
+  icon_type: z.enum(['architecture', 'resource', 'group', 'category', 'custom']).optional(),
+  size: z.enum(['16', '32', '48', '64']).optional(),
+  variant: z.enum(['Light', 'Dark']).optional(),
+  color: z.string().optional(),
+  limit: z.number().min(1).max(50).optional(),
 });
 
 // Diagram design guide — injected into LLM context via read_diagram_guide tool
@@ -845,6 +856,46 @@ const tools: Tool[] = [
         offsetY: {
           type: 'number',
           description: 'Vertical scroll offset'
+        }
+      }
+    }
+  },
+  {
+    name: 'search_aws_icons',
+    description: 'Search the icon library (AWS official + custom icons) to find the right icon for diagram elements. Returns relative paths from icons/ for use in register_icon_pack(). Supports keyword search (fuzzy, with AWS abbreviation aliases like s3, ec2, vpc), category browsing, and filtering by icon type and size. Call with no arguments to list available categories.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Keyword search (e.g., "lambda", "S3", "database", "step functions", "VPC"). Matches service names with fuzzy matching and AWS abbreviation aliases.'
+        },
+        category: {
+          type: 'string',
+          description: 'Filter by AWS category (e.g., "Compute", "Analytics", "Security-Identity", "Storage", "Databases"). Use alone to browse all icons in a category.'
+        },
+        icon_type: {
+          type: 'string',
+          enum: ['architecture', 'resource', 'group', 'category', 'custom'],
+          description: 'Filter by icon type: architecture = service icons (Arch_*), resource = sub-resource icons (Res_*), group = boundary/region/VPC icons, category = category-level icons, custom = user-added icons in icons/custom/'
+        },
+        size: {
+          type: 'string',
+          enum: ['16', '32', '48', '64'],
+          description: 'Filter by pixel size. Most service icons come in 16/32/48/64, group icons are 32.'
+        },
+        variant: {
+          type: 'string',
+          enum: ['Light', 'Dark'],
+          description: 'For general resource icons only: Light or Dark variant.'
+        },
+        color: {
+          type: 'string',
+          description: 'Filter by recolored variant color name (e.g., "Orange", "Green", "Purple"). Only applies to custom recolored icons in icons/custom/.'
+        },
+        limit: {
+          type: 'number',
+          description: 'Max results to return (default: 20, max: 50)'
         }
       }
     }
@@ -2272,6 +2323,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
         } catch (error) {
           throw new Error(`Failed to align elements in parent: ${(error as Error).message}`);
         }
+      }
+
+      case 'search_aws_icons': {
+        const params = SearchAwsIconsSchema.parse(args);
+        const results = searchIcons({
+          query: params.query,
+          category: params.category,
+          iconType: params.icon_type,
+          size: params.size ? parseInt(params.size) : undefined,
+          variant: params.variant,
+          color: params.color,
+          limit: params.limit ?? 20,
+        });
+        return {
+          content: [{ type: 'text', text: JSON.stringify(results, null, 2) }]
+        };
       }
 
       default:

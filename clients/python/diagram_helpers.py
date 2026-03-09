@@ -298,7 +298,7 @@ class DiagramAPI:
 
 # ─── Icon Upload Helper ───
 
-ICONS_BASE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "aws-icons-official")
+ICONS_BASE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons")
 
 ALL_ICONS = {
     "file-cloud": "Architecture-Group-Icons_01302026/AWS-Cloud-logo_32.svg",
