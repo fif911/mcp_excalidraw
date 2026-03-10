@@ -1,0 +1,54 @@
+Data Transfer Hub Architecture — v48 Components Plan
+=====================================================
+
+HIERARCHY
+---------
+AWS Cloud (outermost container)
+├── Customer's AWS Account (left section)
+│   ├── Authentication (dashed sub-section)
+│   │   ├── Amazon Cognito (icon + label)
+│   │   └── OpenID Connect (icon + label)
+│   ├── Amazon DynamoDB (icon + label)
+│   ├── AWS AppSync (icon + label)
+│   ├── AWS Lambda — middle row (icon + label)
+│   ├── AWS Step Functions workflow (pink border container)
+│   │   ├── AWS Lambda — upper (icon + label)
+│   │   └── AWS CloudFormation (icon + label)
+│   ├── Amazon CloudFront (icon + label)
+│   ├── Amazon S3 — customer bucket (icon + label)
+│   ├── AWS Fargate (icon + label)
+│   └── Data Transfer Hub UI (icon + label, uses client/monitor icon)
+├── AWS Managed Account (right section)
+│   ├── S3 replication component template (CFN template icon, orange)
+│   ├── DynamoDB replication component template (CFN template icon, orange)
+│   ├── Amazon S3 — managed bucket (S3 bucket icon, green)
+│   ├── ECR replication component template (CFN template icon, orange)
+│   ├── Amazon ECR (icon + label)
+│   └── ECR replication Docker image (ECR image icon)
+└── User (external, below AWS Cloud)
+
+CONNECTIONS (arrows)
+--------------------
+1. External entry arrow → Authentication (horizontal, no number)
+2. User → Data Transfer Hub UI (vertical, upward)
+3. DTH UI trunk — vertical line up to Authentication bottom (no arrowheads)
+4. DTH UI → AppSync (horizontal, circle 2)
+5. DTH UI → CloudFront (L-shape via bend point, circle 1)
+6. CloudFront → Amazon S3 customer (horizontal)
+7. AppSync → Lambda middle (horizontal, circle 4)
+8. Lambda middle → Step Functions entry (horizontal, circle 5)
+9. AppSync → DynamoDB (L-shape routed right of Auth, circle 8)
+10. CloudFormation → Fargate (vertical down from SF bottom)
+11. Amazon S3 managed → CloudFormation (horizontal left, circle 6)
+12. Amazon ECR → AWS Fargate (horizontal left, circle 7)
+
+NUMBERED CIRCLES (1-8)
+-----------------------
+1 — On DTH→CloudFront vertical segment
+2 — On DTH→AppSync horizontal segment
+3 — Left of DTH UI (on trunk line)
+4 — Between AppSync and Lambda
+5 — Between Lambda and Step Functions
+6 — In gap between Customer Account and Managed Account, at S3 managed row
+7 — In gap between Customer Account and Managed Account, at ECR row
+8 — On AppSync→DynamoDB route, above Auth section

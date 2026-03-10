@@ -1,0 +1,77 @@
+Data Transfer Hub Architecture — v48 Components Styling
+=========================================================
+
+COLORS
+------
+- Dark text / arrows: #1a1a1a
+- Container borders (gray): #879196
+- Step Functions border (pink): #d63384
+- Numbered circles background: #1a1a1a (dark)
+- Numbered circles text: #ffffff (white)
+- All service labels: #1a1a1a (dark)
+
+FONTS
+-----
+- Container headers: Helvetica (family "2"), 22px
+- Service labels: Helvetica (family "2"), 18px
+- Numbered circle text: Helvetica (family "2"), 18px
+
+ICON SIZES
+----------
+- Service icons: 65×65px
+- Container header icons: 55×55px
+- User icon: 50×50px
+- Numbered circles: 40px diameter
+
+CONTAINERS
+----------
+| Container               | X    | Y    | W    | H    | Border   | Fill        | Style   |
+|------------------------|------|------|------|------|----------|-------------|---------|
+| AWS Cloud              | 30   | 10   | 1510 | 800  | #879196  | transparent | solid   |
+| Customer's AWS Account | 60   | 80   | 890  | 700  | #879196  | transparent | solid   |
+| Authentication         | 100  | 150  | 310  | 190  | #879196  | transparent | dashed  |
+| Step Functions workflow| 645  | 175  | 285  | 365  | #d63384  | transparent | solid   |
+| AWS Managed Account    | 1030 | 80   | 480  | 700  | #879196  | transparent | solid   |
+
+SERVICE POSITIONS (cx, cy center coordinates)
+----------------------------------------------
+Customer Account:
+- Amazon Cognito:        200, 240
+- OpenID Connect:        330, 240
+- Amazon DynamoDB:       520, 210
+- AWS AppSync:           400, 390
+- AWS Lambda (mid):      560, 390
+- AWS Lambda (SF):       788, 290
+- AWS CloudFormation:    788, 440
+- Amazon CloudFront:     380, 640
+- Amazon S3 (customer):  570, 640
+- AWS Fargate:           788, 640
+- Data Transfer Hub UI:  120, 530
+- User (external):       120, 870
+
+Managed Account:
+- S3 replication tpl:    1150, 250
+- DynamoDB repl tpl:     1330, 250
+- Amazon S3 (managed):   1150, 440
+- ECR replication tpl:   1330, 440
+- Amazon ECR:            1150, 640
+- ECR repl Docker img:   1330, 640
+
+ARROWS
+------
+- Stroke: #1a1a1a, width 2px, solid
+- All orthogonal (horizontal/vertical segments only)
+- L-shapes use waypoints for right-angle bends
+- Entry arrow into Auth: from left of Customer Account border
+
+NUMBERED CIRCLE POSITIONS
+--------------------------
+Circle offset = radius + 5 + 1 = 26px from reference point
+- C1: (264, 590) — left of CloudFront bend vertical
+- C2: (290, 364) — above AppSync on DTH→AppSync line
+- C3: (94, 450) — left of DTH trunk line
+- C4: (480, 364) — above AppSync→Lambda line
+- C5: (619, 364) — above Lambda→SF line
+- C6: (975, 440) — in gap at S3 managed row
+- C7: (975, 640) — in gap at ECR row
+- C8: (435, 184) — above AppSync→DynamoDB route

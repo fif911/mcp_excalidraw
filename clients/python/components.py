@@ -504,6 +504,91 @@ def grid_2x2(prefix, items, container_id, header_h=45, icon_size=55, font_size=2
     return results
 
 
+def vertical_stack(items, cx, start_y, spacing=25,
+                   icon_size=55, font_size=16, gap=8, font_family="2",
+                   text_color="#1a1a1a",
+                   arrows=False, arrow_color="#1a1a1a", arrow_width=2,
+                   arrow_direction="up"):
+    """
+    Stack icon+label components vertically with consistent spacing and optional
+    connecting arrows centered between them.
+
+    Calculates each component's rendered height so the next component starts
+    exactly `spacing` pixels below the previous one's bounding box.
+
+    Args:
+        items: list of dicts, each with keys:
+               - "prefix": unique ID prefix
+               - "file_id": uploaded SVG file ID
+               - "label": label text (can contain \\n)
+        cx: X center for all components (vertical alignment)
+        start_y: Y center of the FIRST component
+        spacing: pixels between bottom of one component bbox and top of next
+        icon_size, font_size, gap: passed to icon_label_component
+        text_color: label color
+        arrows: if True, draw vertical arrows between consecutive items
+        arrow_color, arrow_width: arrow styling
+        arrow_direction: "up" (arrows point upward) or "down" (arrows point downward)
+
+    Returns:
+        dict with:
+          - "components": list of icon_label_component results
+          - "arrows": list of arrow dicts (if arrows=True)
+          - "total_height": total height from first icon top to last label bottom
+    """
+    components = []
+    arrow_results = []
+    current_cy = start_y
+
+    for i, item in enumerate(items):
+        comp = icon_label_component(
+            item["prefix"], item["file_id"], item["label"],
+            cx=cx, cy=current_cy,
+            icon_size=icon_size, font_size=font_size, gap=gap,
+            text_color=text_color, font_family=font_family,
+        )
+        components.append(comp)
+
+        # Calculate the bottom of this component's bounding box
+        bbox = comp["bbox"]
+        comp_bottom = bbox["y"] + bbox["h"]
+
+        # Draw arrow from previous component to this one
+        if arrows and i > 0:
+            prev_bbox = components[i - 1]["bbox"]
+            prev_bottom = prev_bbox["y"] + prev_bbox["h"]
+            this_top = bbox["y"]
+
+            arrow_y1 = prev_bottom + 3
+            arrow_y2 = this_top - 3
+            aid = f"a-stack-{items[i-1]['prefix']}-{item['prefix']}"
+
+            if arrow_direction == "up":
+                arrow(aid, cx, arrow_y2, cx, arrow_y1,
+                      stroke_color=arrow_color, stroke_width=arrow_width)
+            else:
+                arrow(aid, cx, arrow_y1, cx, arrow_y2,
+                      stroke_color=arrow_color, stroke_width=arrow_width)
+            arrow_results.append({"arrow_id": aid})
+
+        # Next component center: bottom + spacing + half of next component height
+        # We estimate next height same as current (will be corrected when created)
+        if i < len(items) - 1:
+            next_label = items[i + 1]["label"]
+            next_text_h = estimate_text_height(next_label, font_size)
+            next_total_h = icon_size + gap + next_text_h
+            current_cy = comp_bottom + spacing + next_total_h / 2
+
+    first_top = components[0]["bbox"]["y"]
+    last_bottom = components[-1]["bbox"]["y"] + components[-1]["bbox"]["h"]
+
+    return {
+        "components": components,
+        "arrows": arrow_results,
+        "total_height": last_bottom - first_top,
+    }
+
+
 def text_box(prefix, text, cx, cy,
              width=None, height=None, min_width=0, max_height=0, padding=12,
              font_size=18, font_family="2",
@@ -958,6 +1043,142 @@ def center_element(child_id, parent_id, axis="both"):
         "parentId": parent_id,
         "axis": axis
     })
+
+
+# ─── Container auto-sizing ───
+
+def fit_container(container_id, child_ids=None, padding=20, header_height=None,
+                  min_width=0, min_height=0):
+    """
+    Auto-resize a container to fit all its children with padding.
+
+    Reads the actual rendered positions of child elements from the canvas,
+    computes their bounding box, and expands the container to fit them.
+    Only GROWS the container — never shrinks below current size or min_width/min_height.
+
+    Args:
+        container_id: ID of the container rectangle element
+        child_ids: list of child element IDs to fit. If None, uses all elements
+                   whose groupIds overlap with elements inside the container's bbox.
+        padding: minimum pixels of clearance between children and container edges
+        header_height: pixels reserved for the container header (icon + label).
+                       If None, auto-detects from existing header elements.
+        min_width: minimum container width (never shrinks below this)
+        min_height: minimum container height (never shrinks below this)
+
+    Returns:
+        dict with keys: container_id, old_bbox, new_bbox, grew (bool)
+    """
+    ctr = get_element(container_id)
+    old_x, old_y = ctr['x'], ctr['y']
+    old_w, old_h = ctr.get('width', 0), ctr.get('height', 0)
+
+    # Auto-detect header height from header elements in the same group
+    if header_height is None:
+        header_height = 0
+        group_id = f"g-{container_id}"
+        all_els = get_elements().get('elements', [])
+        for e in all_els:
+            if group_id in e.get('groupIds', []) and e['id'] != container_id:
+                # Header elements sit at y == container y
+                el_bottom = e['y'] + e.get('height', 0)
+                if abs(e['y'] - old_y) < 5:
+                    header_height = max(header_height, el_bottom - old_y)
+
+    # Collect child bounding boxes
+    if child_ids is None:
+        # Find leaf elements (text, image, ellipse) geometrically inside the container.
+        # Excludes: arrows, other containers, and the container's own header elements.
+        all_els = get_elements().get('elements', [])
+
+        # Build set of the container's own group members (header icon, label, bg)
+        container_group = f"g-{container_id}"
+        own_group_ids = {container_id}
+        for e in all_els:
+            if container_group in e.get('groupIds', []):
+                own_group_ids.add(e['id'])
+
+        child_ids = []
+        for e in all_els:
+            if e['id'] in own_group_ids:
+                continue
+            # Skip arrows — they span across containers
+            if e['type'] == 'arrow':
+                continue
+            # Skip large rectangles (other containers)
+            if e['type'] == 'rectangle' and e.get('width', 0) > 80 and e.get('height', 0) > 60:
+                continue
+            ex, ey = e['x'], e['y']
+            ew = e.get('width', 0)
+            eh = e.get('height', 0)
+            # Text elements may not have width set — estimate
+            if e['type'] == 'text' and (not ew or ew == 0):
+                ew, eh = measure_text(e.get('text', ''), e.get('fontSize', 22))
+            # Check if element center is inside container
+            ecx = ex + ew / 2
+            ecy = ey + eh / 2
+            if (old_x < ecx < old_x + old_w and old_y < ecy < old_y + old_h):
+                child_ids.append(e['id'])
+
+    if not child_ids:
+        return {"container_id": container_id,
+                "old_bbox": {"x": old_x, "y": old_y, "w": old_w, "h": old_h},
+                "new_bbox": {"x": old_x, "y": old_y, "w": old_w, "h": old_h},
+                "grew": False}
+
+    # Compute children bounding box
+    all_els = get_elements().get('elements', [])
+    by_id = {e['id']: e for e in all_els}
+
+    min_x = float('inf')
+    min_y = float('inf')
+    max_x = float('-inf')
+    max_y = float('-inf')
+
+    for cid in child_ids:
+        e = by_id.get(cid)
+        if not e:
+            continue
+        ex, ey = e['x'], e['y']
+        ew = e.get('width', 0)
+        eh = e.get('height', 0)
+        if e['type'] == 'text' and (not ew or ew == 0):
+            ew, eh = measure_text(e.get('text', ''), e.get('fontSize', 22))
+        min_x = min(min_x, ex)
+        min_y = min(min_y, ey)
+        max_x = max(max_x, ex + ew)
+        max_y = max(max_y, ey + eh)
+
+    # Required container bounds
+    req_x = min_x - padding
+    req_y = min(old_y, min_y - padding - header_height)  # preserve header
+    req_right = max_x + padding
+    req_bottom = max_y + padding
+
+    # Only grow, never shrink
+    new_x = min(old_x, req_x)
+    new_y = min(old_y, req_y)
+    new_right = max(old_x + old_w, req_right)
+    new_bottom = max(old_y + old_h, req_bottom)
+    new_w = max(new_right - new_x, min_width)
+    new_h = max(new_bottom - new_y, min_height)
+
+    grew = (new_x != old_x or new_y != old_y or new_w != old_w or new_h != old_h)
+
+    if grew:
+        update(container_id, {
+            "x": round(new_x, 1),
+            "y": round(new_y, 1),
+            "width": round(new_w, 1),
+            "height": round(new_h, 1),
+        })
+
+    return {
+        "container_id": container_id,
+        "old_bbox": {"x": old_x, "y": old_y, "w": old_w, "h": old_h},
+        "new_bbox": {"x": new_x, "y": new_y, "w": new_w, "h": new_h},
+        "grew": grew,
+    }
 
 
 # ─── Verification ───

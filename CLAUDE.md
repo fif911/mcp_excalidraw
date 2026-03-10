@@ -3,6 +3,7 @@ This is the list of agents we need in order of execution. Follow this workflow p
 1. Planner agent: 
    - Goal: create a plan for the main agent to create the diagram.
    - Needs to support both photo and text prompts/descriptions.
+   - If a reference image is provided, it will be used to create the plan and refine it, save it in the folder so you can always refer to it.
    - There need to be two plans with folder structure diagram_building/v_{number of version} (e.g. diagram_building/v44, this is our number 1, then count from the previous version):
      - components_plan.txt where we list all the components used on the diagram and their connections and descriptions.
      - components_styling.txt where we list all the styling options for the components, colors, sizing, etc.
@@ -16,7 +17,8 @@ This is the list of agents we need in order of execution. Follow this workflow p
      - Reuses components from components.py
      - Correctly adds icons from aws-icons-official on the diagram, judging by section contents. Do not perform manual searches, always use tool excalidraw - search_aws_icons (MCP)/ for this task, properly setting the parameters.
      - For each icon keep proper track of light and dark background versions, many icons have both and it needs to choose the proper one.
-     - Ensures elements do not overlap with one another (unless some arrows cross at some point).
+     - Ensures elements, sections or subsections do not overlap with one another (unless some arrows cross at some point).
+     - Tip: keep the list of icons in a separate file called icons_graph_structure.md and track which icons are connected to each other and what number and direction the arrow has (or if it is bidirectional), so it is easier to add new icons.
      - It is free to create new components if they are missing from the components.py file and adjust them accordingly.
      - Based on the critic agent/user feedback, adjust the skills and change components if needed to accommodate the new design.
      - When it creates/changes components, it needs to keep them as generalized as possible so they work for many diagrams, not just the one we are building now.
@@ -28,6 +30,7 @@ This is the list of agents we need in order of execution. Follow this workflow p
    - Use excalidraw MCP if available to capture output diagram and compare to the input file, looking closely to spot all the differences, zooming into the picture for a better view (skills/diagram-review/crop_region.py).
    - Reading components_plan.txt and components_styling.txt and identifying errors in the diagram and where it does not match the plan.
    - Using skills and scripts from skills/diagram-review. Following the checklist in the reference.
+   - Reviewing the file icons_graph_structure.md and comparing it to the diagram and reference image to identify missing or wrongly connected icons.
    - It should be able to detect the following errors:
      - Sections not in the correct order or hierarchy.
      - Missing sections.
