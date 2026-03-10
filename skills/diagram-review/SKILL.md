@@ -89,7 +89,9 @@ The cloud provider boundary (e.g. "AWS Cloud") must be the **outermost** contain
 - No element straddles a container border (partially inside, partially outside)
 - Cloud boundary is visibly larger than all nested containers
 - When a gap between siblings seems too tight, the fix should be expanding the parent outward — not shrinking it
+- **No disproportionate gaps:** When aligning a stack item with an external icon pushes `start_y` far from the container top, move the entire container (Y position) down instead of leaving a large header-to-content gap. The header-to-first-icon offset should stay consistent (~80-120px). Never stretch just the content offset while leaving the container border in place
 - **Watch for auto-expanded containers:** `container_box` silently expands width to fit header text + icon. A container set to 230px wide may render at 283px, causing it to overflow its parent. Zoom into the right/bottom edges of nested containers to verify they don't touch or cross the parent border
+- **Initial dimension arithmetic:** Before running the build script, manually verify every nesting level: `child_Y + child_H + padding ≤ parent_Y + parent_H`. The auto-sizer (`fit_container`) may not grow parent containers enough if the initial dimensions are too far off. Always compute bottom edges for each nested container and confirm they fit within the parent with at least 20px clearance
 
 ### Container Headers
 Crop the top-left corner of every container. Check:
@@ -109,6 +111,13 @@ For each service icon inside a container:
 - Both centered vertically in available space (below container header)
 - Every icon+label pair must be grouped — they move together
 
+### Icon Minimum Sizes
+Always compare against the reference image — if icons look smaller, increase proportionally. These are **minimum** sizes:
+- `SVC_ICON` ≥ 65px — service icons (AWS Architecture 48px SVGs rendered at 65px+)
+- `HDR_ICON` ≥ 40px — container header icons (AWS Cloud logo, etc.)
+- Group icons ≥ 32px — VPC, Private subnet header icons (AWS Group Icons 32px SVGs)
+- User/external icons ≥ 50px
+
 ### Icon Backgrounds
 - AWS official SVG icons already include colored background fills (S3=green, Cognito=red, etc.)
 - If you see a **double background** (colored square behind the icon's built-in color), that's a bug — `icon_bg_color` should not be used for AWS icons
@@ -127,6 +136,7 @@ Icons can have **Light/Dark variants** and exist in **multiple icon types**. Bot
 - **Architecture icons** (`Arch_*`): colored square background + white icon inside — use for service-level representation
 - **Resource icons** (`Res_*`): outline/flat icon with no square background — use for specific instances (a bucket, a template, an image)
 - If the reference shows an outline-style icon but the diagram shows a colored square, the wrong icon type was used (Architecture instead of Resource), or vice versa
+- **Common mistake — S3 buckets:** AWS architecture diagrams typically use Architecture icons (`Arch_Amazon-Simple-Storage-Service_48.svg`) which render as green filled squares — NOT Resource bucket icons (`Res_*_S3-Bucket_48.svg`) which render as thin outlines only. Always verify S3 and similar high-frequency services against the reference
 - **Color mismatch between icon types:** Resource icons inherit their category color (e.g., Management-Governance = pink, Storage = green, Containers = orange). If the reference shows an icon in a different color than what appears in the diagram, the icon may be from the wrong category or the wrong icon type entirely
 - **Custom color variants for color mismatches:** When no matching color exists in the AWS icon library, create a custom recolored SVG in `icons/custom/` — copy the original SVG, change the `fill` color, and add the color name to the filename (e.g., `Res_{ServiceName}_{ResourceType}_{Size}_{Color}.svg`). This is the correct approach when an icon's category color doesn't match the visual context in the reference diagram
 - **Non-AWS icons:** Open standards (OpenID Connect, SAML, Docker, etc.) are not in the AWS icon library. Use custom SVGs from `icons/custom/` for these — do NOT substitute a vaguely similar AWS icon
@@ -136,9 +146,11 @@ Service labels can be much wider than their icons (e.g. "Amazon Rekognition" ~19
 - Label text does not extend past container borders
 - At least 30px clearance between label edge and nearest container border
 
-### Arrow Endpoints
+### Arrow Endpoints & Alignment
 Crop each arrow's start and end points. Check:
 - **Arrows connect at icon image centers**, not at the component center (which includes the label below). When an icon has a label, the component center is between icon and label — but arrows should aim at the icon's visual center, which is higher up
+- **Connected icons should be aligned on the arrow's perpendicular axis** — for a horizontal arrow, both icons share the same Y; for a vertical arrow, both share the same X. Use `icy_to_cy()` to place icon image centers at exact target positions. **Exceptions**: break alignment when (a) the arrow is L-shaped in the reference, (b) layout constraints make it impossible, or (c) the reference shows a clear visual hierarchy (e.g., parent icon above child icons). In exception cases, use L-shaped arrows with waypoints
+- **vertical_stack alignment** — when a stack item connects to an external icon via a horizontal arrow, adjust the stack's `start_y` so that item's `icon_cy` matches the external icon's Y. Always read actual `icon_cy` from stack bbox for arrow endpoints
 - Arrow doesn't float in empty space
 - Arrow direction is correct (verify against reference)
 - Arrow only crosses container borders it's actually entering/leaving — never passes through unrelated containers
@@ -153,7 +165,7 @@ Crop each arrow's start and end points. Check:
 Crop each numbered circle. Check:
 - Circle is perfectly round (width === height)
 - Number is centered (white on black)
-- **Circle is offset from its arrow** — not sitting ON the arrow line. There must be a visible ~5px gap between the arrow line and the circle edge
+- **HARD RULE: Circles must NEVER touch or overlap arrow lines** — always offset by at least `CIRCLE_R + 5` pixels above/below (for horizontal arrows) or left/right (for vertical arrows). Place circles **above** horizontal arrows, **to the right** of vertical arrows. If there is no room, rearrange the layout — never violate this rule
 - Circle is on the arrow **body**, away from both endpoints — arrowhead triangles extend ~10px back from the tip and must have clear space
 - Circle doesn't overlap adjacent elements (icons, labels, text)
 - Circle is fully inside or fully outside every container — at least 15px from any container border

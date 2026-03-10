@@ -1,0 +1,96 @@
+STYLING — v49 AWS Architecture Diagram
+=======================================
+
+COLORS
+------
+DARK       = #1a1a1a   (text, arrows, circle bg)
+GRAY       = #879196   (container borders)
+GREEN_VPC  = #248814   (VPC border)
+BLUE_SUB   = #147eba   (Private subnet border)
+CLIENT_BG  = #e9ecef   (Client API gray background)
+
+FONTS
+-----
+Header:  22px Helvetica (font_family=2)
+Body:    16px Helvetica
+Circle:  16px Helvetica, white on dark bg
+
+ICON SIZES
+----------
+Service icons: 55x55px
+Header icons:  40x40px (container headers)
+Group icons:   32x32px (VPC, subnet)
+User icon:     50x50px
+
+CONTAINERS (x, y, w, h)
+------------------------
+AWS Cloud:           30,  20, 1540, 860    stroke=GRAY, dashed, 1px
+Web UI component:    55,  65,  460, 385    stroke=GRAY, dashed, 1px
+Cost component:     700,  65,  850, 165    stroke=GRAY, dashed, 1px
+Client API:         510, 330,  190, 110    stroke=GRAY, solid, fill=CLIENT_BG
+VPC:                710, 250,  530, 530    stroke=GREEN_VPC, solid, 2px
+Private subnet:     730, 290,  495, 475    stroke=BLUE_SUB, dashed, 1px
+Data component:     750, 335,  460, 195    stroke=GRAY, dashed, 1px
+Discovery component:750, 555,  460, 195    stroke=GRAY, dashed, 1px
+Image deployment:  1260, 260,  290, 530    stroke=GRAY, dashed, 1px
+Storage management:  55, 490,  440, 140    stroke=GRAY, dashed, 1px
+
+SERVICE POSITIONS (cx, cy — center of icon+label component)
+-----------------------------------------------------------
+# Web UI component
+DynamoDB Settings:   270, 140
+Cognito:             290, 280
+CloudFront:          170, 400
+S3 WebUIBucket:      370, 400
+
+# Lambda Settings (standalone, right of Web UI)
+Lambda Settings:     590, 140
+
+# Cost component (row, evenly spaced)
+Lambda Cost:         780, 140
+Athena:              920, 140
+S3 CURBucket:       1060, 140
+CUR:                1210, 140
+S3 AthenaResults:   1400, 140
+
+# Client API
+API Gateway:         560, 380
+AppSync:             650, 380
+
+# VPC > Private subnet > Data component
+Lambda Gremlin:      840, 400
+Neptune:            1020, 400
+Lambda Search:       840, 480
+OpenSearch:         1040, 480
+
+# VPC > Private subnet > Discovery component
+Fargate:             820, 650
+ECS:                 950, 650
+ECR:                1100, 650
+
+# Image deployment (vertical column)
+S3 DiscoveryBucket: 1400, 350
+CodePipeline:       1400, 440
+CodeBuild:          1400, 540
+Container image:    1400, 650
+
+# Storage management
+Amplify:             170, 565
+S3 AmplifyStorage:   380, 565
+
+# Standalone services
+API GW Gremlin:      570, 540
+AWS SDK:             570, 640
+AWS Config:          570, 740
+
+# External
+Users:                30, 400  (outside AWS Cloud)
+
+NUMBERED CIRCLES (cx, cy, color=DARK, size=36)
+-----------------------------------------------
+All circles: bg=#1a1a1a, text=#ffffff, size=36
+
+ARROWS
+------
+All arrows: stroke=#1a1a1a, width=2, solid, orthogonal routing
+Use waypoints for L-shaped paths
