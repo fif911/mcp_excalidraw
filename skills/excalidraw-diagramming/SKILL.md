@@ -290,7 +290,9 @@ Icon centered above label, auto-grouped.
 
 ### `numbered_circle(prefix, number, cx, cy, size=50)`
 Dark circle (#1a1a1a) with white centered number.
-- Uses server's center endpoint for precision
+- Uses `measure_text()` for accurate text width, then centers `x = cx - tw/2`, `y = cy - th/2`
+- Sets `textAlign: "center"` on the text element for proper rendering
+- Falls back gracefully if browser alignment (`align_in_parent`) is unavailable
 - Returns: `{bg_id, text_id, group_id, bbox}`
 
 ### `container_box(cid, x, y, w, h, stroke_color, ...)`
@@ -311,11 +313,39 @@ Icon+label centered within an existing container. Accounts for 60px header heigh
 - Order: top-left, top-right, bottom-left, bottom-right
 
 ### `arrow(aid, start_x, start_y, end_x, end_y, ...)`
-Arrow with optional multi-point path via waypoints.
+Arrow with optional multi-point path via waypoints and optional numbered label.
 - `waypoints`: list of `(x, y)` absolute coordinates for intermediate points
 - `start_binding`, `end_binding`: dicts with `{"elementId", "focus", "gap"}`
 - `elbowed`: if True, enables Excalidraw's built-in A* elbowed routing (client-side)
 - `stroke_style`: "solid" or "dashed"
+- **Numbered label** — auto-places a circle at the arrow midpoint or a specific segment:
+  - `label_number`: number to display (None = no label)
+  - `label_bg`: background color (default `#1a1a1a`)
+  - `label_text_color`: text color (default `#ffffff`)
+  - `label_size`: circle diameter (default 36)
+  - `label_font_size`: font size (default 16)
+  - `label_offset`: perpendicular offset from arrow in px (None = auto `label_size/2 + 5`). Positive = above for horizontal, right for vertical.
+  - `label_shape`: `"circle"` (default)
+- **Label positioning** (evaluated in priority order):
+  1. **`label_cx`, `label_cy`** — Manual override. Use **only** when auto position causes overlap with container borders, icons, or other elements, or when the reference image explicitly shows non-centered placement. Both must be set together. Always add a comment explaining *why* the override is needed.
+  2. **`label_segment`** — 0-based segment index for multi-segment (L/U/Z) arrows. Supports negative indexing (`-1` = last segment). Centers the circle on that segment's midpoint. Segments: `0 = start→wp[0]`, `1 = wp[0]→wp[1]`, ..., `-1 = wp[-1]→end`.
+  3. **(default)** — Centers at 50% distance along the full path. Best for straight arrows and U-shapes where the path midpoint falls on a horizontal segment.
+- Offset direction is automatic: horizontal segments → circle above, vertical segments → circle to the right.
+- Returns: `{arrow_id, label, segments}` where `label` is `{prefix, cx, cy, number, segment}` or `None`, and `segments` is a list of segment info dicts.
+
+**Usage examples:**
+```python
+# Straight arrow — auto midpoint (default)
+arrow("a1", x1, y1, x2, y2, label_number=1)
+
+# L-shaped arrow — label on last horizontal segment
+arrow("a2", x1, y1, x2, y2, waypoints=[(wx, wy)],
+      label_number=2, label_segment=-1)
+
+# Override — midpoint lands on VPC border, shift right
+arrow("a3", x1, y1, x2, y2,
+      label_number=3, label_cx=VPC_RIGHT + 40, label_cy=y2 - COFFSET)
+```
 
 ### `elbowed_arrow(aid, start_id, end_id, ...)`
 Simplified arrow creation with elbowed routing and element bindings.
@@ -488,7 +518,15 @@ Circles mark flow steps and must be placed **adjacent to** their arrow, not on i
 **Three hard rules:**
 1. **Full continuous arrows:** Draw ONE arrow from source to target. Never split arrows.
 2. **5px visible margin:** Between the arrow line's visual edge and the circle's edge — no touching, no overlap.
-3. **No border crossings:** Every circle must be fully inside or fully outside every container (15px clearance from borders).
+3. **No border crossings:** Every circle must be fully inside or fully outside every container (15px clearance from borders). **Do not use midpoint formulas blindly** — when an arrow crosses a container border, the midpoint may land on the border. Instead, calculate the circle position, then verify it against all nearby container edges (left, right, top, bottom). If the circle edge is within 15px of any border, shift it to the nearest safe side.
+
+```python
+# WRONG: midpoint lands on the Web UI border
+C6_CX = (DYNAMO_CX + LAMBDA_SET_CX) / 2  # = 460, but Web UI right edge is ~478
+
+# CORRECT: explicitly position outside the container with clearance
+C6_CX = 510  # Web UI right ~478, circle left = 510-18=492 → 14px clearance
+```
 
 **Pattern:**
 ```python
@@ -630,6 +668,22 @@ Every nested container must be **fully contained** within its parent with at lea
 # SIBLING_X += 50  →  all sibling's icons, labels, arrows += 50  →  CLOUD_W += 50
 ```
 
+### Sibling Containers Must Not Overlap
+
+`fit_container()` only **grows** containers, never shrinks them. If the initial width/height is too large, the container keeps that oversized dimension. This causes sibling containers to overlap when the initial size extends into a neighbor's space.
+
+**Rule:** Set initial container dimensions to a **tight estimate** — just large enough to hold children. Let `fit_container()` grow as needed. Verify at least 20px gap between sibling containers after auto-sizing.
+
+```python
+# WRONG: initial width 480 is too generous — right edge (570) overlaps Client API at x=560
+container_box("web-ui", 90, 70, 480, 410, ...)
+
+# CORRECT: initial width 380 fits children tightly — auto-grows to ~400, leaves 160px gap
+container_box("web-ui", 90, 70, 380, 410, ...)
+```
+
+**How to estimate initial width:** sum the widest child element width + labels + padding (20px each side). When in doubt, undersize — `fit_container()` will expand.
+
 ### Arrows Crossing Container Borders
 
 **Rule: an arrow must stop at the border of any container it enters.** It must NOT reach deep inside to target an icon within a nested container. The visual convention is a "hand-off" at the container edge.
@@ -744,6 +798,7 @@ Wrong:
 - Cloud boundary must encompass **all** nested containers and their children (including labels)
 - Only external/on-premise elements sit outside the cloud boundary
 - Cloud boundary must be **visibly larger** than nested containers on **all sides** — at least 30px clearance
+- **AWS Cloud boundary is NEVER dashed** — always use `stroke_style="solid"`. Only sub-sections inside the cloud use dashed borders.
 
 ### Every Container Header MUST Have an Icon
 Every `container_box()` call MUST include an `icon_file_id` parameter. Headers without icons look inconsistent and break the visual pattern. If a container represents a cloud provider section, use the provider logo; if it represents an account or service, use the matching service icon.
@@ -809,7 +864,132 @@ arrow("a1", CIRCLE_X + CIRCLE_R, ROW_Y, SVC_X - ICON_R, ROW_Y, ...)
 - Shift `cy` by `+ ICON_VSHIFT` so image center lands at row Y
 - Label-less icons: no shift needed
 - Horizontal arrows: both endpoints at same Y
-- Vertical arrows between icons: start below source label, end at target icon top
+- Vertical arrows between icons: start below source label, end **below target label** (not at icon border)
+
+### Arrow Endpoints Must Clear Labels
+
+When an arrow approaches a component from the **label side** (below, when labels are below icons), the arrow must stop below the label text — never pierce through the label to reach the icon. Add 7px below the label bottom for a clean visual gap (the validator may still flag this as a false positive due to its 15px margin — that's expected).
+
+```python
+# WRONG: arrow pierces through "Amazon Cognito" label to reach icon border
+arrow("a-s3-cognito", S3_CX, S3_CY - ICON_R,
+      COGNITO_CX, COGNITO_CY + ICON_R, ...)  # ends at icon bottom
+
+# CORRECT: arrow stops 25px below the label bottom
+LABEL_BOTTOM = COGNITO_CY + ICON_R + COMP_GAP + FONT_BODY * 1.25
+arrow("a-s3-cognito", S3_CX, S3_CY - ICON_R,
+      COGNITO_CX, LABEL_BOTTOM + 7, ...)  # 7px visual gap below label
+```
+
+**Formula:** `endpoint_y = target_icon_cy + ICON_R + COMP_GAP + (lines * FONT_BODY * 1.25) + 7`
+
+### Align Connected Elements on Same Axis for Straight Arrows
+
+When two components have a direct vertical or horizontal connection, align them on the same axis so the arrow is a clean straight line. This avoids L-shaped arrows where a straight line is more readable.
+
+```python
+# WRONG: S3 at cx=390, Cognito at cx=290 → forces L-shape arrow
+S3_WEBUI_CX = 390;  COGNITO_CX = 290
+
+# CORRECT: align S3 directly under Cognito → clean vertical arrow
+S3_WEBUI_CX = COGNITO_CX  # = 290
+```
+
+### Label Proximity — Minimum 20px Text Gap
+
+Adjacent service labels must have at least 20px horizontal or vertical gap between their text edges. When two icons are side by side, calculate label widths with `measure_text()` and verify the gap. If labels are too close, spread the icons further apart.
+
+```python
+# Check label gap between CloudFront (cx=110) and S3 (cx=290)
+cf_w, _ = measure_text("Amazon CloudFront", FONT_BODY)
+s3_w, _ = measure_text("Amazon S3 bucket", FONT_BODY)
+cf_right = CLOUDFRONT_CX + cf_w / 2    # ~182
+s3_left = S3_CX - s3_w / 2             # ~222
+gap = s3_left - cf_right               # ~40px ✓ (minimum 20px)
+```
+
+### STRICT: Global `ARROW_STYLE` Constant — Single Source of Truth for All Arrows
+
+**Every build script MUST define one `ARROW_STYLE` dict using `arrow_style()` from `components.py`, then unpack it into every `arrow()` call with `**ARROW_STYLE`.** This is non-negotiable. Never pass `stroke_color`, `stroke_width`, `stroke_style`, `label_bg`, `label_text_color`, `label_size`, or `label_font_size` as individual arguments to `arrow()` — they all come from the single dict.
+
+Only per-arrow overrides (coordinates, `waypoints`, `start_arrowhead`, `end_arrowhead`, `label_number`, `label_segment`, `label_cx`/`label_cy`, `label_bg` for colored circles) are passed directly. If a specific arrow needs a different `label_bg` (e.g. orange for a highlight), pass it after `**ARROW_STYLE` so it overrides that one key.
+
+```python
+# components.py provides arrow_style():
+ARROW_STYLE = arrow_style(
+    stroke_color=DARK, stroke_width=2, stroke_style="solid",
+    label_bg=CIRCLE_BG, label_text_color="#ffffff",
+    label_size=CIRCLE_SIZE, label_font_size=FONT_BODY,
+)
+
+# WRONG: repeating style params on every call
+arrow("a1", x1, y1, x2, y2,
+      stroke_color=DARK, stroke_width=2,
+      label_number=1, label_bg=CIRCLE_BG, label_size=CIRCLE_SIZE, label_font_size=FONT_BODY)
+
+# CORRECT: unpack global style, only pass per-arrow params
+arrow("a1", x1, y1, x2, y2, **ARROW_STYLE, label_number=1)
+
+# CORRECT: override label_bg for colored circle
+arrow("a2", x1, y1, x2, y2, **ARROW_STYLE, label_number=5, label_bg=ORANGE)
+
+# CORRECT: bidirectional arrow
+arrow("a3", x1, y1, x2, y2, **ARROW_STYLE,
+      start_arrowhead="arrow", end_arrowhead="arrow", label_number=7)
+```
+
+**Minimum segment length rule**: Every arrow segment ending with an arrowhead must be at least **50px long**. Shorter segments cause arrowheads to visually fill the segment. For staggered L-shaped arrows sharing a start point, distribute vertical-line X-offsets with equal gaps so all final horizontal segments stay above 50px.
+
+Bidirectional arrows explicitly set `start_arrowhead="arrow", end_arrowhead="arrow"`. One-way arrows leave `start_arrowhead=None` (default). No other arrowhead types should be used.
+
+### STRICT: Uniform Icon Sizes — Use Size Constants, Never Hardcode
+
+**Every icon size must come from a global constant — never hardcode pixel values.**
+
+- **Service icons**: All `icon_label_component()` and `vertical_stack()` calls must use `icon_size=SVC_ICON`. This includes external actors like Users.
+- **Container header icons**: All `container_box()` calls with icons must use `icon_header_size=HDR_ICON` and `header_height=HDR_ICON`.
+
+```python
+SVC_ICON = 65   # all service icons
+HDR_ICON = 40   # all container header icons
+
+# WRONG: hardcoded sizes
+icon_label_component("users", ..., icon_size=50, ...)
+container_box("vpc", ..., icon_header_size=32, header_height=36, ...)
+
+# CORRECT: constants everywhere
+icon_label_component("users", ..., icon_size=SVC_ICON, ...)
+container_box("vpc", ..., icon_header_size=HDR_ICON, header_height=HDR_ICON, ...)
+```
+
+### Container Header Pinning — Icon and Title Stay at Top-Left
+
+The `container_box()` component places the header icon and label at the container's top-left corner. When `fit_container()` resizes a container (shifting its x/y), all header elements in the container's group are automatically moved by the same delta so they remain pinned to the new top-left. Never manually reposition header elements after `fit_container()` — this is handled internally.
+
+### Numbered Circles Must Be Attached to Arrows
+
+Every numbered circle should be created by `arrow(..., label_number=N)` — not as a standalone `numbered_circle()` call. This ensures circles automatically track arrow positions when icons move.
+
+**Positioning priority:**
+1. **Default** — auto midpoint. Correct for straight arrows and U-shapes.
+2. **`label_segment=N`** — for L/Z-shaped arrows where the midpoint falls on the wrong segment. Specify which segment the circle belongs to (0-indexed, supports `-1` for last).
+3. **`label_cx`, `label_cy`** — manual override. Use **only** when auto/segment placement causes overlap with container borders or nearby elements, or when the reference image explicitly shows non-centered placement. Always comment why.
+
+```python
+# Straight arrow — auto midpoint (preferred)
+arrow("a1", x1, y1, x2, y2, label_number=1)
+
+# L-shaped — circle on last horizontal segment
+arrow("a2", x1, y1, x2, y2, waypoints=[...],
+      label_number=2, label_segment=-1)
+
+# Override — auto midpoint lands on VPC border
+arrow("a3", x1, y1, x2, y2,
+      label_number=3, label_cx=VPC_RIGHT + 40, label_cy=y - COFFSET)
+      # override: midpoint at VPC border, shift outside
+```
+
+**Only use standalone `numbered_circle()`** for circles that have no associated arrow (e.g., Circle 4 between two icons in the same container) or circles on `vertical_stack` arrows that aren't directly accessible.
 
 ### Validation False Positives
 `validate_diagram()` and `validate_arrow_paths()` report TEXT_OVERLAP for arrows that intentionally pass through annotation text areas. BORDER warnings for elements near container edges are also expected when icons are intentionally placed outside containers.
@@ -835,12 +1015,16 @@ arrow("a1", CIRCLE_X + CIRCLE_R, ROW_Y, SVC_X - ICON_R, ROW_Y, ...)
 | Place arrow labels at same y as arrows | Position labels fully above/below the arrow line |
 | Hardcode arrow label x-offsets | Use `measure_text` to center labels between endpoints |
 | Create numbered circles before arrows | Create arrows first, then circles (z-order) |
+| Manually compute circle midpoints for straight arrows | Use `arrow(..., label_number=N)` — auto-calculates midpoint and offset |
+| Use standalone `numbered_circle` for L-shaped arrow labels | Use `arrow(..., label_number=N, label_segment=-1)` to attach to specific segment |
+| Use `label_cx`/`label_cy` without justification | Only override when auto-position overlaps borders/elements; always add a comment why |
 | Place circles on arrows or split arrows around circles | Offset circles with 5px margin (above for horizontal, side for vertical) |
 | Place circles near container borders | Center circles in the gap between borders |
 | Omit `icon_file_id` on `container_box()` | Always pass a header icon for every container |
 | Route arrows through unrelated sections | Add waypoints to route around unrelated containers |
 | Shrink parent container to widen gaps | Expand parent outward, push siblings further away, expand cloud boundary |
 | Place circles touching arrow lines (zero margin) | Use `COFFSET = CIRCLE_R + 5 + stroke/2` for a 5px visible gap |
+| Hardcode circle positions to absolute pixels | Define circle cx/cy from icon/arrow position variables so they move together |
 | Place circles near arrow endpoints (arrowheads) | Position circles on the arrow body, away from endpoints — arrowhead triangles extend ~10px back from the tip and must not touch circles |
 | Assume arrow directions without checking reference | Verify every arrow's direction (which end has arrowhead) against the reference image |
 | Add internal arrows in a section not shown in reference | Only add arrows that exist in the reference — standalone icons with no connections are valid |

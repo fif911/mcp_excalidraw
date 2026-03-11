@@ -305,18 +305,26 @@ def numbered_circle(prefix, number, cx, cy, size=50,
         "groupIds": [group_id]
     })
 
-    # Number text — initial position, then browser centers it accurately
+    # Measure text for accurate centering
+    txt = str(number)
+    tw, _ = measure_text(txt, font_size)
+    th = font_size * 1.25  # single line height
+
     create({
         "id": text_id, "type": "text",
-        "x": round(cx - 5), "y": round(cy - 11),
-        "text": str(number),
+        "x": round(cx - tw / 2), "y": round(cy - th / 2),
+        "text": txt,
         "fontSize": font_size, "fontFamily": "2",
+        "textAlign": "center",
         "strokeColor": text_color,
         "groupIds": [group_id]
     })
 
-    # Browser-delegated centering — uses actual rendered text dimensions
-    align_in_parent(text_id, bg_id, alignment="center")
+    # Try browser-delegated centering for pixel-perfect alignment (needs frontend open)
+    try:
+        align_in_parent(text_id, bg_id, alignment="center")
+    except Exception:
+        pass  # measure_text fallback above is already accurate
 
     return {
         "bg_id": bg_id, "text_id": text_id, "group_id": group_id,
@@ -648,30 +656,178 @@ def text_box(prefix, text, cx, cy,
     return {"box_id": box_id, "text_id": text_id, "group_id": group_id, "bbox": bbox}
 
 
+def _path_midpoint(all_points):
+    """
+    Find the midpoint along a polyline path and the segment direction there.
+
+    Args:
+        all_points: list of (x, y) tuples — absolute coordinates
+
+    Returns:
+        (mx, my, seg_dx, seg_dy) — midpoint coords and segment direction vector
+    """
+    total_len = 0
+    segments = []
+    for i in range(len(all_points) - 1):
+        x1, y1 = all_points[i]
+        x2, y2 = all_points[i + 1]
+        seg_len = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+        segments.append((x1, y1, x2, y2, seg_len))
+        total_len += seg_len
+
+    if total_len == 0:
+        return all_points[0][0], all_points[0][1], 1, 0
+
+    half = total_len / 2
+    walked = 0
+    for x1, y1, x2, y2, seg_len in segments:
+        if walked + seg_len >= half:
+            remain = half - walked
+            t = remain / seg_len if seg_len > 0 else 0.5
+            return (x1 + t * (x2 - x1),
+                    y1 + t * (y2 - y1),
+                    x2 - x1, y2 - y1)
+        walked += seg_len
+
+    # Fallback
+    return all_points[-1][0], all_points[-1][1], 0, -1
+
+
+def _perp_offset(seg_dx, seg_dy, offset):
+    """
+    Compute a perpendicular offset from a segment direction vector.
+
+    Convention:
+      - Horizontal segments → offset upward (negative Y)
+      - Vertical segments   → offset rightward (positive X)
+
+    Returns:
+        (off_x, off_y) — the offset vector to add to the midpoint
+    """
+    seg_len = (seg_dx ** 2 + seg_dy ** 2) ** 0.5
+    if seg_len > 0:
+        perp_x = -seg_dy / seg_len
+        perp_y = seg_dx / seg_len
+        if abs(seg_dx) >= abs(seg_dy):
+            if perp_y > 0:
+                perp_x, perp_y = -perp_x, -perp_y
+        else:
+            if perp_x < 0:
+                perp_x, perp_y = -perp_x, -perp_y
+    else:
+        perp_x, perp_y = 0, -1
+    return perp_x * offset, perp_y * offset
+
+
+def _build_segments(all_pts):
+    """
+    Build a list of segment info dicts from an ordered list of absolute points.
+
+    Returns:
+        list of dicts: {index, start, end, dx, dy, length, orientation, midpoint}
+    """
+    segments = []
+    for i in range(len(all_pts) - 1):
+        x1, y1 = all_pts[i]
+        x2, y2 = all_pts[i + 1]
+        dx = x2 - x1
+        dy = y2 - y1
+        seg_len = (dx ** 2 + dy ** 2) ** 0.5
+        orientation = "horizontal" if abs(dx) >= abs(dy) else "vertical"
+        segments.append({
+            "index": i,
+            "start": (x1, y1), "end": (x2, y2),
+            "dx": dx, "dy": dy,
+            "length": round(seg_len, 1),
+            "orientation": orientation,
+            "midpoint": (round((x1 + x2) / 2, 1), round((y1 + y2) / 2, 1)),
+        })
+    return segments
+
+
+def arrow_style(stroke_color="#1a1a1a", stroke_width=2, stroke_style="solid",
+                label_bg="#1a1a1a", label_text_color="#ffffff",
+                label_size=36, label_font_size=16):
+    """
+    Create a reusable arrow style dict.
+
+    Define once as a global constant in each build script, then unpack into
+    every arrow() call with **ARROW_STYLE to guarantee uniform appearance.
+
+    Returns dict with keys matching arrow() keyword arguments.
+    """
+    return {
+        "stroke_color": stroke_color,
+        "stroke_width": stroke_width,
+        "stroke_style": stroke_style,
+        "label_bg": label_bg,
+        "label_text_color": label_text_color,
+        "label_size": label_size,
+        "label_font_size": label_font_size,
+    }
+
+
 def arrow(aid, start_x, start_y, end_x, end_y,
           stroke_color="#1a1a1a", stroke_width=2, stroke_style="solid",
           start_arrowhead=None, end_arrowhead="arrow",
           start_binding=None, end_binding=None,
-          waypoints=None, elbowed=False):
+          waypoints=None, elbowed=False,
+          label_number=None, label_bg="#1a1a1a", label_text_color="#ffffff",
+          label_size=36, label_font_size=16, label_offset=None,
+          label_shape="circle",
+          label_segment=None, label_cx=None, label_cy=None):
     """
-    Create an arrow element. Supports multi-point paths via waypoints.
+    Create an arrow element with optional numbered label.
 
-    Args:
+    Supports straight, L-shaped, U-shaped, and multi-segment paths via waypoints.
+    The label is a numbered circle placed at the arrow's midpoint, on a specific
+    segment, or at a manually overridden position.
+
+    IMPORTANT: Use arrow_style() to define a single ARROW_STYLE dict, then unpack
+    it into every arrow() call with **ARROW_STYLE. This guarantees all arrows share
+    identical stroke_color, stroke_width, stroke_style, label_bg, label_text_color,
+    label_size, and label_font_size. Per-arrow overrides (start_arrowhead,
+    end_arrowhead, waypoints, label_number, etc.) are passed directly.
+
+    Base arrow args:
         start_x, start_y: start point (absolute coords)
         end_x, end_y: end point (absolute coords)
         waypoints: list of (x, y) absolute coordinates for intermediate points.
-                   If provided, creates a multi-segment path:
-                   start → waypoint1 → waypoint2 → ... → end
-        start_binding, end_binding: dicts with {"elementId", "focus", "gap"} for bound arrows
+                   Creates a multi-segment path: start → wp1 → wp2 → ... → end
+        start_binding, end_binding: dicts with {"elementId", "focus", "gap"}
         elbowed: if True, use Excalidraw's built-in A* elbowed routing
 
+    Label args (set label_number to enable):
+        label_number: number to display (None = no label)
+        label_bg: background color of the circle
+        label_text_color: text color for the number
+        label_size: circle diameter (default 36)
+        label_font_size: font size (default 16)
+        label_offset: perpendicular offset from arrow in px.
+                      None = auto (label_size/2 + 5). Positive = above/right.
+        label_shape: "circle" (default)
+
+    Label positioning (evaluated in priority order):
+        label_cx, label_cy: Manual override — use only when auto-position causes
+                            overlap or the reference image shows non-centered placement.
+                            Both must be set; partial override is not supported.
+        label_segment: 0-based segment index for multi-segment arrows.
+                       Supports negative indexing (-1 = last segment).
+                       Segments: 0 = start→wp[0], 1 = wp[0]→wp[1], ..., -1 = wp[-1]→end.
+                       The label is centered on that segment's midpoint.
+        (default): Centers label at the 50% distance point along the full path.
+
     Returns:
-        dict with arrow_id
+        dict with:
+          arrow_id: element ID of the arrow
+          label: {prefix, cx, cy, number, segment} or None
+          segments: list of segment info dicts (index, start, end, length, orientation, midpoint)
     """
     if waypoints:
         all_pts = [(start_x, start_y)] + list(waypoints) + [(end_x, end_y)]
         points = [[px - start_x, py - start_y] for px, py in all_pts]
     else:
+        all_pts = [(start_x, start_y), (end_x, end_y)]
         points = [[0, 0], [end_x - start_x, end_y - start_y]]
 
     element = {
@@ -697,7 +853,55 @@ def arrow(aid, start_x, start_y, end_x, end_y,
         element["endBinding"] = end_binding
 
     create(element)
-    return {"arrow_id": aid}
+
+    # Compute segment breakdown
+    segments = _build_segments(all_pts)
+
+    # Optional label (numbered circle)
+    label_info = None
+    if label_number is not None:
+        if label_offset is None:
+            label_offset = label_size / 2 + 5
+
+        resolved_seg_idx = None
+
+        # Priority 1: manual override
+        if label_cx is not None and label_cy is not None:
+            cx, cy = label_cx, label_cy
+        # Priority 2: specific segment
+        elif label_segment is not None:
+            n_seg = len(segments)
+            idx = label_segment
+            if idx < 0:
+                idx = n_seg + idx
+            if idx < 0 or idx >= n_seg:
+                print(f"WARNING: label_segment={label_segment} out of range "
+                      f"for {n_seg} segments, clamping")
+                idx = max(0, min(idx, n_seg - 1))
+            resolved_seg_idx = idx
+            seg = segments[idx]
+            mx, my = seg["midpoint"]
+            if seg["length"] < label_size:
+                print(f"WARNING: segment {idx} length ({seg['length']}px) < "
+                      f"label diameter ({label_size}px)")
+            off_x, off_y = _perp_offset(seg["dx"], seg["dy"], label_offset)
+            cx = mx + off_x
+            cy = my + off_y
+        # Priority 3: full path midpoint (default)
+        else:
+            mx, my, seg_dx, seg_dy = _path_midpoint(all_pts)
+            off_x, off_y = _perp_offset(seg_dx, seg_dy, label_offset)
+            cx = mx + off_x
+            cy = my + off_y
+
+        label_prefix = f"{aid}-lbl"
+        numbered_circle(label_prefix, label_number, cx=round(cx), cy=round(cy),
+                        size=label_size, bg_color=label_bg,
+                        text_color=label_text_color, font_size=label_font_size)
+        label_info = {"prefix": label_prefix, "cx": round(cx), "cy": round(cy),
+                      "number": label_number, "segment": resolved_seg_idx}
+
+    return {"arrow_id": aid, "label": label_info, "segments": segments}
 
 
 def elbowed_arrow(aid, start_id, end_id, label=None,
@@ -1172,6 +1376,23 @@ def fit_container(container_id, child_ids=None, padding=20, header_height=None,
             "width": round(new_w, 1),
             "height": round(new_h, 1),
         })
+
+        # Re-pin header elements (icon, label, header bg) to the new top-left.
+        # Header elements are in the container's group but are NOT the box itself.
+        # When the container grows left/up (x/y decrease), header must follow.
+        dx = new_x - old_x
+        dy = new_y - old_y
+        if dx != 0 or dy != 0:
+            container_group = f"g-{container_id}"
+            all_els = get_elements().get('elements', [])
+            for e in all_els:
+                if e['id'] == container_id:
+                    continue
+                if container_group in e.get('groupIds', []):
+                    update(e['id'], {
+                        "x": round(e['x'] + dx, 1),
+                        "y": round(e['y'] + dy, 1),
+                    })
 
     return {
         "container_id": container_id,
