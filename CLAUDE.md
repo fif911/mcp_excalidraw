@@ -10,6 +10,8 @@ This is the list of agents we need in order of execution. Follow this workflow p
 
 2. Main agent: 
    - Goal: using skills, python scripts and MCP server tools to build high-quality diagrams.
+   - Do not use previously created diagrams as a starting point, start from scratch.
+   - Use the components_plan.txt and components_styling.txt to create the diagram.
    - Tasks:
      - Needs to create a diagram by the plan described the components_plan.txt and components_styling.txt.
      - Needs to create and run a python script which can be used to create diagrams (e.g. diagram_building/v44/build-diagram.py). 
@@ -20,8 +22,11 @@ This is the list of agents we need in order of execution. Follow this workflow p
      - Ensures elements, sections or subsections do not overlap with one another (unless some arrows cross at some point).
      - Tip: keep the list of icons in a separate file called icons_graph_structure.md and track which icons are connected to each other and what number and direction the arrow has (or if it is bidirectional), so it is easier to add new icons.
      - It is free to create new components if they are missing from the components.py file and adjust them accordingly.
-     - Based on the critic agent/user feedback, adjust the skills and change components if needed to accommodate the new design.
+     - Based on the critic agent/user feedback, /readjust the skills and change components if needed to accommodate the new design.
      - When it creates/changes components, it needs to keep them as generalized as possible so they work for many diagrams, not just the one we are building now.
+     - Tip: These utilities are meant to help you check for overlaps, always use them in python build scripts, but do not follow the feedback blindly:
+            from utilities.overlap_checks import run_all_overlap_checks
+            report = run_all_overlap_checks()
 
 3. Critic agent: 
    - Goal: to evaluate the quality of the diagrams, using skill to review diagrams. 
