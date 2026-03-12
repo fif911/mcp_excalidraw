@@ -1,0 +1,109 @@
+DIAGRAM STYLING: Amazon SageMaker Unified Studio — v54
+
+=== COLOR PALETTE ===
+
+TEAL = "#147eba" (or "#1a8a7d") — AWS Cloud and Region dashed borders, Coding/ML/Lakehouse solid borders
+PURPLE = "#7b61ff" — SageMaker Unified Studio dashed border, Sales Forecasting Project header text
+DARK = "#232f3e" — text color, arrow color, numbered circles bg, Sales Forecasting Project solid border
+WHITE = "#ffffff" — background, numbered circle text
+GRAY_FILL = "#e8e8e8" — Storage and Catalog sub-boxes inside Lakehouse
+TEAL_FILL = "transparent" — all teal-bordered containers have no fill (or very light)
+CLOUD_BORDER = "#147eba" — dashed teal for AWS Cloud
+REGION_BORDER = "#147eba" — dashed teal for AWS Region
+
+=== CONTAINER STYLES ===
+
+AWS Cloud:
+  - Border: dashed, #147eba, width 2
+  - Fill: transparent
+  - Corner radius: 8
+  - Icon: AWS Cloud logo (32px) top-left
+  - Label: "AWS Cloud", font 20, color #232f3e
+
+AWS Region:
+  - Border: dashed, #147eba, width 2
+  - Fill: transparent
+  - Corner radius: 8
+  - Icon: Region (32px) top-left
+  - Label: "AWS Region", font 18, color #147eba
+
+Amazon SageMaker Unified Studio:
+  - Border: dashed, #7b61ff (purple), width 2
+  - Fill: transparent
+  - Icon: Amazon SageMaker (Analytics, purple) 48px top-left
+  - Label: "Amazon SageMaker\nUnified Studio", font 16, color #232f3e
+
+Sales Forecasting Project:
+  - Border: solid, #232f3e, width 2
+  - Fill: transparent
+  - Label: "Sales Forecasting Project", font 16, italic, color #7b61ff (purple)
+
+ML capabilities:
+  - Border: solid, #147eba, width 2
+  - Fill: transparent
+  - Header: AI category icon 32px + "ML capabilities" text 14
+
+Coding capabilities:
+  - Border: solid, #147eba, width 2
+  - Fill: transparent
+  - Header: Developer Tools category icon 32px + "Coding capabilities" text 14
+
+Amazon SageMaker Lakehouse:
+  - Border: solid, #147eba, width 2
+  - Fill: transparent
+  - Label: "Amazon SageMaker Lakehouse", font 16
+
+Storage sub-box:
+  - Border: solid, #cccccc, width 1
+  - Fill: #e8e8e8
+  - Label: "Storage", font 14
+
+Catalog sub-box:
+  - Border: solid, #cccccc, width 1
+  - Fill: #e8e8e8
+  - Label: "Catalog", font 14
+
+=== TYPOGRAPHY ===
+
+Container headers: 18-22px, bold
+Service labels: 14-16px, regular
+Sub-section labels: 14px
+Font family: default (Excalidraw)
+
+=== ICON SIZES ===
+
+Group header icons: 32px (AWS Cloud logo, Region)
+Container header icons: 48px (SageMaker in Unified Studio header)
+Service icons (main): 64px (IAM Identity Center, SageMaker AI, Amazon Q, Redshift, S3)
+Resource icons (inner): 48px (Database, Git Repository, Glue Data Catalog)
+User icon: 48px
+Category icons: 32-48px (AI category, Developer Tools category)
+
+=== LAYOUT / POSITIONING ===
+
+Canvas: ~1600 x 900
+AWS Cloud: x=120, y=20, w=1500, h=850
+AWS Region: x=160, y=75, w=1430, h=770
+
+SageMaker Unified Studio: x=210, y=120, w=620, h=400
+Sales Forecasting Project: x=400, y=160, w=390, h=320
+
+ML capabilities: x=900, y=120, w=310, h=250
+Coding capabilities: x=210, y=560, w=350, h=240
+Lakehouse: x=600, y=560, w=750, h=260
+
+ML engineers + IAM: far left, vertically centered
+
+=== ARROW STYLES ===
+
+Solid arrows: stroke #232f3e, width 2, solid
+Dashed arrow (step 6): stroke #232f3e, width 2, dashed
+Internal arrows: stroke #232f3e, width 1.5, solid
+Arrowheads: end_arrowhead="arrow" (triangle)
+
+=== NUMBERED CIRCLES ===
+
+Size: 32px diameter
+Background: #232f3e (dark)
+Text: #ffffff, 14px
+Position: near associated arrow midpoint or beside container

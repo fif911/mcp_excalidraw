@@ -598,12 +598,349 @@ def _find_parent_arrow(ellipse, arrows, groups):
 
 
 # ──────────────────────────────────────────────────────────────────────
+#  Check 6: Numbered circles overlapping icons
+# ──────────────────────────────────────────────────────────────────────
+
+def check_circle_icon_overlaps(elements=None, margin=3):
+    """
+    Detect numbered step circles that overlap with icon images.
+
+    Args:
+        elements: list of Excalidraw elements (fetched if None)
+        margin: extra pixel buffer around icon bounding boxes
+
+    Returns:
+        list of issue dicts
+    """
+    if elements is None:
+        elements = get_elements().get("elements", [])
+    info = _classify_elements(elements)
+    numbered_circles = info["numbered_circles"]
+    icons = info["icons"]
+    issues = []
+
+    for ellipse, text_el in numbered_circles:
+        circ_bb = _bbox(ellipse)
+        circ_label = text_el.get("text", "?")
+
+        for ic in icons:
+            ic_bb = _bbox(ic)
+            ic_bbm = (ic_bb[0] - margin, ic_bb[1] - margin,
+                      ic_bb[2] + margin, ic_bb[3] + margin)
+            if not _rects_overlap(circ_bb, ic_bbm):
+                continue
+            oa = _overlap_area(circ_bb, ic_bb)
+            if oa > 0:
+                issues.append({
+                    "type": "CIRCLE_ICON_OVERLAP",
+                    "severity": "error",
+                    "message": (
+                        f"Step circle '{circ_label}' ({ellipse['id']}) overlaps "
+                        f"icon '{ic['id']}' by {oa:.0f}px\u00b2."
+                    ),
+                    "details": {
+                        "circle_id": ellipse["id"],
+                        "circle_label": circ_label,
+                        "circle_bbox": {"x": circ_bb[0], "y": circ_bb[1],
+                                        "w": circ_bb[2]-circ_bb[0], "h": circ_bb[3]-circ_bb[1]},
+                        "icon_id": ic["id"],
+                        "icon_bbox": {"x": ic_bb[0], "y": ic_bb[1],
+                                      "w": ic_bb[2]-ic_bb[0], "h": ic_bb[3]-ic_bb[1]},
+                        "overlap_area": round(oa),
+                    },
+                })
+            else:
+                # Within margin but not overlapping — too close
+                dx = max(0, max(ic_bb[0] - circ_bb[2], circ_bb[0] - ic_bb[2]))
+                dy = max(0, max(ic_bb[1] - circ_bb[3], circ_bb[1] - ic_bb[3]))
+                gap = (dx**2 + dy**2) ** 0.5
+                issues.append({
+                    "type": "CIRCLE_ICON_TOO_CLOSE",
+                    "severity": "warning",
+                    "message": (
+                        f"Step circle '{circ_label}' ({ellipse['id']}) is only "
+                        f"{gap:.0f}px from icon '{ic['id']}' (min: {margin}px)."
+                    ),
+                    "details": {
+                        "circle_id": ellipse["id"],
+                        "circle_label": circ_label,
+                        "icon_id": ic["id"],
+                        "gap_px": round(gap),
+                        "min_margin": margin,
+                    },
+                })
+
+    return issues
+
+
+# ──────────────────────────────────────────────────────────────────────
+#  Check 7: Arrow endpoints penetrating into icons
+# ──────────────────────────────────────────────────────────────────────
+
+def check_arrow_icon_penetration(elements=None, penetration_threshold=5):
+    """
+    Detect arrows whose start or end points are inside an icon's bounding box.
+    Arrows should stop at the icon edge, not penetrate into it.
+
+    Also checks if arrow endpoints have excessive gap (> threshold) from the
+    nearest icon edge, indicating the arrow doesn't reach the icon.
+
+    Args:
+        elements: list of Excalidraw elements (fetched if None)
+        penetration_threshold: pixels of penetration into icon to flag as error
+
+    Returns:
+        list of issue dicts
+    """
+    if elements is None:
+        elements = get_elements().get("elements", [])
+    info = _classify_elements(elements)
+    arrows = info["arrows"]
+    icons = info["icons"]
+    issues = []
+
+    for a in arrows:
+        segs = _arrow_segments(a)
+        if not segs:
+            continue
+
+        # Get absolute start and end points
+        start_x, start_y = segs[0][0], segs[0][1]
+        end_x, end_y = segs[-1][2], segs[-1][3]
+
+        endpoints = [
+            ("start", start_x, start_y),
+            ("end", end_x, end_y),
+        ]
+
+        for ep_name, px, py in endpoints:
+            for ic in icons:
+                ic_bb = _bbox(ic)
+                # Check if the endpoint is inside the icon bbox
+                if (ic_bb[0] < px < ic_bb[2] and ic_bb[1] < py < ic_bb[3]):
+                    # Calculate how deep it penetrates
+                    pen_x = min(px - ic_bb[0], ic_bb[2] - px)
+                    pen_y = min(py - ic_bb[1], ic_bb[3] - py)
+                    penetration = min(pen_x, pen_y)
+
+                    if penetration > penetration_threshold:
+                        issues.append({
+                            "type": "ARROW_PENETRATES_ICON",
+                            "severity": "error",
+                            "message": (
+                                f"Arrow '{a['id']}' {ep_name} point penetrates "
+                                f"{penetration:.0f}px into icon '{ic['id']}'."
+                            ),
+                            "details": {
+                                "arrow_id": a["id"],
+                                "endpoint": ep_name,
+                                "endpoint_pos": {"x": round(px), "y": round(py)},
+                                "icon_id": ic["id"],
+                                "icon_bbox": {"x": ic_bb[0], "y": ic_bb[1],
+                                              "w": ic_bb[2]-ic_bb[0], "h": ic_bb[3]-ic_bb[1]},
+                                "penetration_px": round(penetration),
+                            },
+                        })
+                    elif penetration > 0:
+                        issues.append({
+                            "type": "ARROW_PENETRATES_ICON",
+                            "severity": "warning",
+                            "message": (
+                                f"Arrow '{a['id']}' {ep_name} point slightly penetrates "
+                                f"({penetration:.0f}px) into icon '{ic['id']}'."
+                            ),
+                            "details": {
+                                "arrow_id": a["id"],
+                                "endpoint": ep_name,
+                                "icon_id": ic["id"],
+                                "penetration_px": round(penetration),
+                            },
+                        })
+
+    return issues
+
+
+# ──────────────────────────────────────────────────────────────────────
+#  Check 8: Icons and labels crossing container borders
+# ──────────────────────────────────────────────────────────────────────
+
+def check_icon_border_crossings(elements=None, margin=2):
+    """
+    Detect icons (image elements) and their labels that straddle a
+    container border — partially inside, partially outside.
+    Fully inside or fully outside is OK.
+
+    Args:
+        elements: list of Excalidraw elements (fetched if None)
+        margin: pixel tolerance for border zone
+
+    Returns:
+        list of issue dicts
+    """
+    if elements is None:
+        elements = get_elements().get("elements", [])
+    info = _classify_elements(elements)
+    icons = info["icons"]
+    labels = info["icon_label_texts"]
+    containers = info["containers"]
+    issues = []
+
+    # Check icons against container borders
+    for ic in icons:
+        ic_bb = _bbox(ic)
+        for c in containers:
+            c_bb = _bbox(c)
+            if not _rects_overlap(ic_bb, c_bb):
+                continue
+            if _rect_contains(c_bb, ic_bb):
+                continue  # fully inside — OK
+            # Icon partially overlaps container — crosses border
+            oa = _overlap_area(ic_bb, c_bb)
+            ic_area = _rect_area(ic_bb)
+            if oa > 0 and oa < ic_area:
+                issues.append({
+                    "type": "ICON_BORDER_CROSSING",
+                    "severity": "error",
+                    "message": (
+                        f"Icon '{ic['id']}' crosses border of container "
+                        f"'{c['id']}' ({oa:.0f}px\u00b2 inside, {ic_area - oa:.0f}px\u00b2 outside)."
+                    ),
+                    "details": {
+                        "icon_id": ic["id"],
+                        "icon_bbox": {"x": ic_bb[0], "y": ic_bb[1],
+                                      "w": ic_bb[2]-ic_bb[0], "h": ic_bb[3]-ic_bb[1]},
+                        "container_id": c["id"],
+                        "container_bbox": {"x": c_bb[0], "y": c_bb[1],
+                                           "w": c_bb[2]-c_bb[0], "h": c_bb[3]-c_bb[1]},
+                        "overlap_area": round(oa),
+                    },
+                })
+
+    # Check icon labels against container borders
+    for t in labels:
+        t_bb = _bbox(t)
+        text_preview = t.get("text", "")[:40]
+        for c in containers:
+            c_bb = _bbox(c)
+            if not _rects_overlap(t_bb, c_bb):
+                continue
+            if _rect_contains(c_bb, t_bb):
+                continue  # fully inside — OK
+            oa = _overlap_area(t_bb, c_bb)
+            t_area = _rect_area(t_bb)
+            if oa > 0 and oa < t_area:
+                issues.append({
+                    "type": "LABEL_BORDER_CROSSING",
+                    "severity": "error",
+                    "message": (
+                        f"Label '{text_preview}' ({t['id']}) crosses border of "
+                        f"container '{c['id']}'."
+                    ),
+                    "details": {
+                        "label_id": t["id"],
+                        "label_text": text_preview,
+                        "label_bbox": {"x": t_bb[0], "y": t_bb[1],
+                                       "w": t_bb[2]-t_bb[0], "h": t_bb[3]-t_bb[1]},
+                        "container_id": c["id"],
+                        "container_bbox": {"x": c_bb[0], "y": c_bb[1],
+                                           "w": c_bb[2]-c_bb[0], "h": c_bb[3]-c_bb[1]},
+                    },
+                })
+
+    return issues
+
+
+# ──────────────────────────────────────────────────────────────────────
+#  Check 9: Numbered circles overlapping icon labels (text)
+# ──────────────────────────────────────────────────────────────────────
+
+def check_circle_label_overlaps(elements=None, margin=3):
+    """
+    Detect numbered step circles that overlap with icon label text.
+
+    Args:
+        elements: list of Excalidraw elements (fetched if None)
+        margin: extra pixel buffer around label bounding boxes
+
+    Returns:
+        list of issue dicts
+    """
+    if elements is None:
+        elements = get_elements().get("elements", [])
+    info = _classify_elements(elements)
+    numbered_circles = info["numbered_circles"]
+    labels = info["icon_label_texts"]
+    nc_ids = info["nc_element_ids"]
+    issues = []
+
+    for ellipse, text_el in numbered_circles:
+        circ_bb = _bbox(ellipse)
+        circ_label = text_el.get("text", "?")
+
+        for lbl in labels:
+            # Skip if this label IS the circle's own text
+            if lbl["id"] in nc_ids:
+                continue
+            lbl_bb = _bbox(lbl)
+            lbl_bbm = (lbl_bb[0] - margin, lbl_bb[1] - margin,
+                       lbl_bb[2] + margin, lbl_bb[3] + margin)
+            if not _rects_overlap(circ_bb, lbl_bbm):
+                continue
+            lbl_text = lbl.get("text", "")[:40]
+            oa = _overlap_area(circ_bb, lbl_bb)
+            if oa > 0:
+                issues.append({
+                    "type": "CIRCLE_LABEL_OVERLAP",
+                    "severity": "error",
+                    "message": (
+                        f"Step circle '{circ_label}' ({ellipse['id']}) overlaps "
+                        f"label '{lbl_text}' ({lbl['id']}) by {oa:.0f}px\u00b2."
+                    ),
+                    "details": {
+                        "circle_id": ellipse["id"],
+                        "circle_label": circ_label,
+                        "circle_bbox": {"x": circ_bb[0], "y": circ_bb[1],
+                                        "w": circ_bb[2]-circ_bb[0], "h": circ_bb[3]-circ_bb[1]},
+                        "label_id": lbl["id"],
+                        "label_text": lbl_text,
+                        "label_bbox": {"x": lbl_bb[0], "y": lbl_bb[1],
+                                       "w": lbl_bb[2]-lbl_bb[0], "h": lbl_bb[3]-lbl_bb[1]},
+                        "overlap_area": round(oa),
+                    },
+                })
+            else:
+                dx = max(0, max(lbl_bb[0] - circ_bb[2], circ_bb[0] - lbl_bb[2]))
+                dy = max(0, max(lbl_bb[1] - circ_bb[3], circ_bb[1] - lbl_bb[3]))
+                gap = (dx**2 + dy**2) ** 0.5
+                issues.append({
+                    "type": "CIRCLE_LABEL_TOO_CLOSE",
+                    "severity": "warning",
+                    "message": (
+                        f"Step circle '{circ_label}' ({ellipse['id']}) is only "
+                        f"{gap:.0f}px from label '{lbl_text}' ({lbl['id']}) "
+                        f"(min: {margin}px)."
+                    ),
+                    "details": {
+                        "circle_id": ellipse["id"],
+                        "circle_label": circ_label,
+                        "label_id": lbl["id"],
+                        "label_text": lbl_text,
+                        "gap_px": round(gap),
+                        "min_margin": margin,
+                    },
+                })
+
+    return issues
+
+
+# ──────────────────────────────────────────────────────────────────────
 #  Main: run all checks and produce summary
 # ──────────────────────────────────────────────────────────────────────
 
 def run_all_overlap_checks(icon_margin=5, label_margin=3, label_arrow_margin=8,
                            border_margin=5, circle_arrow_margin=3,
-                           section_margin=3):
+                           section_margin=3, circle_icon_margin=5,
+                           penetration_threshold=5, circle_label_margin=3):
     """
     Run every overlap check and return a structured report.
 
@@ -623,6 +960,10 @@ def run_all_overlap_checks(icon_margin=5, label_margin=3, label_arrow_margin=8,
         ("Label-arrow overlaps", check_label_arrow_overlaps(elements, margin=label_arrow_margin)),
         ("Numbered-circle overlaps", check_numbered_circle_overlaps(
             elements, border_margin=border_margin, arrow_margin=circle_arrow_margin)),
+        ("Circle-icon overlaps", check_circle_icon_overlaps(elements, margin=circle_icon_margin)),
+        ("Arrow-icon penetration", check_arrow_icon_penetration(elements, penetration_threshold=penetration_threshold)),
+        ("Icon/label border crossings", check_icon_border_crossings(elements)),
+        ("Circle-label overlaps", check_circle_label_overlaps(elements, margin=circle_label_margin)),
     ]
 
     total_errors = 0
@@ -682,6 +1023,45 @@ def run_all_overlap_checks(icon_margin=5, label_margin=3, label_arrow_margin=8,
                 lines.append(
                     f"    -> Shift circle '{d['circle_label']}' away from arrow "
                     f"'{d['arrow_id']}' (parent arrow: '{d['parent_arrow_id']}')."
+                )
+            elif issue["type"] == "CIRCLE_ICON_OVERLAP":
+                lines.append(
+                    f"    -> Move circle '{d['circle_label']}' away from icon "
+                    f"'{d['icon_id']}'. Circle at ({d['circle_bbox']['x']},{d['circle_bbox']['y']}), "
+                    f"icon at ({d['icon_bbox']['x']},{d['icon_bbox']['y']})."
+                )
+            elif issue["type"] == "CIRCLE_ICON_TOO_CLOSE":
+                lines.append(
+                    f"    -> Increase gap between circle '{d['circle_label']}' and "
+                    f"icon '{d['icon_id']}' (current: {d['gap_px']}px, min: {d['min_margin']}px)."
+                )
+            elif issue["type"] == "ARROW_PENETRATES_ICON":
+                lines.append(
+                    f"    -> Fix arrow '{d['arrow_id']}' {d['endpoint']} point to stop at "
+                    f"icon '{d['icon_id']}' edge instead of penetrating {d['penetration_px']}px inside."
+                )
+            elif issue["type"] == "ICON_BORDER_CROSSING":
+                lines.append(
+                    f"    -> Move icon '{d['icon_id']}' fully inside or outside "
+                    f"container '{d['container_id']}'. Icon at ({d['icon_bbox']['x']},{d['icon_bbox']['y']}), "
+                    f"container at ({d['container_bbox']['x']},{d['container_bbox']['y']})."
+                )
+            elif issue["type"] == "LABEL_BORDER_CROSSING":
+                lines.append(
+                    f"    -> Move label '{d['label_text']}' ({d['label_id']}) fully inside "
+                    f"or outside container '{d['container_id']}'."
+                )
+            elif issue["type"] == "CIRCLE_LABEL_OVERLAP":
+                lines.append(
+                    f"    -> Move circle '{d['circle_label']}' away from label "
+                    f"'{d['label_text']}' ({d['label_id']}). Circle at ({d['circle_bbox']['x']},{d['circle_bbox']['y']}), "
+                    f"label at ({d['label_bbox']['x']},{d['label_bbox']['y']})."
+                )
+            elif issue["type"] == "CIRCLE_LABEL_TOO_CLOSE":
+                lines.append(
+                    f"    -> Increase gap between circle '{d['circle_label']}' and "
+                    f"label '{d['label_text']}' ({d['label_id']}) "
+                    f"(current: {d['gap_px']}px, min: {d['min_margin']}px)."
                 )
 
     if total_errors == 0 and total_warnings == 0:

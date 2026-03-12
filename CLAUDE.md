@@ -1,37 +1,50 @@
-This is the list of agents we need in order of execution. Follow this workflow precisely.
+This is the list of agents we need in order of execution. Follow this workflow precisely. NEVER read previous build scripts or previous diagrams, always start from scratch.
+This should be followed both for creating new diagrams and for updating existing ones or fixing errors in them/re.
 
 1. Planner agent: 
    - Goal: create a plan for the main agent to create the diagram.
+   - Do not use previously created diagrams and build scripts as a starting point, start from scratch.
    - Needs to support both photo and text prompts/descriptions.
    - If a reference image is provided, it will be used to create the plan and refine it, save it in the folder so you can always refer to it.
    - There need to be two plans with folder structure diagram_building/v_{number of version} (e.g. diagram_building/v44, this is our number 1, then count from the previous version):
      - components_plan.txt where we list all the components used on the diagram and their connections and descriptions.
      - components_styling.txt where we list all the styling options for the components, colors, sizing, etc.
+   - Also create a file icons_graph_structure.md where we track which icons are connected to each other and what number and direction the arrow has (or if it is bidirectional), so it is easier to add new icons and fix errors. 
+   - Store icons_graph_structure.md in format Icon_1 | Icon_2 | Arrow_direction (options: from 1 to 2, from 2 to 1, bidirectional) | Arrow_number | Number box style (color and shape).
+
 
 2. Main agent: 
    - Goal: using skills, python scripts and MCP server tools to build high-quality diagrams.
-   - Do not use previously created diagrams as a starting point, start from scratch.
+   - Skills are saved in skills/excalidraw-diagramming folder.
+   - Closely follow the plan, styling, skills and icons_graph_structure files, they are non negotiable to follow.
+   - Double check arrows follow the icons_graph_structure.md file.
+   - Do not use previously created diagrams and build scripts as a starting point, start from scratch. python_scripts\diagram_building is off limits with all versions besides the one being worked on.
+   - Never view anything else than the plan and styling files.
    - Use the components_plan.txt and components_styling.txt to create the diagram.
+   - Do not forget to do npm run canvas before starting to build the diagram.
    - Tasks:
      - Needs to create a diagram by the plan described the components_plan.txt and components_styling.txt.
-     - Needs to create and run a python script which can be used to create diagrams (e.g. diagram_building/v44/build-diagram.py). 
+     - Needs to create and run a python script which can be used to create diagrams (diagram_building/v{num}/build-diagram.py). 
      - Save them to python_scripts/diagram_building and name them with a version number.
-     - Reuses components from components.py
+     - Reuses components from components.py.
      - Correctly adds icons from aws-icons-official on the diagram, judging by section contents. Do not perform manual searches, always use tool excalidraw - search_aws_icons (MCP)/ for this task, properly setting the parameters.
+     - Do not forget about icons styling, like background color. The icons set has different options and you need to clearly tell the tool which one is needed based on reference image.
+     - Remember icons can be recolored as well if the correct color is not available in the set and need to be saved as new color options. The tool also knows how to look up icons.
      - For each icon keep proper track of light and dark background versions, many icons have both and it needs to choose the proper one.
      - Ensures elements, sections or subsections do not overlap with one another (unless some arrows cross at some point).
-     - Tip: keep the list of icons in a separate file called icons_graph_structure.md and track which icons are connected to each other and what number and direction the arrow has (or if it is bidirectional), so it is easier to add new icons.
      - It is free to create new components if they are missing from the components.py file and adjust them accordingly.
-     - Based on the critic agent/user feedback, /readjust the skills and change components if needed to accommodate the new design.
+     - Based on the critic agent/user feedback, readjust the skills and change components if needed to accommodate the new design.
      - When it creates/changes components, it needs to keep them as generalized as possible so they work for many diagrams, not just the one we are building now.
-     - Tip: These utilities are meant to help you check for overlaps, always use them in python build scripts, but do not follow the feedback blindly:
+     - Tip: These utilities are meant to help you check for overlaps, always use them in python diagram build script, all errors that they catch are valid, true and critical to fix:
             from utilities.overlap_checks import run_all_overlap_checks
             report = run_all_overlap_checks()
+     - Export the final diagram to a file in the folder diagram_building/v_{number of version} (e.g. diagram_building/v44/diagram.png and diagram_building/v44/diagram.excalidraw).
 
 3. Critic agent: 
-   - Goal: to evaluate the quality of the diagrams, using skill to review diagrams. 
-   - If the critic agent deems the diagram not suitable, it will ask the main agent to create a new diagram. 
-   - It should use Agentic Vision if it struggles to detect the diagram elements.
+   - Goal: to evaluate the quality of the diagrams and identify errors. Closely compare the diagram to the reference image or text descriptions.
+   - If the critic agent deems the diagram not suitable, it has to ask the main agent to fix the diagram.
+   - Use skills stored in skills/diagram-review folder and compare the diagram to skills/diagram-review/references/checklist.md
+   - It should use Agentic Vision if it struggles to detect the diagram elements, especially to identify arrows.
    - Use excalidraw MCP if available to capture output diagram and compare to the input file, looking closely to spot all the differences, zooming into the picture for a better view (skills/diagram-review/crop_region.py).
    - Reading components_plan.txt and components_styling.txt and identifying errors in the diagram and where it does not match the plan.
    - Using skills and scripts from skills/diagram-review. Following the checklist in the reference.
@@ -50,6 +63,6 @@ This is the list of agents we need in order of execution. Follow this workflow p
      - Incorrectly positioned text
      - Arrows starting not from the center of the element or ending not at the center of another element.
      - Arrows pointing to the wrong direction. 
-     - Arrows connecting elements that are not connected ot not connecting elements that are connected.
+     - Arrows connecting elements that are not connected or not connecting elements that are connected.
      - Arrows overlapping with text or ending not at the end of an element, either reaching into the icon or having some space between the icon and arrow end.
      - Other errors that are not covered by the above.

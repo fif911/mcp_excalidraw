@@ -1,0 +1,131 @@
+DIAGRAM STYLING: AWS SageMaker Unified Studio – ML Engineering Workflow
+VERSION: v53
+
+==============================================================================
+COLOR PALETTE
+==============================================================================
+
+BACKGROUND:          #ffffff (white canvas)
+DARK (circles, text): #1a1a1a (near black)
+TEAL_BORDER:         #1a8a77 (AWS teal for Cloud, Region, ML capabilities, Lakehouse borders)
+PURPLE_BORDER:       #6c63ff (violet/purple for Amazon SageMaker container)
+BLACK_BORDER:        #1a1a1a (for Sales Forecasting Project container)
+GRAY_BG:             #e8e8e8 (light gray for Storage/Catalog sub-sections)
+PURPLE_TEXT:          #6c63ff (Sales Forecasting Project title)
+WHITE:               #ffffff (numbered circle text, container fills)
+ARROW_COLOR:         #1a1a1a (black arrows)
+
+==============================================================================
+CONTAINER STYLES
+==============================================================================
+
+Container                    | Border Color | Border Style | Border Width | Fill      | Corner Radius
+-----------------------------|-------------|-------------|-------------|-----------|-----
+AWS Cloud                    | TEAL_BORDER | Dashed       | 2           | transparent| 0
+AWS Region                   | TEAL_BORDER | Dashed       | 2           | transparent| 0
+Amazon SageMaker (purple)    | PURPLE_BORDER| Solid       | 2           | transparent| 0
+Sales Forecasting Project    | BLACK_BORDER| Solid        | 2           | transparent| 0
+ML capabilities              | TEAL_BORDER | Solid        | 2           | transparent| 0
+Amazon SageMaker Lakehouse   | TEAL_BORDER | Solid        | 2           | transparent| 0
+Storage sub-section          | none        | none         | 0           | GRAY_BG   | 4
+Catalog sub-section          | none        | none         | 0           | GRAY_BG   | 4
+
+==============================================================================
+TYPOGRAPHY
+==============================================================================
+
+Element                      | Font Size | Font Family | Color       | Style
+-----------------------------|-----------|-------------|-------------|-------
+Container headers (AWS Cloud)| 20px      | Helvetica   | DARK        | Normal
+Section labels (ML capab.)   | 16px      | Helvetica   | DARK        | Normal
+Service labels               | 14px      | Helvetica   | DARK        | Normal
+Sales Forecasting title      | 18px      | Helvetica   | PURPLE_TEXT | Italic
+Sub-section titles (Storage) | 16px      | Helvetica   | DARK        | Normal
+ML engineers label           | 14px      | Helvetica   | DARK        | Normal
+Numbered circle text         | 16px      | Helvetica   | WHITE       | Bold
+
+==============================================================================
+ICON SIZES
+==============================================================================
+
+Icon Type                    | Size (px)
+-----------------------------|----------
+AWS Cloud group logo         | 32
+AWS Region group icon        | 32
+Service Architecture icons   | 65 (upscaled from 48)
+Resource icons (DB, Git, etc)| 48
+User/Person icon             | 50
+Header icons in containers   | 40
+Numbered circles             | 32 (diameter)
+
+==============================================================================
+LAYOUT / POSITIONING (approximate coordinates)
+==============================================================================
+
+Canvas total: ~1500 x 850
+
+ML engineers (external):     x=30,  y=260
+AWS IAM Identity Center:     x=170, y=240
+
+AWS Cloud container:         x=100, y=20,  w=1380, h=810
+AWS Region container:        x=130, y=60,  w=1340, h=760
+
+Amazon SageMaker (purple):   x=250, y=100, w=600,  h=360
+  SageMaker Unified Studio:  x=300, y=130
+  Sales Forecasting Project: x=440, y=120, w=390,  h=290
+    Database assets:          x=470, y=170
+    Git repository:           x=640, y=170
+    Studio IDE:               x=470, y=290
+    Tools:                    x=640, y=290
+
+ML capabilities container:   x=920, y=100, w=280,  h=280
+  ML capabilities label:     x=940, y=130
+  Amazon SageMaker:          x=990, y=220
+
+Coding capabilities area:    x=350, y=500
+  Coding capabilities icon:  x=370, y=520
+  Amazon Q Developer:        x=390, y=590
+
+Amazon SageMaker Lakehouse:  x=630, y=500, w=680,  h=280
+  Redshift Serverless:       x=660, y=560
+  Storage sub-box:           x=850, y=540, w=170, h=180
+    Amazon S3:               x=880, y=580
+  Catalog sub-box:           x=1060, y=540, w=170, h=180
+    AWS Glue Data Catalog:   x=1090, y=580
+
+Numbered circles:
+  1:  x=180, y=210
+  2:  x=370, y=420
+  3:  x=540, y=470
+  4:  x=1150, y=130
+  5:  x=690, y=470
+  6:  x=1150, y=410
+
+==============================================================================
+ARROW STYLES
+==============================================================================
+
+Solid arrows:
+  - strokeColor: #1a1a1a
+  - strokeWidth: 2
+  - arrowhead: arrow (standard triangle)
+  - strokeStyle: solid
+
+Dashed arrows (A6 only):
+  - strokeColor: #1a1a1a
+  - strokeWidth: 2
+  - arrowhead: arrow
+  - strokeStyle: dashed
+
+All arrows: endArrowhead = "arrow", startArrowhead = none (except none noted)
+
+==============================================================================
+SPACING & ALIGNMENT RULES
+==============================================================================
+
+- Minimum gap between containers: 40px
+- Icon-to-label vertical gap: 8px
+- Container header height: 50px (for icon + label row)
+- Internal padding inside containers: 30px
+- Numbered circles offset from containers: 15px minimum
+- Sub-sections (Storage, Catalog) have 15px internal padding

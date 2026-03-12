@@ -1,0 +1,100 @@
+DIAGRAM: AWS SageMaker Unified Studio – ML Engineering Workflow
+VERSION: v53
+
+==============================================================================
+HIERARCHY & CONTAINERS
+==============================================================================
+
+1. AWS Cloud (outermost container, dashed teal border, AWS logo top-left)
+   └─ 2. AWS Region (dashed teal border, Region icon top-left)
+         ├─ 3. Amazon SageMaker (purple/violet SOLID border, SageMaker icon + label top-left)
+         │     ├─ Amazon SageMaker Unified Studio (icon + label, inside top-left of purple container)
+         │     └─ 4. Sales Forecasting Project (black SOLID border, purple title text)
+         │           ├─ Database assets (database icon + label) — top-left
+         │           ├─ Git repository (git repo icon + label) — top-right
+         │           ├─ Studio IDE (IDE icon + label) — bottom-left
+         │           └─ Tools (toolkit icon + label) — bottom-right
+         │
+         ├─ 5. ML capabilities (teal SOLID border container, right side)
+         │     ├─ ML capabilities label + SageMaker icon (top area)
+         │     └─ Amazon SageMaker (icon + label, center)
+         │
+         ├─ 6. Coding capabilities area (below SageMaker purple box, left side, NO container border)
+         │     ├─ Coding capabilities (icon + label)
+         │     └─ Amazon Q Developer (icon + label)
+         │
+         └─ 7. Amazon SageMaker Lakehouse (teal SOLID border container, bottom-right)
+               ├─ Amazon Redshift Serverless (icon + label) — left
+               ├─ Storage sub-section (light gray background) — center
+               │     └─ Amazon S3 (icon + label)
+               └─ Catalog sub-section (light gray background) — right
+                     └─ AWS Glue Data Catalog (icon + label)
+
+EXTERNAL (outside AWS Cloud):
+- ML engineers (user/person icon + label) — far left
+
+==============================================================================
+NUMBERED STEP CIRCLES (black circles, white number)
+==============================================================================
+
+Circle 1: Near AWS IAM Identity Center (above-left)
+Circle 2: Below Amazon SageMaker Unified Studio / purple box (bottom-left area)
+Circle 3: Above Coding capabilities area (top-left of that section)
+Circle 4: Top-right of ML capabilities container
+Circle 5: Top-left of Amazon SageMaker Lakehouse container
+Circle 6: Between ML capabilities and Lakehouse (right side, on dashed arrow)
+
+==============================================================================
+ICONS & SERVICES
+==============================================================================
+
+Service/Element              | Icon Type                        | Position
+-----------------------------|----------------------------------|---------------------------
+AWS Cloud logo               | AWS Group icon                   | Top-left of Cloud container
+AWS Region                   | Region Group icon                | Top-left of Region container
+ML engineers                 | User/Person Resource icon        | External, far left
+AWS IAM Identity Center      | IAM Identity Center Arch icon    | Left side, inside Region
+Amazon SageMaker (header)    | SageMaker Architecture icon      | Top-left of purple container
+Amazon SageMaker Unified St. | SageMaker Unified Studio icon    | Inside purple container, top
+Database assets              | Database Resource icon            | Inside Sales Forecasting, top-left
+Git repository               | Git repository Resource icon      | Inside Sales Forecasting, top-right
+Studio IDE                   | Source code/IDE Resource icon     | Inside Sales Forecasting, bottom-left
+Tools                        | Toolkit Resource icon             | Inside Sales Forecasting, bottom-right
+ML capabilities label        | SageMaker Architecture icon      | Top of ML capabilities container
+Amazon SageMaker (ML)        | SageMaker Architecture icon      | Center of ML capabilities
+Coding capabilities          | Coding capabilities icon          | Below purple box, left
+Amazon Q Developer           | Amazon Q Developer Arch icon      | Below Coding capabilities
+Amazon Redshift Serverless   | Redshift Serverless Arch icon    | Inside Lakehouse, left
+Amazon S3                    | S3 Architecture icon              | Inside Lakehouse > Storage
+AWS Glue Data Catalog        | Glue Data Catalog Arch icon       | Inside Lakehouse > Catalog
+
+==============================================================================
+ARROWS / CONNECTIONS
+==============================================================================
+
+Arrow  | From                         | To                          | Style          | Direction    | Label
+-------|------------------------------|------------------------------|----------------|-------------|------
+A1     | ML engineers                 | AWS IAM Identity Center      | Solid, black   | Right (→)   | —
+A2     | AWS IAM Identity Center      | Amazon SageMaker Unified St. | Solid, black   | Right (→)   | —
+A3     | Git repository               | Database assets              | Solid, black   | Left (←)    | —
+A4     | Amazon Q Developer           | Studio IDE                   | Solid, black   | Up (↑)      | —
+A5     | Tools / SageMaker container  | Amazon SageMaker (ML capab.) | Solid, black   | Right (→)   | —
+A6     | Amazon SageMaker (ML)        | Amazon SageMaker Lakehouse   | DASHED, black  | Down (↓)    | —
+
+Note: Arrow A4 goes from below the purple container up into Studio IDE inside it.
+Note: Arrow A5 exits the purple container rightward into ML capabilities.
+Note: Arrow A6 is a dashed arrow going downward from ML capabilities to Lakehouse.
+
+==============================================================================
+FLOW DESCRIPTION
+==============================================================================
+
+Step 1: ML engineers authenticate via AWS IAM Identity Center
+Step 2: Engineers access Amazon SageMaker Unified Studio which contains the
+        Sales Forecasting Project (with Database assets, Git repository,
+        Studio IDE, and Tools)
+Step 3: Coding capabilities powered by Amazon Q Developer feed into Studio IDE
+Step 4: ML capabilities via Amazon SageMaker handle model training/inference
+Step 5: Data is managed through Amazon SageMaker Lakehouse (Redshift Serverless,
+        S3 storage, Glue Data Catalog)
+Step 6: Amazon SageMaker connects back to Lakehouse for data access (dashed line)
