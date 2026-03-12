@@ -262,6 +262,8 @@ How to critically evaluate a screenshot:
 - **Shape height**: 60px for single line, 80px for 2 lines, 100px for 3 lines.
 - **Background zones**: Add 50px padding on ALL sides around contained elements.
 - **Element spacing**: 60px vertical between tiers, 40px horizontal between siblings.
+- **Sibling container spacing**: At least 100px gap between peer containers at the same level (e.g., Coding capabilities ↔ Lakehouse, SageMaker ↔ ML capabilities). Tight gaps (< 60px) make sections look cramped and leave no room for arrow routing. When in doubt, increase the gap rather than decrease it.
+- **Outer boundary fit**: After placing all elements, shrink the outermost containers (Cloud, Region) to fit tightly around content — calculate `max(rightmost element edge) + 50px` for the right border, same for bottom. Dead space > 80px on any side means the boundary is too large. Alternatively, if content doesn't fill the boundary, spread sibling containers further apart to use the space evenly.
 - **Side panels**: Place at least 80px away from main diagram elements.
 - **Arrow labels**: Keep labels short (1-2 words).
 
@@ -288,8 +290,11 @@ Icon centered above label, auto-grouped.
 - Multi-line text: use `\n` — each line is a separate centered text element
 - **Important:** When a label is present, the icon center is at `cy - (gap + text_h) / 2`, not at `cy`. Use `bbox.icon_cy` for arrow connections.
 
-### `numbered_circle(prefix, number, cx, cy, size=50)`
-Dark circle (#1a1a1a) with white centered number.
+### `numbered_circle(prefix, number, cx, cy, size=50, shape="circle")`
+Colored shape with white centered number.
+- `shape`: `"circle"` (ellipse), `"square"` (sharp corners), `"rounded"` (rounded rectangle, ~30% corner radius), `"diamond"` (rotated square)
+- `bg_color`: background fill (default `#1a1a1a`)
+- `text_color`: number color (default `#ffffff`)
 - Uses `measure_text()` for accurate text width, then centers `x = cx - tw/2`, `y = cy - th/2`
 - Sets `textAlign: "center"` on the text element for proper rendering
 - Falls back gracefully if browser alignment (`align_in_parent`) is unavailable
@@ -325,7 +330,7 @@ Arrow with optional multi-point path via waypoints and optional numbered label.
   - `label_size`: circle diameter (default 36)
   - `label_font_size`: font size (default 16)
   - `label_offset`: perpendicular offset from arrow in px (None = auto `label_size/2 + 5`). Positive = above for horizontal, right for vertical.
-  - `label_shape`: `"circle"` (default)
+  - `label_shape`: `"circle"`, `"square"`, `"rounded"`, or `"diamond"`
 - **Label positioning** (evaluated in priority order):
   1. **`label_cx`, `label_cy`** — Manual override. Use **only** when auto position causes overlap with container borders, icons, or other elements, or when the reference image explicitly shows non-centered placement. Both must be set together. Always add a comment explaining *why* the override is needed.
   2. **`label_segment`** — 0-based segment index for multi-segment (L/U/Z) arrows. Supports negative indexing (`-1` = last segment). Centers the circle on that segment's midpoint. Segments: `0 = start→wp[0]`, `1 = wp[0]→wp[1]`, ..., `-1 = wp[-1]→end`.
@@ -434,6 +439,35 @@ For non-Python usage, add intermediate waypoints + `roundness`:
 - **Inter-service arrows** (horizontal connections): Curved arrows with slight vertical offset.
 
 **Rule:** If an arrow would cross through an unrelated element, add a waypoint to route around it.
+
+### Arrow Routing Best Practices
+
+**1. Prefer simple L-shapes (1 waypoint) over complex multi-waypoint routes.**
+When an arrow needs to avoid an obstacle, first try changing the EXIT SIDE of the source icon rather than adding waypoints to dodge. For example, exiting from the RIGHT of an icon instead of the TOP can naturally clear a container header — one L-bend vs four waypoints.
+
+**2. NEVER cross container header text or icons.**
+Container headers occupy the top-left area of the container border. Arrows exiting a container must cross the border at a portion WITHOUT header content — typically the right side, bottom, or left side below the header. Use `check_arrow_header_overlaps()` to verify. This is a HARD RULE with no exceptions.
+
+**3. Arrows approaching from the label side must stop at the label boundary.**
+When an arrow arrives at an icon from the direction where its label text sits (e.g., from below when the label is below the icon), ending at the icon edge (`icon_cy ± ICON_R`) forces the shaft through the label — a HARD RULE violation. Instead, end the arrow at the component's label bottom:
+```python
+target_bottom = target_component["bbox"]["y"] + target_component["bbox"]["h"]
+arrow("a1", sx, sy, target_icx, target_bottom + 2, ...)
+```
+Alternatively, use an L-shape to approach the icon from a non-label side (left/right edge at `icon_cy`).
+
+**4. Enter icons from label-free sides.**
+When connecting an arrow to an icon, prefer entering from a side where no label text exists (typically LEFT or RIGHT). Avoid entering from below when the label is below the icon — the arrow will cross through the label. When an old arrow is removed, its entry point becomes a natural clean path for a replacement arrow.
+
+**5. Offset vertical segments to avoid same-x icons.**
+If two icons share the same x-coordinate (e.g., in a grid column), a vertical arrow segment at that x will cross through the lower icon's label. Route the vertical segment at a different x — for example, the midpoint between grid columns. Before committing to a vertical segment x, check if any other icons/labels exist at that x along the path.
+
+**6. Choosing the right exit side — work backwards from clearance.**
+Before writing arrow code, check what obstacles exist between source and target. Pick the source exit side that gives the most direct path with fewest crossings:
+- **Header in the way at top?** → Exit from RIGHT or LEFT, L-shape up
+- **Label in the way below target?** → End at label bottom, or L-shape to enter from the side
+- **Other container in the way?** → Route through gaps between containers
+- **Same-x icon below?** → Offset vertical segment to a clear corridor between columns
 
 ## Critical Rules
 
@@ -596,6 +630,25 @@ arrow("a-src-tgt", src_cx, src_cy, tgt_cx, tgt_cy,
 - Vertical segments passing through adjacent sub-sections
 - Horizontal segments crossing nested container tops/bottoms
 
+### Arrows Must Not Cross Container Header Text or Icons
+When an arrow exits or enters a container, it crosses the container border. Container headers (icon + label text) sit at the top-left of the border. If the arrow crosses the border WHERE the header is, it visually crosses through the header text/icon — this is a HARD RULE violation.
+
+**Fix:** Route the arrow to cross the container border at a non-header section:
+```python
+# WRONG: arrow exits through the top of the container at x=460, crossing header text
+arrow("a3", src_cx, src_cy - ICON_R, tgt_cx, tgt_cy,
+      waypoints=[(src_cx, tgt_cy)])
+
+# CORRECT: exit from the RIGHT side of the icon, L-shape past the header
+# Header text ends at x~551, so x=592 is past it — no crossing
+arrow("a3", src_cx + ICON_R, src_cy, tgt_icx, tgt_bottom + 2,
+      waypoints=[(tgt_icx, src_cy)])  # right then up, clears header
+```
+
+**How to identify the clear zone:** Query the header text element position (e.g., `coding-cap-lbl` at x=355 with width ~196px → right edge ~551). Any arrow segment at x > 551 passes to the RIGHT of the header. Use `check_arrow_header_overlaps()` to verify.
+
+**Quick rule of thumb:** Container headers typically occupy the LEFT 60-70% of the top border. Arrows exiting through the RIGHT 30% of the top border, or through the side/bottom walls, will avoid the header.
+
 ### Mandatory Containment Validation (Every Build Script)
 
 Every build script MUST include **containment assertions** for ALL nested containers. This is not optional — silent overflow is the #1 source of visual bugs.
@@ -646,7 +699,7 @@ CHILD_W = 230   # header "Service Name\nworkflow" + icon needs ~285px → expand
 
 # CORRECT: estimate first, set width >= estimate
 header_text = "Service Name\nworkflow"
-est_w = HDR_ICON + 10 + len(max(header_text.split("\n"), key=len)) * FONT_HDR * 0.6
+est_w = ICON_SIZE + 10 + len(max(header_text.split("\n"), key=len)) * FONT_HDR * 0.6
 CHILD_W = max(est_w, 285)  # explicit width exceeds auto-expansion threshold
 ```
 
@@ -735,8 +788,7 @@ Same-category elements must use **identical style parameters** defined as shared
 # Shared style constants (top of script)
 CIRCLE_BG = "#1a1a1a"   # All numbered circles — same color
 CIRCLE_SIZE = 40         # All numbered circles — same size
-SVC_ICON = 69            # All service icons — one constant controls all sizes
-HDR_ICON = SVC_ICON      # Header icons match service icons
+ICON_SIZE = 65           # ALL icons — service icons AND container header icons. Always 65px.
 FONT_HDR = 28            # Container header labels only
 FONT_BODY = 20           # Everything else: icon labels, numbers, arrows, text boxes
 ```
@@ -746,26 +798,24 @@ FONT_BODY = 20           # Everything else: icon labels, numbers, arrows, text b
 Categories that must be uniform within a diagram:
 - **Font sizes**: exactly 2 — `FONT_HDR` for container headers, `FONT_BODY` for everything else
 - **Numbered circles**: same `size`, `bg_color`, and `font_size`
-- **Service icons**: same `icon_size` via single `SVC_ICON` constant
-- **Container headers**: same `icon_header_size` via `HDR_ICON = SVC_ICON`, same `label_font_size` via `FONT_HDR`
+- **All icons (service + header)**: same size via single `ICON_SIZE` constant — service icons use `icon_size=ICON_SIZE`, container headers use `icon_header_size=ICON_SIZE` and `header_height=ICON_SIZE`
 - **Text boxes**: same `font_size`, `stroke_width`, `corner_radius`, `min_width`, and `max_height` within a section
 - **Arrows**: same `stroke_width` for same-type connections
 
 ### Icon Scaling Ripple Effects
-Changing `SVC_ICON` triggers a cascade of layout adjustments:
+Changing `ICON_SIZE` triggers a cascade of layout adjustments:
 
 | What | Rule |
 |------|------|
-| `HDR_ICON` | Must equal `SVC_ICON` — auto-updates if defined as `HDR_ICON = SVC_ICON` |
-| `header_height` | Should equal `SVC_ICON` so header bg matches icon |
+| `header_height` | Should equal `ICON_SIZE` so header bg matches icon |
 | Container heights | Grow by ~1.15x the icon delta per row inside |
 | Inner sub-section heights | Same proportional growth |
 | Row Y spacing | Add ~10-15px gap per row to prevent icon/label overlap |
 | Sub-container Y offsets | Push down to account for taller headers |
-| Arrow endpoints | Start/end offsets from icons grow with icon size (use +/-icon_size*0.8 as guide) |
+| Arrow endpoints | Start/end offsets from icons grow with icon size (use +/-ICON_SIZE*0.8 as guide) |
 | External elements | Reposition to stay vertically aligned with new row centers |
 
-**Key principle:** When `SVC_ICON` changes, treat it as a full layout reflow — adjust every Y position and every container dimension.
+**Key principle:** When `ICON_SIZE` changes, treat it as a full layout reflow — adjust every Y position and every container dimension.
 
 ### Font Scaling Ripple Effects
 Changing `FONT_HDR` or `FONT_BODY` also triggers layout adjustments:
@@ -779,16 +829,26 @@ Changing `FONT_HDR` or `FONT_BODY` also triggers layout adjustments:
 | Row Y spacing | Add ~5px per row for every +4px in FONT_BODY |
 | Text box dimensions | Vertical chain arrows must account for taller boxes |
 
+### HARD RULE: AWS Cloud Boundary Is Always SOLID — Never Dashed
+
+**The AWS Cloud container MUST use `stroke_style="solid"`.** This is the single most common mistake in diagram builds. Every other container can be dashed or solid per the reference image, but the outermost AWS Cloud boundary is ALWAYS a solid, uninterrupted line.
+
+```python
+# CORRECT — AWS Cloud is solid
+container_box("aws-cloud", ..., stroke_style="solid", ...)
+
+# WRONG — dashed cloud boundary
+container_box("aws-cloud", ..., stroke_style="dashed", ...)  # NEVER do this
+```
+
 ### Cloud Provider Boundary Is Always the Outermost Container
 The cloud provider boundary (e.g., "AWS Cloud") is **always the outermost container** encompassing all cloud services. Service-specific containers are **nested inside** — never as siblings.
 
 ```
 Correct hierarchy:
-  AWS Cloud (outer, gray solid)
-    +-- Front end (dashed sub-section)
-    +-- Step Functions workflow (pink solid, nested inside cloud)
-    +-- AI service icons
-    +-- API Gateway, other services
+  AWS Cloud (outer, solid line)
+    +-- AWS Region (dashed)
+    +-- Service containers (solid or dashed per reference)
 
 Wrong:
   AWS Cloud (left)     Step Functions (right, sibling)
@@ -798,7 +858,6 @@ Wrong:
 - Cloud boundary must encompass **all** nested containers and their children (including labels)
 - Only external/on-premise elements sit outside the cloud boundary
 - Cloud boundary must be **visibly larger** than nested containers on **all sides** — at least 30px clearance
-- **AWS Cloud boundary is NEVER dashed** — always use `stroke_style="solid"`. Only sub-sections inside the cloud use dashed borders.
 
 ### Every Container Header MUST Have an Icon
 Every `container_box()` call MUST include an `icon_file_id` parameter. Headers without icons look inconsistent and break the visual pattern. If a container represents a cloud provider section, use the provider logo; if it represents an account or service, use the matching service icon.
@@ -821,16 +880,27 @@ container_box("account", ..., label_text="Account Name")
 **SUB_Y gap rule:** Gap between `HDR_HEIGHT` and `SUB_Y` must clear tallest header text. For 2-line text at `FONT_HDR`, add at least `FONT_HDR * 1.25` as gap.
 
 ### Header Icon + Label Vertical Alignment
-The header icon is placed flush at the container's top-left corner. `header_height` is the **source of truth** — set it to fit the tallest header text (including multi-line). Then set `icon_header_size = header_height` so the icon fills the full header band.
+The header icon is placed flush at the container's top-left corner. Both `icon_header_size` and `header_height` must equal `ICON_SIZE` — the same constant used for service icons.
 
 ```python
-# CORRECT: header_height is source of truth, icon matches it
-HDR_HEIGHT = 55           # sized for multi-line headers
-HDR_ICON = HDR_HEIGHT     # icon matches header
-container_box("cloud", ..., icon_header_size=HDR_ICON, header_height=HDR_HEIGHT)
+# CORRECT: single ICON_SIZE for everything
+ICON_SIZE = 65   # always 65
+container_box("cloud", ..., icon_header_size=ICON_SIZE, header_height=ICON_SIZE)
 
-# WRONG: icon smaller than header — icon sits higher than label
+# WRONG: different sizes for header vs service icons
 container_box("cloud", ..., icon_header_size=32, header_height=55)
+```
+
+### HARD RULE: Container Header Text Is Black by Default
+Container header `label_color` MUST be black (`TEXT_COLOR` / `#1a1a1a`) unless the plan or reference explicitly specifies a colored header for that specific container. Do NOT automatically match `label_color` to `stroke_color` — colored header text should be the rare exception (e.g., a Lakehouse container), not the default. When in doubt, use black.
+
+```python
+# CORRECT: black text by default
+container_box("region", ..., stroke_color=AWS_TEAL, label_color=TEXT_COLOR)
+container_box("service", ..., stroke_color=PURPLE, label_color=TEXT_COLOR)
+
+# WRONG: matching label color to border color by default
+container_box("region", ..., stroke_color=AWS_TEAL, label_color=AWS_TEAL)
 ```
 
 ### Icon-less Container Headers Are Centered
@@ -942,24 +1012,25 @@ arrow("a3", x1, y1, x2, y2, **ARROW_STYLE,
 
 Bidirectional arrows explicitly set `start_arrowhead="arrow", end_arrowhead="arrow"`. One-way arrows leave `start_arrowhead=None` (default). No other arrowhead types should be used.
 
-### STRICT: Uniform Icon Sizes — Use Size Constants, Never Hardcode
+### STRICT: Unified Icon Size — One Constant for ALL Icons
 
-**Every icon size must come from a global constant — never hardcode pixel values.**
+**HARD RULE: Service icons and container header icons MUST be the same size.** Use a single `ICON_SIZE` constant for everything — never separate `SVC_ICON` and `HDR_ICON`.
 
-- **Service icons**: All `icon_label_component()` and `vertical_stack()` calls must use `icon_size=SVC_ICON`. This includes external actors like Users.
-- **Container header icons**: All `container_box()` calls with icons must use `icon_header_size=HDR_ICON` and `header_height=HDR_ICON`.
+- **Service icons**: All `icon_label_component()` and `vertical_stack()` calls must use `icon_size=ICON_SIZE`.
+- **Container header icons**: All `container_box()` calls with icons must use `icon_header_size=ICON_SIZE` and `header_height=ICON_SIZE`.
 
 ```python
-SVC_ICON = 65   # all service icons
-HDR_ICON = 40   # all container header icons
+ICON_SIZE = 65   # ALL icons — always 65px, hardcoded across all diagrams
 
-# WRONG: hardcoded sizes
+# WRONG: separate sizes for headers and services
+SVC_ICON = 65
+HDR_ICON = 40
 icon_label_component("users", ..., icon_size=50, ...)
 container_box("vpc", ..., icon_header_size=32, header_height=36, ...)
 
-# CORRECT: constants everywhere
-icon_label_component("users", ..., icon_size=SVC_ICON, ...)
-container_box("vpc", ..., icon_header_size=HDR_ICON, header_height=HDR_ICON, ...)
+# CORRECT: single constant everywhere
+icon_label_component("users", ..., icon_size=ICON_SIZE, ...)
+container_box("vpc", ..., icon_header_size=ICON_SIZE, header_height=ICON_SIZE, ...)
 ```
 
 ### Container Header Pinning — Icon and Title Stay at Top-Left
@@ -990,6 +1061,25 @@ arrow("a3", x1, y1, x2, y2,
 ```
 
 **Only use standalone `numbered_circle()`** for circles that have no associated arrow (e.g., Circle 4 between two icons in the same container) or circles on `vertical_stack` arrows that aren't directly accessible.
+
+**Standalone circles are a red flag.** Numbered circles very rarely appear on their own — almost every circle belongs to an arrow. If you see a standalone `numbered_circle()` in a build script, double-check `icons_graph_structure.md` to verify no arrow was missed or accidentally deleted.
+
+### Numbered Circle Shape & Color Must Match the Reference
+
+Do not default to dark circles (`#1a1a1a`, shape `"circle"`) without checking. The reference image or plan may specify different shapes (square, rounded, diamond) and colors (blue, teal, red, etc.) for numbered badges. Always:
+
+1. Check `icons_graph_structure.md` — the "Number box style" column specifies shape and color per arrow.
+2. Set `label_shape` and `label_bg` in `arrow_style()` if all arrows share the same style, or override per-arrow if they differ.
+3. For standalone circles, pass `shape=` and `bg_color=` to `numbered_circle()`.
+
+```python
+# All arrows use blue rounded squares
+ASTYLE = arrow_style(label_bg="#2563eb", label_shape="rounded", ...)
+
+# Mix: most are dark circles, arrow 3 is a blue diamond
+ASTYLE = arrow_style(label_bg="#1a1a1a", label_shape="circle", ...)
+arrow("a3", ..., label_number=3, label_bg="#2563eb", label_shape="diamond", **ASTYLE)
+```
 
 ### Validation False Positives
 `validate_diagram()` and `validate_arrow_paths()` report TEXT_OVERLAP for arrows that intentionally pass through annotation text areas. BORDER warnings for elements near container edges are also expected when icons are intentionally placed outside containers.
@@ -1028,7 +1118,7 @@ arrow("a3", x1, y1, x2, y2,
 | Place circles near arrow endpoints (arrowheads) | Position circles on the arrow body, away from endpoints — arrowhead triangles extend ~10px back from the tip and must not touch circles |
 | Assume arrow directions without checking reference | Verify every arrow's direction (which end has arrowhead) against the reference image |
 | Add internal arrows in a section not shown in reference | Only add arrows that exist in the reference — standalone icons with no connections are valid |
-| `icon_header_size` smaller than `header_height` | `header_height` is source of truth; always `icon_header_size = header_height` |
+| `icon_header_size` smaller than `header_height` | Both must equal `ICON_SIZE`; always `icon_header_size = header_height = ICON_SIZE` |
 | Use `cy` as icon center for arrows | Shift `cy` by `+ ICON_VSHIFT` so image center aligns at row Y |
 | Pass empty string `""` as icon label | Pass `None` to skip label creation |
 | Ignore label width for border clearance | Calculate label extent and ensure 30px+ gap from borders |

@@ -1,0 +1,211 @@
+DIAGRAM: Amazon SageMaker Unified Studio Architecture
+VERSION: v55
+REFERENCE: refs/tg_image_565119128.png
+
+================================================================================
+LAYOUT OVERVIEW
+================================================================================
+The diagram shows an AWS architecture for SageMaker Unified Studio with ML
+training and data lakehouse capabilities. Flow is left-to-right and top-to-bottom.
+
+External actors on the left, AWS Cloud encompassing everything else.
+
+Canvas: ~1800 x 1100
+
+================================================================================
+CONTAINERS (outside-in nesting)
+================================================================================
+
+1. AWS Cloud (outermost)
+   - Type: Cloud boundary
+   - Border: dashed teal (#248814 group icon), 2px
+   - Fill: transparent
+   - Header: AWS Cloud logo (32px group icon) + "AWS Cloud" text
+   - Position: covers nearly the entire canvas except the external ML engineers actor
+   - Approx: x=120, y=10, w=1650, h=1050
+
+2. AWS Region (inside AWS Cloud)
+   - Type: Region boundary
+   - Border: dashed teal, 2px
+   - Header: Region icon (32px group icon) + "AWS Region" text
+   - Fill: transparent
+   - Approx: x=140, y=60, w=1610, h=990
+
+3. Amazon SageMaker (inside Region, upper-left area)
+   - Type: Service group container
+   - Border: solid teal (#147eba or similar), 2px
+   - Fill: transparent
+   - Header: SageMaker icon + "Amazon SageMaker" text
+   - Contains: SageMaker Unified Studio icon and Sales Forecasting Project container
+   - Approx: x=260, y=100, w=620, h=420
+
+4. Sales Forecasting Project (inside Amazon SageMaker)
+   - Type: Project container
+   - Border: solid purple/violet (#7c3aed), 2px
+   - Fill: transparent
+   - Header: "Sales Forecasting Project" text (purple, italic, no icon)
+   - Contains: 2x2 grid of service icons (Database assets, Git repository, Studio IDE, Tools)
+   - Approx: x=420, y=145, w=440, h=360
+
+5. ML capabilities (inside Region, upper-right)
+   - Type: Capability group
+   - Border: solid teal, 2px
+   - Fill: transparent
+   - Header: SageMaker icon (small) + "ML capabilities" text
+   - Contains: Amazon SageMaker service icon
+   - Approx: x=960, y=100, w=350, h=330
+
+6. Coding capabilities (inside Region, lower-left)
+   - Type: Capability group
+   - Border: solid teal, 2px
+   - Fill: transparent
+   - Header: (icon) + "Coding capabilities" text
+   - Contains: Amazon Q Developer service icon
+   - Approx: x=330, y=550, w=310, h=280
+
+7. Amazon SageMaker Lakehouse (inside Region, bottom-right)
+   - Type: Service group
+   - Border: solid teal, 2px
+   - Fill: transparent
+   - Header: "Amazon SageMaker Lakehouse" text
+   - Contains: Amazon Redshift Serverless, Storage sub-section, Catalog sub-section
+   - Approx: x=620, y=550, w=720, h=320
+
+8. Storage (inside Lakehouse)
+   - Type: Sub-section
+   - Border: none or very light
+   - Fill: light gray (#e5e7eb)
+   - Header: "Storage" text (centered, no icon)
+   - Contains: Amazon S3 icon
+   - Approx: x=870, y=600, w=200, h=240
+
+9. Catalog (inside Lakehouse)
+   - Type: Sub-section
+   - Border: none or very light
+   - Fill: light gray (#e5e7eb)
+   - Header: "Catalog" text (centered, no icon)
+   - Contains: AWS Glue Data Catalog icon
+   - Approx: x=1100, y=600, w=200, h=240
+
+================================================================================
+SERVICE ICONS (icon + label components)
+================================================================================
+
+A. ML engineers (EXTERNAL - outside AWS Cloud)
+   - Icon: User/person icon (Res_Users_48_Light.svg)
+   - Label: "ML\nengineers"
+   - Position: far left, vertically centered with IAM
+   - Approx cx=50, cy=300
+
+B. AWS IAM Identity Center (outside Region but inside Cloud, or borderline)
+   - Icon: Arch_AWS-IAM-Identity-Center_48.svg (red/dark background)
+   - Label: "AWS IAM\nIdentity Center"
+   - Position: left side, just inside or at Cloud boundary
+   - Approx cx=185, cy=300
+
+C. Amazon SageMaker Unified Studio (inside Amazon SageMaker container)
+   - Icon: SageMaker icon (teal, Architecture icon)
+   - Label: "Amazon SageMaker\nUnified Studio"
+   - Position: left side of SageMaker container, below header
+   - Approx cx=340, cy=320
+
+D. Database assets (inside Sales Forecasting Project, top-left of 2x2)
+   - Icon: Res_Database_48_Light.svg (generic database icon)
+   - Label: "Database assets"
+   - Position: top-left cell of grid
+
+E. Git repository (inside Sales Forecasting Project, top-right of 2x2)
+   - Icon: Res_Git-Repository_48_Light.svg (generic git icon)
+   - Label: "Git repository"
+   - Position: top-right cell of grid
+
+F. Studio IDE (inside Sales Forecasting Project, bottom-left of 2x2)
+   - Icon: Res_Source-Code_48_Light.svg (IDE icon)
+   - Label: "Studio IDE"
+   - Position: bottom-left cell of grid
+
+G. Tools (inside Sales Forecasting Project, bottom-right of 2x2)
+   - Icon: Res_Toolkit_48_Light.svg (tools/wrench icon)
+   - Label: "Tools"
+   - Position: bottom-right cell of grid
+
+H. Amazon SageMaker (inside ML capabilities, service icon)
+   - Icon: Arch_Amazon-SageMaker_48.svg (teal, Architecture icon)
+   - Label: "Amazon SageMaker"
+   - Position: centered in ML capabilities container
+
+I. Amazon Q Developer (inside Coding capabilities)
+   - Icon: Arch_Amazon-Q_48.svg (teal, Architecture icon)
+   - Label: "Amazon Q\nDeveloper"
+   - Position: centered in Coding capabilities container
+
+J. Amazon Redshift Serverless (inside Lakehouse, left area)
+   - Icon: Arch_Amazon-Redshift_48.svg (purple, Architecture icon)
+   - Label: "Amazon Redshift\nServerless"
+   - Position: left side of Lakehouse container
+
+K. Amazon S3 (inside Storage sub-section)
+   - Icon: Arch_Amazon-Simple-Storage-Service_48.svg (green, Architecture icon)
+   - Label: "Amazon S3"
+   - Position: centered in Storage sub-section
+
+L. AWS Glue Data Catalog (inside Catalog sub-section)
+   - Icon: Res_AWS-Glue_Data-Catalog_48.svg (purple resource icon)
+   - Label: "AWS Glue\nData Catalog"
+   - Position: centered in Catalog sub-section
+
+================================================================================
+INTERNAL ARROWS (inside Sales Forecasting Project)
+================================================================================
+
+- Git repository → Database assets: horizontal arrow pointing LEFT (no number)
+  From Git repository icon to Database assets icon, inside the project container
+
+================================================================================
+FLOW ARROWS WITH NUMBERED CIRCLES
+================================================================================
+
+Arrow 1: ML engineers → AWS IAM Identity Center
+  - Direction: left to right (horizontal)
+  - Style: solid, dark (#1a1a1a), 2px
+  - Circle: #1, dark background, white text
+  - Circle position: above the arrow, between the two icons
+
+Arrow 2: AWS IAM Identity Center → Amazon SageMaker Unified Studio
+  - Direction: left to right (horizontal)
+  - Style: solid, dark, 2px
+  - Circle: #2, dark background, white text
+  - Circle position: above the arrow
+
+Arrow 3: Amazon Q Developer → Studio IDE
+  - Direction: bottom to top (vertical, upward)
+  - Style: solid, dark, 2px
+  - Circle: #3, dark background, white text
+  - Circle position: to the right of the arrow, between the two icons
+
+Arrow 4: Tools (or right edge of Sales Forecasting Project) → Amazon SageMaker (ML capabilities)
+  - Direction: left to right (horizontal)
+  - Style: solid, dark, 2px
+  - Circle: #4, dark background, white text
+  - Circle position: above the arrow
+
+Arrow 5: Sales Forecasting Project (bottom) → Amazon SageMaker Lakehouse
+  - Direction: top to bottom (vertical, downward)
+  - Style: solid, dark, 2px
+  - Circle: #5, dark background, white text
+  - Circle position: to the right of the arrow
+
+Arrow 6: Amazon SageMaker (ML capabilities) → Amazon SageMaker Lakehouse
+  - Direction: top to bottom (vertical, downward)
+  - Style: DASHED, dark, 2px
+  - Circle: #6, dark background, white text
+  - Circle position: to the right of the arrow
+
+================================================================================
+TOTAL COMPONENTS COUNT
+================================================================================
+- Containers: 9 (AWS Cloud, Region, SageMaker, Project, ML cap, Coding cap, Lakehouse, Storage, Catalog)
+- Service icons: 12 (ML engineers, IAM, Unified Studio, Database, Git, IDE, Tools, SageMaker ML, Q Developer, Redshift, S3, Glue)
+- Arrows: 7 (6 numbered + 1 internal in project grid)
+- Numbered circles: 6
+- Total diagram elements: ~28 logical components

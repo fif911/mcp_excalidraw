@@ -284,9 +284,12 @@ def icon_label_component(prefix, file_id, label_text, cx, cy,
 
 def numbered_circle(prefix, number, cx, cy, size=50,
                     bg_color="#1a1a1a", text_color="#ffffff",
-                    font_size=18):
+                    font_size=18, shape="circle"):
     """
-    Create a colored circle with centered number, grouped.
+    Create a colored shape with centered number, grouped.
+
+    Shapes: "circle" (ellipse), "square" (sharp corners), "rounded" (rounded
+    rectangle), "diamond" (rotated square).
 
     Returns:
         dict with keys: bg_id, text_id, group_id, bbox
@@ -295,24 +298,44 @@ def numbered_circle(prefix, number, cx, cy, size=50,
     text_id = f"{prefix}-tx"
     group_id = f"g-{prefix}"
 
-    # Circle
-    create({
-        "id": bg_id, "type": "ellipse",
-        "x": round(cx - size/2), "y": round(cy - size/2),
+    # Map shape name to Excalidraw element type + roundness
+    if shape == "circle":
+        el_type = "ellipse"
+        roundness = None
+    elif shape == "square":
+        el_type = "rectangle"
+        roundness = None
+    elif shape == "rounded":
+        el_type = "rectangle"
+        roundness = {"type": 3, "value": round(size * 0.3)}
+    elif shape == "diamond":
+        el_type = "diamond"
+        roundness = None
+    else:
+        raise ValueError(f"Unknown shape '{shape}'. Use: circle, square, rounded, diamond")
+
+    bg_props = {
+        "id": bg_id, "type": el_type,
+        "x": cx - size / 2, "y": cy - size / 2,
         "width": size, "height": size,
         "backgroundColor": bg_color, "strokeColor": "transparent",
         "strokeWidth": 0, "fillStyle": "solid", "roughness": 0,
         "groupIds": [group_id]
-    })
+    }
+    if roundness is not None:
+        bg_props["roundness"] = roundness
 
-    # Measure text for accurate centering
+    create(bg_props)
+
+    # Measure text for accurate centering — no rounding, exact floats
     txt = str(number)
-    tw, _ = measure_text(txt, font_size)
-    th = font_size * 1.25  # single line height
+    tw, th = measure_text(txt, font_size)
+    if th <= 0:
+        th = font_size * 1.25
 
     create({
         "id": text_id, "type": "text",
-        "x": round(cx - tw / 2), "y": round(cy - th / 2),
+        "x": cx - tw / 2, "y": cy - th / 2,
         "text": txt,
         "fontSize": font_size, "fontFamily": "2",
         "textAlign": "center",
@@ -320,11 +343,11 @@ def numbered_circle(prefix, number, cx, cy, size=50,
         "groupIds": [group_id]
     })
 
-    # Try browser-delegated centering for pixel-perfect alignment (needs frontend open)
+    # Browser-delegated centering for pixel-perfect alignment
     try:
         align_in_parent(text_id, bg_id, alignment="center")
     except Exception:
-        pass  # measure_text fallback above is already accurate
+        pass
 
     return {
         "bg_id": bg_id, "text_id": text_id, "group_id": group_id,
@@ -747,7 +770,7 @@ def _build_segments(all_pts):
 
 def arrow_style(stroke_color="#1a1a1a", stroke_width=2, stroke_style="solid",
                 label_bg="#1a1a1a", label_text_color="#ffffff",
-                label_size=36, label_font_size=16):
+                label_size=36, label_font_size=16, label_shape="circle"):
     """
     Create a reusable arrow style dict.
 
@@ -764,6 +787,7 @@ def arrow_style(stroke_color="#1a1a1a", stroke_width=2, stroke_style="solid",
         "label_text_color": label_text_color,
         "label_size": label_size,
         "label_font_size": label_font_size,
+        "label_shape": label_shape,
     }
 
 
@@ -805,7 +829,7 @@ def arrow(aid, start_x, start_y, end_x, end_y,
         label_font_size: font size (default 16)
         label_offset: perpendicular offset from arrow in px.
                       None = auto (label_size/2 + 5). Positive = above/right.
-        label_shape: "circle" (default)
+        label_shape: "circle", "square", "rounded", or "diamond"
 
     Label positioning (evaluated in priority order):
         label_cx, label_cy: Manual override — use only when auto-position causes
@@ -897,7 +921,8 @@ def arrow(aid, start_x, start_y, end_x, end_y,
         label_prefix = f"{aid}-lbl"
         numbered_circle(label_prefix, label_number, cx=round(cx), cy=round(cy),
                         size=label_size, bg_color=label_bg,
-                        text_color=label_text_color, font_size=label_font_size)
+                        text_color=label_text_color, font_size=label_font_size,
+                        shape=label_shape)
         label_info = {"prefix": label_prefix, "cx": round(cx), "cy": round(cy),
                       "number": label_number, "segment": resolved_seg_idx}
 

@@ -24,6 +24,9 @@
 - [ ] Icon-less sub-sections (e.g. "Authentication") have label **horizontally centered** within container width
 - [ ] Containers at the same nesting level share the same `y` position and `header_height`
 
+### Header Text Color
+- [ ] **HARD RULE: Container header `label_color` is black (`#1a1a1a`) by default.** Colored header text should be the exception, not the rule. Only containers explicitly specified in the plan/reference as having colored text should use non-black `label_color`. Do NOT match `label_color` to `stroke_color` automatically — if most headers are colored (teal, purple, etc.), that's a bug.
+
 ### Border Styles
 - [ ] **HARD RULE: The AWS Cloud boundary container MUST always use a SOLID border — NEVER dashed.** AWS Region and service-group containers (like SageMaker Unified Studio) can use dashed borders, but they can also be solid — follow the reference image. The outermost cloud boundary is always solid. This is non-negotiable. Getting this wrong makes the diagram look unprofessional and inconsistent with AWS reference architecture standards.
 - [ ] Cloud provider boundary: solid, 2px stroke, brand color (teal for AWS)
@@ -39,10 +42,9 @@
 - [ ] Service icons centered horizontally AND vertically within their container's content area
 - [ ] **HARD RULE: If a subsection/container has only one icon (with or without a text label), that icon MUST be centered both horizontally and vertically within the container's content area (below the header).** Calculate: `cx = container_x + container_w / 2`, `cy = container_y + header_height + (container_h - header_height) / 2`. No exceptions — a single icon off-center inside a box is always wrong.
 - [ ] Icon + label form a vertically stacked group: icon on top, text below, both centered on same vertical axis
-- [ ] Icon sizes consistent: all service icons use the same size, all header icons use the same size
+- [ ] **HARD RULE: Service icons and container header icons MUST be the same size.** The build script must use a single `ICON_SIZE` constant for both `icon_label_component(icon_size=ICON_SIZE)` and `container_box(icon_header_size=ICON_SIZE, header_height=ICON_SIZE)`. Separate `SVC_ICON`/`HDR_ICON` constants are a bug.
 - [ ] **Icon sizing reference (minimum sizes, enlarge if reference image demands it):**
-  - `SVC_ICON` ≥ 65px — service icons (AWS Architecture 48px SVGs rendered at 65px+)
-  - `HDR_ICON` ≥ 40px — container header icons (AWS Cloud logo, etc.)
+  - `ICON_SIZE = 65` — all icons (service + container header) are always 65px across all diagrams
   - Group icons ≥ 32px — VPC, Private subnet header icons (AWS Group Icons 32px SVGs)
   - User/external icons ≥ 50px
   - Always compare against the reference image — if icons look smaller, increase sizes proportionally
@@ -71,10 +73,10 @@
 
 ### Readability
 - [ ] All text readable at export resolution — not too small (minimum `FONT_BODY >= 18`, `FONT_HDR >= 20`)
-- [ ] **Icon label text vs container header text overlap distinction:**
-  - **Icon label text** (below service icons like "Studio IDE", "Tools") must NEVER be crossed by arrow shafts — use L-shaped routing to avoid. This is a HARD RULE.
-  - **Container header text** (on container top borders like "Coding capabilities", "Amazon SageMaker Lakehouse") MAY be crossed by arrows that enter/exit that container — this is unavoidable and acceptable since the arrow must pierce the container border where the header sits.
-  - When the overlap checker flags TEXT_OVERLAP, distinguish between these two types. Fix icon label overlaps immediately. Container header overlaps can be accepted if the arrow legitimately enters/exits that container.
+- [ ] **HARD RULE: No arrow may cross any text — icon labels OR container headers.**
+  - **Icon label text** (below service icons like "Studio IDE", "Tools") must NEVER be crossed by arrow shafts — use L-shaped routing to avoid.
+  - **Container header text** (on container top borders like "Coding capabilities", "Amazon SageMaker Lakehouse") must ALSO NEVER be crossed by arrows. Route arrows to enter/exit containers through non-header portions of the border (sides or bottom). Use L-shaped waypoints to steer arrows away from the header band.
+  - The `check_arrow_header_overlaps()` utility detects these. All flagged issues must be fixed — no exceptions.
 - [ ] No text overlapping borders, lines, or other text (except the container header exception above)
 - [ ] Multi-line text properly wrapped and centered
 - [ ] Text not cut off by container boundaries
@@ -83,21 +85,23 @@
 ### Consistency
 - [ ] Font consistent across entire diagram — all text uses the same `fontFamily`
 - [ ] **HARD RULE: Exactly 2 font sizes in the entire diagram — `FONT_HDR` for ALL container headers and `FONT_BODY` for ALL other text (icon labels, arrow labels, circle numbers).** Any third font size is a bug. To verify: grep the build script for `font_size=` and `label_font_size=` — only two distinct numeric values should appear across the entire file. This is non-negotiable.
-- [ ] **HARD RULE: Every `container_box()` call MUST use the same `label_font_size`, `icon_header_size`, and `header_height` values.** Define once as constants (e.g., `FONT_HDR=20`, `HDR_ICON=40`) and reuse everywhere. No container gets a special size — AWS Cloud, Region, sub-containers, and sub-boxes all share the same header parameters. If any container uses a different value, that is a bug.
+- [ ] **HARD RULE: Every `container_box()` call MUST use the same `label_font_size`, `icon_header_size=ICON_SIZE`, and `header_height=ICON_SIZE` values.** Define once as constants (e.g., `FONT_HDR=20`, `ICON_SIZE=48`) and reuse everywhere. No container gets a special size — AWS Cloud, Region, sub-containers, and sub-boxes all share the same header parameters. If any container uses a different value, that is a bug.
 - [ ] No mixed font sizes within the same category (e.g. all circle numbers same size, all icon labels same size)
 
 ## Numbered Step Circles
 
 ### Shape & Style
-- [ ] Perfect circles (not ovals) — width === height
-- [ ] White number on dark filled circle
-- [ ] All circles use the **same size and color** — uniform across the diagram
-- [ ] No visible border/stroke on circle background
+- [ ] Badge shape matches reference — circles, squares, rounded rectangles, or diamonds as specified in `icons_graph_structure.md` "Number box style" column. Do not assume dark circles by default
+- [ ] Badge color matches reference — check `bg_color`/`label_bg` against the plan. Different arrows may use different colors
+- [ ] All badges of the same type use **consistent size** — uniform across the diagram
+- [ ] White number on filled background (unless reference specifies otherwise)
+- [ ] No visible border/stroke on badge background
 
 ### Placement
 - [ ] **HARD RULE: Numbered circles must NEVER touch or overlap arrow lines** — always offset by at least `CIRCLE_R + 5` pixels above/below (for horizontal arrows) or left/right (for vertical arrows). If there is no room to place a circle without touching an arrow, rearrange the diagram layout to create space. Never violate this rule.
 - [ ] **HARD RULE: Non-standalone numbered circles MUST be created via the `arrow()` component's `label_number` parameter — NEVER via manual `numbered_circle()` calls.** If a numbered circle is associated with an arrow (i.e., it labels a flow step on that arrow), it MUST be placed by passing `label_number=N` to the `arrow()` call. Use `label_cx`/`label_cy` overrides on the arrow if the default midpoint position needs adjustment. Only circles that are truly standalone (not associated with ANY arrow) may use direct `numbered_circle()` calls. This ensures circles are always correctly positioned relative to their arrows and automatically updated when arrows change.
 - [ ] **Every numbered circle MUST be adjacent to a visible arrow** — circles represent flow steps and must visually associate with a specific arrow connection. A circle floating near an icon without a nearby arrow is incorrect. If no arrow exists for a circle, add one first.
+- [ ] **Standalone `numbered_circle()` calls are a red flag** — numbered circles very rarely appear on their own. If any circle is created via `numbered_circle()` instead of `arrow(..., label_number=N)`, double-check that no arrow was missed or accidentally deleted. Cross-reference `icons_graph_structure.md` to verify every arrow is present.
 - [ ] Circles sit adjacent to their associated flow arrow — **above** for horizontal arrows, **to the right** for vertical arrows
 - [ ] Circles are on the arrow **body**, away from both endpoints — arrowhead triangles extend ~10px back and must not touch circles
 - [ ] Circles do not overlap icons, labels, container headers, or other text
@@ -120,6 +124,8 @@
   - Place numbered circles as standalone `numbered_circle()` at the bend point in the gap, NOT as `label_number` on the arrow (auto-positioning lands circles on icons/labels)
   - Verify standalone circles don't straddle container borders in the gap — offset by `CIRCLE_R + 5` from any border
   - For bidirectional L-shaped arrows, ensure the first segment direction matches the desired start arrowhead direction (e.g., first segment goes UP so start arrowhead points DOWN)
+- [ ] **Enter icons from label-free sides** — when an arrow connects to an icon, it should enter from a side with no label text (typically LEFT or RIGHT). Entering from below when the label is below causes label crossings. When an old arrow is removed, its entry point is a clean path for a replacement
+- [ ] **Offset vertical segments to avoid same-x icons** — if two icons share the same x (e.g., grid column), a vertical segment at that x crosses the lower icon's label. Route the vertical segment at a different x (e.g., midpoint between grid columns)
 - [ ] Arrow start/end at element edges (not floating in space)
 - [ ] **Arrows connecting section icons must be fully within the section** — all arrows between icons inside a container must stay within that container's borders. If the container is too small to fit the arrows, enlarge the container
 - [ ] Arrows do NOT cross through unrelated containers — an arrow only crosses a container border when entering/leaving that container
@@ -153,6 +159,8 @@
 ## Alignment & Spacing
 - [ ] Elements at same logical level share consistent vertical/horizontal alignment
 - [ ] Consistent spacing between peer containers
+- [ ] **Sibling container gap ≥ 100px** — peer containers at the same nesting level (e.g., Coding capabilities ↔ Lakehouse) must have at least 100px horizontal/vertical gap. Gaps < 60px look cramped and block arrow routing
+- [ ] **Outer boundary tight fit** — Cloud/Region borders should have no more than ~80px of dead space beyond the rightmost/bottommost element. If there's excess space, either shrink the boundary or spread sibling containers further apart to fill it evenly
 - [ ] Content centered within containers (both axes)
 - [ ] **When containers are resized, reposition icons too** — widening/heightening a container without shifting its content leaves icons off-center. Always recalculate icon positions relative to the new container center after any container size change
 - [ ] No elements extending beyond their parent container
@@ -168,8 +176,8 @@
 
 ## Consistent Styling
 - [ ] All numbered circles: same size, same background color, same font size
-- [ ] All service icons: same icon size (`SVC_ICON` constant used everywhere)
-- [ ] **All container headers: same `icon_header_size` (`HDR_ICON`), same `header_height` (`HDR_ICON`), same `label_font_size` (`FONT_HDR`)** — verify by checking every `container_box()` call in the build script
+- [ ] **All icons (service + header) use single `ICON_SIZE` constant** — no separate `SVC_ICON`/`HDR_ICON`. Verify: every `icon_size=`, `icon_header_size=`, and `header_height=` in the build script must reference the same constant.
+- [ ] **All container headers: same `label_font_size` (`FONT_HDR`)** — verify by checking every `container_box()` call in the build script
 - [ ] Color used semantically (same color = same domain/category)
 
 ## Professional Polish

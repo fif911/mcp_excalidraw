@@ -81,10 +81,12 @@ End with a summary:
 
 ## Key Inspection Patterns
 
+### HARD RULE: AWS Cloud Boundary Is Always SOLID — Never Dashed
+
+**The AWS Cloud container MUST use `stroke_style="solid"`.** This is the single most common build mistake. Every other container can be dashed or solid per the reference image, but the outermost AWS Cloud boundary is ALWAYS a solid, uninterrupted line. If the build script has `stroke_style="dashed"` for the AWS Cloud container, that is a bug — flag it immediately.
+
 ### Container Hierarchy & Nesting
 The cloud provider boundary (e.g. "AWS Cloud") must be the **outermost** container. All service containers are nested inside it, never as siblings. Only external elements (users, mobile apps) sit outside.
-
-**HARD RULE: The AWS Cloud boundary container MUST always use a SOLID border — NEVER dashed.** AWS Region and service-group containers (like SageMaker Unified Studio) can use dashed borders, but they can also be solid — follow the reference image. The outermost cloud boundary is always solid. This is non-negotiable.
 
 **What to check:**
 - Every sub-section is fully inside its parent — at least 15px clearance from parent border on all sides
@@ -155,12 +157,14 @@ Service labels can be much wider than their icons (e.g. "Amazon Rekognition" ~19
 ### Arrow Endpoints & Alignment
 Crop each arrow's start and end points. Check:
 - **Arrows connect at icon image centers**, not at the component center (which includes the label below). When an icon has a label, the component center is between icon and label — but arrows should aim at the icon's visual center, which is higher up
+- **Label-side approach rule**: when an arrow approaches an icon from the LABEL side (e.g., from below when the label is below the icon), the arrow must NOT end at the icon edge — it would cross through the label text. Instead, end the arrow at the component's label bottom edge: `component["bbox"]["y"] + component["bbox"]["h"] + 2`. The arrowhead stops just below the text. Alternatively, use an L-shape to approach the icon from a non-label side
 - **Connected icons should be aligned on the arrow's perpendicular axis** — for a horizontal arrow, both icons share the same Y; for a vertical arrow, both share the same X. Use `icy_to_cy()` to place icon image centers at exact target positions. **Exceptions**: break alignment when (a) the arrow is L-shaped in the reference, (b) layout constraints make it impossible, or (c) the reference shows a clear visual hierarchy (e.g., parent icon above child icons). In exception cases, use L-shaped arrows with waypoints
 - **vertical_stack alignment** — when a stack item connects to an external icon via a horizontal arrow, adjust the stack's `start_y` so that item's `icon_cy` matches the external icon's Y. Always read actual `icon_cy` from stack bbox for arrow endpoints
 - Arrow doesn't float in empty space
 - Arrow direction is correct (verify against reference)
 - Arrow only crosses container borders it's actually entering/leaving — never passes through unrelated containers
 - **Cross-container arrows stop at the border** — when an arrow connects to a service inside a nested container (e.g., Step Functions), it must end at the container's border, not reach deep inside to the target icon. If an arrow visually pierces through a container to reach an internal service, that's a bug
+- **Arrows must never cross container header text or icons** — when an arrow exits a container, it must not pass through the header band (icon + label at the top of the container). Route arrows through the non-header portion of the border. Use `check_arrow_header_overlaps()` to verify
 
 ### HARD RULE: Arrows Must Never Cross Icon Label Text
 **When an arrow approaches an icon from below (or any direction where the label text sits between the arrow source and the icon), a straight line WILL cross the label text. This is NEVER acceptable.** Use L-shaped routing with waypoints to approach the icon from the SIDE instead:
@@ -172,6 +176,14 @@ Crop each arrow's start and end points. Check:
 5. **Standalone circles in the gap** — when the arrow bends in a gap between containers, place the numbered circle as a standalone `numbered_circle()` at the bend point, NOT as `label_number` on the arrow. This prevents the auto-positioned circle from landing on the icon or its label.
 6. **Check container borders** — ensure standalone circles in gaps don't straddle nearby container borders (e.g., a parent container's bottom edge might cut through the gap). Offset the circle Y to maintain at least `CIRCLE_R + 5` from any border.
 7. **Bidirectional arrow direction** — for L-shaped bidirectional arrows, ensure the first segment goes in the correct direction so the start arrowhead points the right way. E.g., if the start is at Lakehouse top, the first segment should go UP so the start arrowhead points DOWN toward Lakehouse.
+
+### Arrow Entry Direction
+**HARD RULE: Enter icons from label-free sides.** When connecting an arrow to an icon, prefer entering from a side where no label text exists (LEFT or RIGHT edge). Entering from below when the label is below the icon forces the arrow through the label text — always a bug. When an old arrow path is removed, its entry point becomes a clean route for a replacement arrow.
+
+**Offset vertical segments to avoid same-x icons.** If two icons share the same x-coordinate (e.g., stacked in a grid column), a vertical arrow segment at that x will cross through the lower icon's label. Route the vertical segment at a different x — e.g., the midpoint between grid columns. Before committing to a vertical segment x, verify no other icons/labels exist along the path.
+
+### Container Header Text Color
+**HARD RULE: Container header `label_color` is black (#1a1a1a) by default.** Colored header text is the exception, not the rule. If most container headers use colored text (matching stroke_color), that's a bug — flag it. Only containers explicitly specified in the plan as having colored text should be non-black.
 
 ### Arrow Labels
 - Labels must be centered between arrow start and end points (use `measure_text` width)
@@ -202,22 +214,21 @@ If an arrow is drawn over a circle, or a container covers an icon, the z-order i
 
 ### Text Readability
 At every zoom level, verify:
-- **Distinguish icon label text from container header text when checking overlaps:**
+- **HARD RULE: No arrow may cross ANY text — icon labels OR container headers.**
   - **Icon label text** (below service icons) crossed by arrows = BUG, always fix with L-shaped routing
-  - **Container header text** (on container borders) crossed by arrows entering/exiting that container = ACCEPTABLE, unavoidable
-  - When the overlap checker flags TEXT_OVERLAP, classify which type it is before acting
+  - **Container header text** (on container borders) crossed by arrows = BUG. Route arrows to enter/exit containers through non-header portions of the border (sides or bottom). Container headers occupy the top-left area — route arrows through the right side, bottom, or left side away from the header. Use `check_arrow_header_overlaps()` to verify
+  - When the overlap checker flags TEXT_OVERLAP or ARROW_HEADER_OVERLAP, ALL must be fixed — no exceptions
 - Text isn't clipped by containers
 - Multi-line text is properly centered
 
 ### Consistent Styling
-**HARD RULE: Every container header in the diagram MUST use the exact same `label_font_size`, `icon_header_size`, and `header_height` values — no exceptions.** Define these once as constants (e.g., `FONT_HDR = 20`, `HDR_ICON = 40`) and pass them to every `container_box()` call. If even one container uses a different value, that is a bug. Before running the build script, search for all `container_box()` calls and verify every one uses the same three values. This applies to ALL containers regardless of nesting level — AWS Cloud, Region, sub-containers, and sub-boxes all use the same header font size and icon size.
+**HARD RULE: Service icons and container header icons MUST be the same size.** The diagram must use `ICON_SIZE = 65` for ALL icons — both `icon_label_component(icon_size=ICON_SIZE)` and `container_box(icon_header_size=ICON_SIZE, header_height=ICON_SIZE)`. This is always 65px across all diagrams. If the build script has separate `SVC_ICON` and `HDR_ICON` constants, that is a bug. Every `container_box()` must also use the same `label_font_size` (`FONT_HDR`). This applies to ALL containers regardless of nesting level — AWS Cloud, Region, sub-containers, and sub-boxes all use the same icon size and header font size.
 
 **HARD RULE: The diagram MUST use exactly 2 font sizes — `FONT_HDR` for all container headers and `FONT_BODY` for all other text (icon labels, arrow labels, circle numbers).** Any third font size is a bug. Grep the build script for `font_size=` and verify only two distinct values appear.
 
 Same-category elements must be uniform:
 - All numbered circles: same size, same background color, same font size
-- All service icons: same icon size (`SVC_ICON` constant)
-- All container headers: same icon size (`HDR_ICON`), same label font size (`FONT_HDR`), same header height (`HDR_ICON`)
+- All icons (service + header): same size via single `ICON_SIZE` constant — no separate `SVC_ICON`/`HDR_ICON`
 - All arrows of the same type: same stroke width
 - **All arrowheads: same visual size** — Excalidraw derives arrowhead size from strokeWidth AND final segment length. If any arrowhead looks smaller, the final segment is too short (<30px). Crop and compare every arrowhead at zoom
 - Color used semantically (same color = same domain)
@@ -235,5 +246,6 @@ Same-category elements must be uniform:
 - Don't accept arrows passing through unrelated containers
 - Don't accept text-only container headers (every container needs a header icon)
 - Don't accept mixed font sizes within the same category — grep for `font_size=` and `label_font_size=` in the build script; if more than 2 distinct values exist, it's wrong
+- Don't accept different sizes for service icons vs header icons — both must use the same `ICON_SIZE` constant
 - Don't accept mixed header heights or header icon sizes — every `container_box()` must use the same `icon_header_size`, `header_height`, and `label_font_size`
 - Don't accept double backgrounds on AWS service icons

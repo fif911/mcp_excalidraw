@@ -1,0 +1,204 @@
+DIAGRAM STYLING: Amazon SageMaker Unified Studio Architecture
+VERSION: v55
+
+================================================================================
+GLOBAL CONSTANTS
+================================================================================
+
+CANVAS_W = 1800
+CANVAS_H = 1100
+
+FONT_HDR = 20          # All container header labels
+FONT_BODY = 18         # All icon labels, circle numbers, arrow labels
+FONT_FAMILY = "2"      # Helvetica everywhere
+
+SVC_ICON = 65          # Service icon size (Architecture 48px SVGs rendered at 65px)
+HDR_ICON = 40          # Container header icon size
+CIRCLE_SIZE = 40       # Numbered circle diameter
+CIRCLE_FONT = 16       # Number inside circles
+
+ARROW_COLOR = "#1a1a1a"
+ARROW_WIDTH = 2
+ARROW_STYLE_SOLID = "solid"
+ARROW_STYLE_DASHED = "dashed"
+
+================================================================================
+COLOR PALETTE
+================================================================================
+
+AWS_TEAL = "#147eba"          # Primary AWS teal for containers and borders
+AWS_TEAL_DARK = "#232f3e"     # AWS dark (for header backgrounds if needed)
+PURPLE = "#7c3aed"            # Sales Forecasting Project border
+GRAY_FILL = "#e5e7eb"         # Storage/Catalog sub-section fills
+TEXT_COLOR = "#1a1a1a"        # All body text (icon labels)
+HEADER_COLOR = "#147eba"      # Container header text (same as border)
+CIRCLE_BG = "#1a1a1a"         # Dark filled circles
+CIRCLE_TEXT = "#ffffff"        # White text in circles
+
+================================================================================
+CONTAINER STYLES
+================================================================================
+
+AWS Cloud:
+  - stroke_color: AWS_TEAL
+  - stroke_style: dashed
+  - stroke_width: 2
+  - fill_color: transparent
+  - header: AWS Cloud logo (32px group icon) + "AWS Cloud"
+  - icon_header_size: HDR_ICON
+  - header_height: HDR_ICON
+  - label_font_size: FONT_HDR
+  - label_color: "#1a1a1a"
+
+AWS Region:
+  - stroke_color: AWS_TEAL
+  - stroke_style: dashed
+  - stroke_width: 2
+  - fill_color: transparent
+  - header: Region icon (32px) + "AWS Region"
+  - icon_header_size: HDR_ICON
+  - header_height: HDR_ICON
+  - label_font_size: FONT_HDR
+  - label_color: AWS_TEAL
+
+Amazon SageMaker (upper-left group):
+  - stroke_color: AWS_TEAL
+  - stroke_style: solid
+  - stroke_width: 2
+  - fill_color: transparent
+  - header: SageMaker icon + "Amazon SageMaker"
+  - icon_header_size: HDR_ICON
+  - header_height: HDR_ICON
+  - label_font_size: FONT_HDR
+  - label_color: AWS_TEAL
+
+Sales Forecasting Project:
+  - stroke_color: PURPLE
+  - stroke_style: solid
+  - stroke_width: 2
+  - fill_color: transparent
+  - header: "Sales Forecasting Project" (text only, purple, italic appearance)
+  - icon_header_size: None (no header icon)
+  - label_font_size: FONT_HDR
+  - label_color: PURPLE
+
+ML capabilities:
+  - stroke_color: AWS_TEAL
+  - stroke_style: solid
+  - stroke_width: 2
+  - fill_color: transparent
+  - header: SageMaker icon + "ML capabilities"
+  - icon_header_size: HDR_ICON
+  - header_height: HDR_ICON
+  - label_font_size: FONT_HDR
+
+Coding capabilities:
+  - stroke_color: AWS_TEAL
+  - stroke_style: solid
+  - stroke_width: 2
+  - fill_color: transparent
+  - header: (coding icon) + "Coding capabilities"
+  - icon_header_size: HDR_ICON
+  - header_height: HDR_ICON
+  - label_font_size: FONT_HDR
+
+Amazon SageMaker Lakehouse:
+  - stroke_color: AWS_TEAL
+  - stroke_style: solid
+  - stroke_width: 2
+  - fill_color: transparent
+  - header: "Amazon SageMaker Lakehouse" (text, no icon visible)
+  - label_font_size: FONT_HDR
+
+Storage (sub-section):
+  - stroke_color: "#d1d5db" (light gray border)
+  - stroke_style: solid
+  - stroke_width: 1
+  - fill_color: GRAY_FILL
+  - header: "Storage" (centered text, no icon)
+  - label_font_size: FONT_HDR
+
+Catalog (sub-section):
+  - stroke_color: "#d1d5db"
+  - stroke_style: solid
+  - stroke_width: 1
+  - fill_color: GRAY_FILL
+  - header: "Catalog" (centered text, no icon)
+  - label_font_size: FONT_HDR
+
+================================================================================
+ICON STYLES
+================================================================================
+
+All service icons:
+  - Size: SVC_ICON (65px)
+  - icon_bg_color: None (AWS Architecture icons have built-in colored backgrounds)
+  - Label font: FONT_BODY, TEXT_COLOR, FONT_FAMILY
+
+Architecture icons (colored square backgrounds):
+  - AWS IAM Identity Center: red/pink background
+  - Amazon SageMaker (both instances): teal background
+  - Amazon SageMaker Unified Studio: teal background
+  - Amazon Q Developer: teal background
+  - Amazon Redshift Serverless: purple background
+  - Amazon S3: green background
+
+Resource icons (outline/flat, used for generic concepts):
+  - Database assets: Res_Database_48_Light (generic)
+  - Git repository: Res_Git-Repository_48_Light (generic)
+  - Studio IDE: Res_Source-Code_48_Light (generic)
+  - Tools: Res_Toolkit_48_Light (generic)
+  - AWS Glue Data Catalog: Res_AWS-Glue_Data-Catalog_48 (resource icon)
+
+External icons:
+  - ML engineers: Res_Users_48_Light (person icon), size 50px
+
+================================================================================
+ARROW STYLES
+================================================================================
+
+Primary flow arrows (1-5):
+  - stroke_color: ARROW_COLOR (#1a1a1a)
+  - stroke_width: ARROW_WIDTH (2)
+  - stroke_style: solid
+  - end_arrowhead: "arrow"
+  - start_arrowhead: None
+
+Secondary/indirect flow (arrow 6):
+  - stroke_color: ARROW_COLOR
+  - stroke_width: ARROW_WIDTH
+  - stroke_style: dashed
+  - end_arrowhead: "arrow"
+  - start_arrowhead: None
+
+Internal arrow (Git → Database):
+  - stroke_color: ARROW_COLOR
+  - stroke_width: ARROW_WIDTH
+  - stroke_style: solid
+  - end_arrowhead: "arrow"
+  - start_arrowhead: None
+
+================================================================================
+NUMBERED CIRCLES
+================================================================================
+
+All circles:
+  - size: CIRCLE_SIZE (40px)
+  - bg_color: CIRCLE_BG (#1a1a1a)
+  - text_color: CIRCLE_TEXT (#ffffff)
+  - font_size: CIRCLE_FONT (16)
+
+Placement:
+  - Horizontal arrows: circle ABOVE the arrow
+  - Vertical arrows: circle to the RIGHT of the arrow
+  - Offset: CIRCLE_SIZE/2 + 5 = 25px from arrow line
+
+================================================================================
+Z-ORDER (bottom to top)
+================================================================================
+
+1. Container rectangles (AWS Cloud → Region → sub-containers)
+2. Sub-section fills (Storage, Catalog)
+3. Service icons + labels
+4. Arrows
+5. Numbered circles (topmost)

@@ -1,7 +1,14 @@
-This is the list of agents we need in order of execution. Follow this workflow precisely. NEVER read previous build scripts or previous diagrams, always start from scratch.
-This should be followed both for creating new diagrams and for updating existing ones or fixing errors in them/re.
+General workflow:
+We need to create a diagram that is high-quality and has no errors, based on the user's input or the reference image provided.
+It can be done in several steps, with each passing through the workflow of planner -> main -> critic agent, creating feedback loop between critic and other agents:
+1. Fill the diagram up with sections and service elements with icon images and place them correctly, do not care for arrow connections of styles, they will be added later.
+2. Properly style the sections and elements with sizing, colors, etc.
+3. Add arrows to connect the sections and elements, move them as needed to fit the arrows properly not causing any overlap.
 
-1. Planner agent: 
+This is the list of agents we need in order of execution and their roles. Follow this workflow precisely. NEVER read previous build scripts or previous diagrams, always start from scratch.
+This should be followed both for creating new diagrams and for updating existing ones or fixing errors in them.
+
+1. Planner agent:
    - Goal: create a plan for the main agent to create the diagram.
    - Do not use previously created diagrams and build scripts as a starting point, start from scratch.
    - Needs to support both photo and text prompts/descriptions.
@@ -41,8 +48,9 @@ This should be followed both for creating new diagrams and for updating existing
      - Export the final diagram to a file in the folder diagram_building/v_{number of version} (e.g. diagram_building/v44/diagram.png and diagram_building/v44/diagram.excalidraw).
 
 3. Critic agent: 
-   - Goal: to evaluate the quality of the diagrams and identify errors. Closely compare the diagram to the reference image or text descriptions.
-   - If the critic agent deems the diagram not suitable, it has to ask the main agent to fix the diagram.
+   - Goal: to evaluate the quality of the plan and the diagrams and identify errors. Closely compare the diagram to the reference image or text descriptions.
+   - If the critic agent deems the diagram not suitable, it has to ask the main agent to fix the diagram. 
+   - If the critic deems the components_plan, components_styling or icons_graph_structure not suitable, it has to ask the planner agent to fix the plan and pass it to main agent again with clear description what was updated. 
    - Use skills stored in skills/diagram-review folder and compare the diagram to skills/diagram-review/references/checklist.md
    - It should use Agentic Vision if it struggles to detect the diagram elements, especially to identify arrows.
    - Use excalidraw MCP if available to capture output diagram and compare to the input file, looking closely to spot all the differences, zooming into the picture for a better view (skills/diagram-review/crop_region.py).

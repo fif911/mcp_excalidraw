@@ -1,0 +1,1384 @@
+{
+  "exportedAt": "2026-03-12T09:05:55.437Z",
+  "expressServerUrl": "http://localhost:3000",
+  "elements": [
+    {
+      "id": "aws-cloud",
+      "type": "rectangle",
+      "x": 125,
+      "y": 10,
+      "width": 1660,
+      "height": 1040,
+      "backgroundColor": "transparent",
+      "strokeColor": "#147eba",
+      "strokeWidth": 2,
+      "strokeStyle": "dashed",
+      "roughness": 0,
+      "groupIds": [
+        "g-aws-cloud"
+      ],
+      "roundness": null,
+      "fillStyle": "hachure",
+      "createdAt": "2026-03-12T09:02:09.421Z",
+      "updatedAt": "2026-03-12T09:02:09.421Z",
+      "version": 1
+    },
+    {
+      "id": "img-aws-cloud-hdr",
+      "type": "image",
+      "x": 125,
+      "y": 10,
+      "width": 40,
+      "height": 40,
+      "groupIds": [
+        "g-aws-cloud"
+      ],
+      "fileId": "file-cloud-logo",
+      "status": "saved",
+      "scale": [
+        1,
+        1
+      ],
+      "createdAt": "2026-03-12T09:02:09.424Z",
+      "updatedAt": "2026-03-12T09:02:09.424Z",
+      "version": 1
+    },
+    {
+      "id": "aws-cloud-lbl",
+      "type": "text",
+      "x": 170,
+      "y": 17.5,
+      "strokeColor": "#1a1a1a",
+      "text": "AWS Cloud",
+      "fontSize": 20,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-aws-cloud"
+      ],
+      "createdAt": "2026-03-12T09:02:09.430Z",
+      "updatedAt": "2026-03-12T09:02:09.430Z",
+      "version": 1
+    },
+    {
+      "id": "aws-region",
+      "type": "rectangle",
+      "x": 160,
+      "y": 65,
+      "width": 1600,
+      "height": 970,
+      "backgroundColor": "transparent",
+      "strokeColor": "#147eba",
+      "strokeWidth": 2,
+      "strokeStyle": "dashed",
+      "roughness": 0,
+      "groupIds": [
+        "g-aws-region"
+      ],
+      "roundness": null,
+      "fillStyle": "hachure",
+      "createdAt": "2026-03-12T09:02:09.436Z",
+      "updatedAt": "2026-03-12T09:02:09.436Z",
+      "version": 1
+    },
+    {
+      "id": "img-aws-region-hdr",
+      "type": "image",
+      "x": 160,
+      "y": 65,
+      "width": 40,
+      "height": 40,
+      "groupIds": [
+        "g-aws-region"
+      ],
+      "fileId": "file-region",
+      "status": "saved",
+      "scale": [
+        1,
+        1
+      ],
+      "createdAt": "2026-03-12T09:02:09.440Z",
+      "updatedAt": "2026-03-12T09:02:09.440Z",
+      "version": 1
+    },
+    {
+      "id": "aws-region-lbl",
+      "type": "text",
+      "x": 205,
+      "y": 72.5,
+      "strokeColor": "#147eba",
+      "text": "AWS Region",
+      "fontSize": 20,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-aws-region"
+      ],
+      "createdAt": "2026-03-12T09:02:09.446Z",
+      "updatedAt": "2026-03-12T09:02:09.446Z",
+      "version": 1
+    },
+    {
+      "id": "sagemaker-group",
+      "type": "rectangle",
+      "x": 265,
+      "y": 115,
+      "width": 640,
+      "height": 430,
+      "backgroundColor": "transparent",
+      "strokeColor": "#147eba",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "groupIds": [
+        "g-sagemaker-group"
+      ],
+      "roundness": null,
+      "fillStyle": "hachure",
+      "createdAt": "2026-03-12T09:02:09.453Z",
+      "updatedAt": "2026-03-12T09:02:09.453Z",
+      "version": 1
+    },
+    {
+      "id": "img-sagemaker-group-hdr",
+      "type": "image",
+      "x": 265,
+      "y": 115,
+      "width": 40,
+      "height": 40,
+      "groupIds": [
+        "g-sagemaker-group"
+      ],
+      "fileId": "file-sagemaker-ai",
+      "status": "saved",
+      "scale": [
+        1,
+        1
+      ],
+      "createdAt": "2026-03-12T09:02:09.456Z",
+      "updatedAt": "2026-03-12T09:02:09.456Z",
+      "version": 1
+    },
+    {
+      "id": "sagemaker-group-lbl",
+      "type": "text",
+      "x": 310,
+      "y": 122.5,
+      "strokeColor": "#147eba",
+      "text": "Amazon SageMaker",
+      "fontSize": 20,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-sagemaker-group"
+      ],
+      "createdAt": "2026-03-12T09:02:09.461Z",
+      "updatedAt": "2026-03-12T09:02:09.461Z",
+      "version": 1
+    },
+    {
+      "id": "project",
+      "type": "rectangle",
+      "x": 450,
+      "y": 170,
+      "width": 435,
+      "height": 355,
+      "backgroundColor": "transparent",
+      "strokeColor": "#7c3aed",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "groupIds": [
+        "g-project"
+      ],
+      "roundness": null,
+      "fillStyle": "hachure",
+      "createdAt": "2026-03-12T09:02:09.470Z",
+      "updatedAt": "2026-03-12T09:02:09.470Z",
+      "version": 1
+    },
+    {
+      "id": "project-lbl",
+      "type": "text",
+      "x": 553.5,
+      "y": 178,
+      "strokeColor": "#7c3aed",
+      "text": "Sales Forecasting Project",
+      "fontSize": 20,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-project"
+      ],
+      "createdAt": "2026-03-12T09:02:09.477Z",
+      "updatedAt": "2026-03-12T09:02:09.477Z",
+      "version": 1
+    },
+    {
+      "id": "ml-cap",
+      "type": "rectangle",
+      "x": 970,
+      "y": 115,
+      "width": 370,
+      "height": 340,
+      "backgroundColor": "transparent",
+      "strokeColor": "#147eba",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "groupIds": [
+        "g-ml-cap"
+      ],
+      "roundness": null,
+      "fillStyle": "hachure",
+      "createdAt": "2026-03-12T09:02:09.485Z",
+      "updatedAt": "2026-03-12T09:02:09.485Z",
+      "version": 1
+    },
+    {
+      "id": "img-ml-cap-hdr",
+      "type": "image",
+      "x": 970,
+      "y": 115,
+      "width": 40,
+      "height": 40,
+      "groupIds": [
+        "g-ml-cap"
+      ],
+      "fileId": "file-sagemaker-ai",
+      "status": "saved",
+      "scale": [
+        1,
+        1
+      ],
+      "createdAt": "2026-03-12T09:02:09.489Z",
+      "updatedAt": "2026-03-12T09:02:09.489Z",
+      "version": 1
+    },
+    {
+      "id": "ml-cap-lbl",
+      "type": "text",
+      "x": 1015,
+      "y": 122.5,
+      "strokeColor": "#147eba",
+      "text": "ML capabilities",
+      "fontSize": 20,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-ml-cap"
+      ],
+      "createdAt": "2026-03-12T09:02:09.497Z",
+      "updatedAt": "2026-03-12T09:02:09.497Z",
+      "version": 1
+    },
+    {
+      "id": "coding-cap",
+      "type": "rectangle",
+      "x": 310,
+      "y": 575,
+      "width": 300,
+      "height": 270,
+      "backgroundColor": "transparent",
+      "strokeColor": "#147eba",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "groupIds": [
+        "g-coding-cap"
+      ],
+      "roundness": null,
+      "fillStyle": "hachure",
+      "createdAt": "2026-03-12T09:02:09.506Z",
+      "updatedAt": "2026-03-12T09:02:09.506Z",
+      "version": 1
+    },
+    {
+      "id": "img-coding-cap-hdr",
+      "type": "image",
+      "x": 310,
+      "y": 575,
+      "width": 40,
+      "height": 40,
+      "groupIds": [
+        "g-coding-cap"
+      ],
+      "fileId": "file-source-code",
+      "status": "saved",
+      "scale": [
+        1,
+        1
+      ],
+      "createdAt": "2026-03-12T09:02:09.511Z",
+      "updatedAt": "2026-03-12T09:02:09.511Z",
+      "version": 1
+    },
+    {
+      "id": "coding-cap-lbl",
+      "type": "text",
+      "x": 355,
+      "y": 582.5,
+      "strokeColor": "#147eba",
+      "text": "Coding capabilities",
+      "fontSize": 20,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-coding-cap"
+      ],
+      "createdAt": "2026-03-12T09:02:09.520Z",
+      "updatedAt": "2026-03-12T09:02:09.520Z",
+      "version": 1
+    },
+    {
+      "id": "lakehouse",
+      "type": "rectangle",
+      "x": 640,
+      "y": 575,
+      "width": 730,
+      "height": 330,
+      "backgroundColor": "transparent",
+      "strokeColor": "#147eba",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "groupIds": [
+        "g-lakehouse"
+      ],
+      "roundness": null,
+      "fillStyle": "hachure",
+      "createdAt": "2026-03-12T09:02:09.529Z",
+      "updatedAt": "2026-03-12T09:02:09.529Z",
+      "version": 1
+    },
+    {
+      "id": "lakehouse-lbl",
+      "type": "text",
+      "x": 862.5,
+      "y": 583,
+      "strokeColor": "#147eba",
+      "text": "Amazon SageMaker Lakehouse",
+      "fontSize": 20,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-lakehouse"
+      ],
+      "createdAt": "2026-03-12T09:02:09.536Z",
+      "updatedAt": "2026-03-12T09:02:09.536Z",
+      "version": 1
+    },
+    {
+      "id": "storage-box",
+      "type": "rectangle",
+      "x": 920,
+      "y": 625,
+      "width": 200,
+      "height": 250,
+      "backgroundColor": "#e5e7eb",
+      "strokeColor": "#d1d5db",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "groupIds": [
+        "g-storage-box"
+      ],
+      "roundness": null,
+      "fillStyle": "solid",
+      "createdAt": "2026-03-12T09:02:09.545Z",
+      "updatedAt": "2026-03-12T09:02:09.545Z",
+      "version": 1
+    },
+    {
+      "id": "storage-box-lbl",
+      "type": "text",
+      "x": 984.5,
+      "y": 633,
+      "strokeColor": "#1a1a1a",
+      "text": "Storage",
+      "fontSize": 20,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-storage-box"
+      ],
+      "createdAt": "2026-03-12T09:02:09.556Z",
+      "updatedAt": "2026-03-12T09:02:09.556Z",
+      "version": 1
+    },
+    {
+      "id": "catalog-box",
+      "type": "rectangle",
+      "x": 1150,
+      "y": 625,
+      "width": 200,
+      "height": 250,
+      "backgroundColor": "#e5e7eb",
+      "strokeColor": "#d1d5db",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "groupIds": [
+        "g-catalog-box"
+      ],
+      "roundness": null,
+      "fillStyle": "solid",
+      "createdAt": "2026-03-12T09:02:09.568Z",
+      "updatedAt": "2026-03-12T09:02:09.568Z",
+      "version": 1
+    },
+    {
+      "id": "catalog-box-lbl",
+      "type": "text",
+      "x": 1215.5,
+      "y": 633,
+      "strokeColor": "#1a1a1a",
+      "text": "Catalog",
+      "fontSize": 20,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-catalog-box"
+      ],
+      "createdAt": "2026-03-12T09:02:09.578Z",
+      "updatedAt": "2026-03-12T09:02:09.578Z",
+      "version": 1
+    },
+    {
+      "id": "img-ml-eng",
+      "type": "image",
+      "x": 30,
+      "y": 263.5,
+      "width": 50,
+      "height": 50,
+      "groupIds": [
+        "g-ml-eng"
+      ],
+      "fileId": "file-users",
+      "status": "saved",
+      "scale": [
+        1,
+        1
+      ],
+      "createdAt": "2026-03-12T09:02:09.890Z",
+      "updatedAt": "2026-03-12T09:02:09.890Z",
+      "version": 1
+    },
+    {
+      "id": "ml-eng-lbl",
+      "type": "text",
+      "x": 42,
+      "y": 321.5,
+      "strokeColor": "#1a1a1a",
+      "text": "ML",
+      "fontSize": 18,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-ml-eng"
+      ],
+      "createdAt": "2026-03-12T09:02:09.898Z",
+      "updatedAt": "2026-03-12T09:02:09.898Z",
+      "version": 1
+    },
+    {
+      "id": "ml-eng-lbl-1",
+      "type": "text",
+      "x": 15,
+      "y": 344,
+      "strokeColor": "#1a1a1a",
+      "text": "engineers",
+      "fontSize": 18,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-ml-eng"
+      ],
+      "createdAt": "2026-03-12T09:02:09.906Z",
+      "updatedAt": "2026-03-12T09:02:09.906Z",
+      "version": 1
+    },
+    {
+      "id": "img-iam",
+      "type": "image",
+      "x": 157.5,
+      "y": 256,
+      "width": 65,
+      "height": 65,
+      "groupIds": [
+        "g-iam"
+      ],
+      "fileId": "file-iam",
+      "status": "saved",
+      "scale": [
+        1,
+        1
+      ],
+      "createdAt": "2026-03-12T09:02:09.914Z",
+      "updatedAt": "2026-03-12T09:02:09.914Z",
+      "version": 1
+    },
+    {
+      "id": "iam-lbl",
+      "type": "text",
+      "x": 150.5,
+      "y": 329,
+      "strokeColor": "#1a1a1a",
+      "text": "AWS IAM",
+      "fontSize": 18,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-iam"
+      ],
+      "createdAt": "2026-03-12T09:02:09.920Z",
+      "updatedAt": "2026-03-12T09:02:09.921Z",
+      "version": 1
+    },
+    {
+      "id": "iam-lbl-1",
+      "type": "text",
+      "x": 131,
+      "y": 351.5,
+      "strokeColor": "#1a1a1a",
+      "text": "Identity Center",
+      "fontSize": 18,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-iam"
+      ],
+      "createdAt": "2026-03-12T09:02:09.927Z",
+      "updatedAt": "2026-03-12T09:02:09.927Z",
+      "version": 1
+    },
+    {
+      "id": "img-unified",
+      "type": "image",
+      "x": 317.5,
+      "y": 281,
+      "width": 65,
+      "height": 65,
+      "groupIds": [
+        "g-unified"
+      ],
+      "fileId": "file-sagemaker-ai",
+      "status": "saved",
+      "scale": [
+        1,
+        1
+      ],
+      "createdAt": "2026-03-12T09:02:09.934Z",
+      "updatedAt": "2026-03-12T09:02:09.934Z",
+      "version": 1
+    },
+    {
+      "id": "unified-lbl",
+      "type": "text",
+      "x": 268,
+      "y": 354,
+      "strokeColor": "#1a1a1a",
+      "text": "Amazon SageMaker",
+      "fontSize": 18,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-unified"
+      ],
+      "createdAt": "2026-03-12T09:02:09.944Z",
+      "updatedAt": "2026-03-12T09:02:09.944Z",
+      "version": 1
+    },
+    {
+      "id": "unified-lbl-1",
+      "type": "text",
+      "x": 293.5,
+      "y": 376.5,
+      "strokeColor": "#1a1a1a",
+      "text": "Unified Studio",
+      "fontSize": 18,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-unified"
+      ],
+      "createdAt": "2026-03-12T09:02:09.951Z",
+      "updatedAt": "2026-03-12T09:02:09.951Z",
+      "version": 1
+    },
+    {
+      "id": "img-db-assets",
+      "type": "image",
+      "x": 526.5,
+      "y": 242,
+      "width": 65,
+      "height": 65,
+      "groupIds": [
+        "g-db-assets"
+      ],
+      "fileId": "file-database",
+      "status": "saved",
+      "scale": [
+        1,
+        1
+      ],
+      "createdAt": "2026-03-12T09:02:09.957Z",
+      "updatedAt": "2026-03-12T09:02:09.957Z",
+      "version": 1
+    },
+    {
+      "id": "db-assets-lbl",
+      "type": "text",
+      "x": 491.5,
+      "y": 315,
+      "strokeColor": "#1a1a1a",
+      "text": "Database assets",
+      "fontSize": 18,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-db-assets"
+      ],
+      "createdAt": "2026-03-12T09:02:09.961Z",
+      "updatedAt": "2026-03-12T09:02:09.961Z",
+      "version": 1
+    },
+    {
+      "id": "img-git-repo",
+      "type": "image",
+      "x": 743.5,
+      "y": 242,
+      "width": 65,
+      "height": 65,
+      "groupIds": [
+        "g-git-repo"
+      ],
+      "fileId": "file-git",
+      "status": "saved",
+      "scale": [
+        1,
+        1
+      ],
+      "createdAt": "2026-03-12T09:02:09.969Z",
+      "updatedAt": "2026-03-12T09:02:09.969Z",
+      "version": 1
+    },
+    {
+      "id": "git-repo-lbl",
+      "type": "text",
+      "x": 722,
+      "y": 315,
+      "strokeColor": "#1a1a1a",
+      "text": "Git repository",
+      "fontSize": 18,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-git-repo"
+      ],
+      "createdAt": "2026-03-12T09:02:09.973Z",
+      "updatedAt": "2026-03-12T09:02:09.973Z",
+      "version": 1
+    },
+    {
+      "id": "img-studio-ide",
+      "type": "image",
+      "x": 526.5,
+      "y": 392,
+      "width": 65,
+      "height": 65,
+      "groupIds": [
+        "g-studio-ide"
+      ],
+      "fileId": "file-source-code",
+      "status": "saved",
+      "scale": [
+        1,
+        1
+      ],
+      "createdAt": "2026-03-12T09:02:09.980Z",
+      "updatedAt": "2026-03-12T09:02:09.980Z",
+      "version": 1
+    },
+    {
+      "id": "studio-ide-lbl",
+      "type": "text",
+      "x": 515.5,
+      "y": 465,
+      "strokeColor": "#1a1a1a",
+      "text": "Studio IDE",
+      "fontSize": 18,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-studio-ide"
+      ],
+      "createdAt": "2026-03-12T09:02:09.983Z",
+      "updatedAt": "2026-03-12T09:02:09.983Z",
+      "version": 1
+    },
+    {
+      "id": "img-tools",
+      "type": "image",
+      "x": 743.5,
+      "y": 392,
+      "width": 65,
+      "height": 65,
+      "groupIds": [
+        "g-tools"
+      ],
+      "fileId": "file-toolkit",
+      "status": "saved",
+      "scale": [
+        1,
+        1
+      ],
+      "createdAt": "2026-03-12T09:02:09.990Z",
+      "updatedAt": "2026-03-12T09:02:09.990Z",
+      "version": 1
+    },
+    {
+      "id": "tools-lbl",
+      "type": "text",
+      "x": 753.5,
+      "y": 465,
+      "strokeColor": "#1a1a1a",
+      "text": "Tools",
+      "fontSize": 18,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-tools"
+      ],
+      "createdAt": "2026-03-12T09:02:09.993Z",
+      "updatedAt": "2026-03-12T09:02:09.993Z",
+      "version": 1
+    },
+    {
+      "id": "img-sagemaker-ml",
+      "type": "image",
+      "x": 1122.5,
+      "y": 262,
+      "width": 65,
+      "height": 65,
+      "groupIds": [
+        "g-sagemaker-ml"
+      ],
+      "fileId": "file-sagemaker-ai",
+      "status": "saved",
+      "scale": [
+        1,
+        1
+      ],
+      "createdAt": "2026-03-12T09:02:10.003Z",
+      "updatedAt": "2026-03-12T09:02:10.003Z",
+      "version": 1
+    },
+    {
+      "id": "sagemaker-ml-lbl",
+      "type": "text",
+      "x": 1073,
+      "y": 335,
+      "strokeColor": "#1a1a1a",
+      "text": "Amazon SageMaker",
+      "fontSize": 18,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-sagemaker-ml"
+      ],
+      "createdAt": "2026-03-12T09:02:10.007Z",
+      "updatedAt": "2026-03-12T09:02:10.007Z",
+      "version": 1
+    },
+    {
+      "id": "img-q-dev",
+      "type": "image",
+      "x": 427.5,
+      "y": 676,
+      "width": 65,
+      "height": 65,
+      "groupIds": [
+        "g-q-dev"
+      ],
+      "fileId": "file-q",
+      "status": "saved",
+      "scale": [
+        1,
+        1
+      ],
+      "createdAt": "2026-03-12T09:02:10.016Z",
+      "updatedAt": "2026-03-12T09:02:10.016Z",
+      "version": 1
+    },
+    {
+      "id": "q-dev-lbl",
+      "type": "text",
+      "x": 417,
+      "y": 749,
+      "strokeColor": "#1a1a1a",
+      "text": "Amazon Q",
+      "fontSize": 18,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-q-dev"
+      ],
+      "createdAt": "2026-03-12T09:02:10.023Z",
+      "updatedAt": "2026-03-12T09:02:10.023Z",
+      "version": 1
+    },
+    {
+      "id": "q-dev-lbl-1",
+      "type": "text",
+      "x": 418.5,
+      "y": 771.5,
+      "strokeColor": "#1a1a1a",
+      "text": "Developer",
+      "fontSize": 18,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-q-dev"
+      ],
+      "createdAt": "2026-03-12T09:02:10.031Z",
+      "updatedAt": "2026-03-12T09:02:10.031Z",
+      "version": 1
+    },
+    {
+      "id": "img-redshift",
+      "type": "image",
+      "x": 717.5,
+      "y": 696,
+      "width": 65,
+      "height": 65,
+      "groupIds": [
+        "g-redshift"
+      ],
+      "fileId": "file-redshift",
+      "status": "saved",
+      "scale": [
+        1,
+        1
+      ],
+      "createdAt": "2026-03-12T09:02:10.038Z",
+      "updatedAt": "2026-03-12T09:02:10.038Z",
+      "version": 1
+    },
+    {
+      "id": "redshift-lbl",
+      "type": "text",
+      "x": 681,
+      "y": 769,
+      "strokeColor": "#1a1a1a",
+      "text": "Amazon Redshift",
+      "fontSize": 18,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-redshift"
+      ],
+      "createdAt": "2026-03-12T09:02:10.045Z",
+      "updatedAt": "2026-03-12T09:02:10.045Z",
+      "version": 1
+    },
+    {
+      "id": "redshift-lbl-1",
+      "type": "text",
+      "x": 707,
+      "y": 791.5,
+      "strokeColor": "#1a1a1a",
+      "text": "Serverless",
+      "fontSize": 18,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-redshift"
+      ],
+      "createdAt": "2026-03-12T09:02:10.052Z",
+      "updatedAt": "2026-03-12T09:02:10.052Z",
+      "version": 1
+    },
+    {
+      "id": "img-s3",
+      "type": "image",
+      "x": 987.5,
+      "y": 722,
+      "width": 65,
+      "height": 65,
+      "groupIds": [
+        "g-s3"
+      ],
+      "fileId": "file-s3",
+      "status": "saved",
+      "scale": [
+        1,
+        1
+      ],
+      "createdAt": "2026-03-12T09:02:10.060Z",
+      "updatedAt": "2026-03-12T09:02:10.060Z",
+      "version": 1
+    },
+    {
+      "id": "s3-lbl",
+      "type": "text",
+      "x": 973,
+      "y": 795,
+      "strokeColor": "#1a1a1a",
+      "text": "Amazon S3",
+      "fontSize": 18,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-s3"
+      ],
+      "createdAt": "2026-03-12T09:02:10.064Z",
+      "updatedAt": "2026-03-12T09:02:10.064Z",
+      "version": 1
+    },
+    {
+      "id": "img-glue",
+      "type": "image",
+      "x": 1217.5,
+      "y": 711,
+      "width": 65,
+      "height": 65,
+      "groupIds": [
+        "g-glue"
+      ],
+      "fileId": "file-glue-catalog",
+      "status": "saved",
+      "scale": [
+        1,
+        1
+      ],
+      "createdAt": "2026-03-12T09:02:10.072Z",
+      "updatedAt": "2026-03-12T09:02:10.072Z",
+      "version": 1
+    },
+    {
+      "id": "glue-lbl",
+      "type": "text",
+      "x": 1207.5,
+      "y": 784,
+      "strokeColor": "#1a1a1a",
+      "text": "AWS Glue",
+      "fontSize": 18,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-glue"
+      ],
+      "createdAt": "2026-03-12T09:02:10.080Z",
+      "updatedAt": "2026-03-12T09:02:10.080Z",
+      "version": 1
+    },
+    {
+      "id": "glue-lbl-1",
+      "type": "text",
+      "x": 1197,
+      "y": 806.5,
+      "strokeColor": "#1a1a1a",
+      "text": "Data Catalog",
+      "fontSize": 18,
+      "fontFamily": 2,
+      "groupIds": [
+        "g-glue"
+      ],
+      "createdAt": "2026-03-12T09:02:10.087Z",
+      "updatedAt": "2026-03-12T09:02:10.087Z",
+      "version": 1
+    },
+    {
+      "id": "a1",
+      "type": "arrow",
+      "x": 80,
+      "y": 288.5,
+      "width": 77.5,
+      "height": 0,
+      "strokeColor": "#1a1a1a",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          77.5,
+          0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "createdAt": "2026-03-12T09:02:10.392Z",
+      "updatedAt": "2026-03-12T09:02:10.392Z",
+      "version": 1
+    },
+    {
+      "id": "a1-lbl-bg",
+      "type": "ellipse",
+      "x": 99,
+      "y": 244,
+      "width": 40,
+      "height": 40,
+      "backgroundColor": "#1a1a1a",
+      "strokeColor": "transparent",
+      "strokeWidth": 0,
+      "roughness": 0,
+      "groupIds": [
+        "g-a1-lbl"
+      ],
+      "fillStyle": "solid",
+      "createdAt": "2026-03-12T09:02:10.396Z",
+      "updatedAt": "2026-03-12T09:02:10.396Z",
+      "version": 1
+    },
+    {
+      "id": "a1-lbl-tx",
+      "type": "text",
+      "x": 114,
+      "y": 254,
+      "strokeColor": "#ffffff",
+      "text": "1",
+      "fontSize": 16,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "groupIds": [
+        "g-a1-lbl"
+      ],
+      "createdAt": "2026-03-12T09:02:10.409Z",
+      "updatedAt": "2026-03-12T09:02:10.409Z",
+      "version": 1
+    },
+    {
+      "id": "a2",
+      "type": "arrow",
+      "x": 222.5,
+      "y": 288.5,
+      "width": 95,
+      "height": 25,
+      "strokeColor": "#1a1a1a",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          95,
+          25
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "createdAt": "2026-03-12T09:02:20.452Z",
+      "updatedAt": "2026-03-12T09:02:20.452Z",
+      "version": 1
+    },
+    {
+      "id": "a2-lbl-bg",
+      "type": "ellipse",
+      "x": 256,
+      "y": 257,
+      "width": 40,
+      "height": 40,
+      "backgroundColor": "#1a1a1a",
+      "strokeColor": "transparent",
+      "strokeWidth": 0,
+      "roughness": 0,
+      "groupIds": [
+        "g-a2-lbl"
+      ],
+      "fillStyle": "solid",
+      "createdAt": "2026-03-12T09:02:20.457Z",
+      "updatedAt": "2026-03-12T09:02:20.457Z",
+      "version": 1
+    },
+    {
+      "id": "a2-lbl-tx",
+      "type": "text",
+      "x": 272,
+      "y": 267,
+      "strokeColor": "#ffffff",
+      "text": "2",
+      "fontSize": 16,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "groupIds": [
+        "g-a2-lbl"
+      ],
+      "createdAt": "2026-03-12T09:02:20.465Z",
+      "updatedAt": "2026-03-12T09:02:20.465Z",
+      "version": 1
+    },
+    {
+      "id": "a-git-db",
+      "type": "arrow",
+      "x": 743.5,
+      "y": 274.5,
+      "width": 152,
+      "height": 0,
+      "strokeColor": "#1a1a1a",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -152,
+          0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "createdAt": "2026-03-12T09:02:30.500Z",
+      "updatedAt": "2026-03-12T09:02:30.500Z",
+      "version": 1
+    },
+    {
+      "id": "a3",
+      "type": "arrow",
+      "x": 460,
+      "y": 676,
+      "width": 99,
+      "height": 183.5,
+      "strokeColor": "#1a1a1a",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          -183.5
+        ],
+        [
+          99,
+          -183.5
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "createdAt": "2026-03-12T09:02:30.504Z",
+      "updatedAt": "2026-03-12T09:02:30.504Z",
+      "version": 1
+    },
+    {
+      "id": "a3-lbl-bg",
+      "type": "ellipse",
+      "x": 465,
+      "y": 564,
+      "width": 40,
+      "height": 40,
+      "backgroundColor": "#1a1a1a",
+      "strokeColor": "transparent",
+      "strokeWidth": 0,
+      "roughness": 0,
+      "groupIds": [
+        "g-a3-lbl"
+      ],
+      "fillStyle": "solid",
+      "createdAt": "2026-03-12T09:02:30.507Z",
+      "updatedAt": "2026-03-12T09:02:30.507Z",
+      "version": 1
+    },
+    {
+      "id": "a3-lbl-tx",
+      "type": "text",
+      "x": 480,
+      "y": 574,
+      "strokeColor": "#ffffff",
+      "text": "3",
+      "fontSize": 16,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "groupIds": [
+        "g-a3-lbl"
+      ],
+      "createdAt": "2026-03-12T09:02:30.515Z",
+      "updatedAt": "2026-03-12T09:02:30.515Z",
+      "version": 1
+    },
+    {
+      "id": "a4",
+      "type": "arrow",
+      "x": 808.5,
+      "y": 424.5,
+      "width": 314,
+      "height": 130,
+      "strokeColor": "#1a1a1a",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          177,
+          0
+        ],
+        [
+          177,
+          -130
+        ],
+        [
+          314,
+          -130
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "createdAt": "2026-03-12T09:02:40.531Z",
+      "updatedAt": "2026-03-12T09:02:40.531Z",
+      "version": 1
+    },
+    {
+      "id": "a4-lbl-bg",
+      "type": "ellipse",
+      "x": 877,
+      "y": 380,
+      "width": 40,
+      "height": 40,
+      "backgroundColor": "#1a1a1a",
+      "strokeColor": "transparent",
+      "strokeWidth": 0,
+      "roughness": 0,
+      "groupIds": [
+        "g-a4-lbl"
+      ],
+      "fillStyle": "solid",
+      "createdAt": "2026-03-12T09:02:40.535Z",
+      "updatedAt": "2026-03-12T09:02:40.535Z",
+      "version": 1
+    },
+    {
+      "id": "a4-lbl-tx",
+      "type": "text",
+      "x": 892,
+      "y": 390,
+      "strokeColor": "#ffffff",
+      "text": "4",
+      "fontSize": 16,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "groupIds": [
+        "g-a4-lbl"
+      ],
+      "createdAt": "2026-03-12T09:02:40.544Z",
+      "updatedAt": "2026-03-12T09:02:40.544Z",
+      "version": 1
+    },
+    {
+      "id": "a5",
+      "type": "arrow",
+      "x": 667.5,
+      "y": 525,
+      "width": 0,
+      "height": 50,
+      "strokeColor": "#1a1a1a",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          50
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "createdAt": "2026-03-12T09:02:50.589Z",
+      "updatedAt": "2026-03-12T09:02:50.589Z",
+      "version": 1
+    },
+    {
+      "id": "a5-lbl-bg",
+      "type": "ellipse",
+      "x": 672,
+      "y": 530,
+      "width": 40,
+      "height": 40,
+      "backgroundColor": "#1a1a1a",
+      "strokeColor": "transparent",
+      "strokeWidth": 0,
+      "roughness": 0,
+      "groupIds": [
+        "g-a5-lbl"
+      ],
+      "fillStyle": "solid",
+      "createdAt": "2026-03-12T09:02:50.592Z",
+      "updatedAt": "2026-03-12T09:02:50.592Z",
+      "version": 1
+    },
+    {
+      "id": "a5-lbl-tx",
+      "type": "text",
+      "x": 688,
+      "y": 540,
+      "strokeColor": "#ffffff",
+      "text": "5",
+      "fontSize": 16,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "groupIds": [
+        "g-a5-lbl"
+      ],
+      "createdAt": "2026-03-12T09:02:50.600Z",
+      "updatedAt": "2026-03-12T09:02:50.600Z",
+      "version": 1
+    },
+    {
+      "id": "a6",
+      "type": "arrow",
+      "x": 1155,
+      "y": 362.5,
+      "width": 0,
+      "height": 212.5,
+      "strokeColor": "#1a1a1a",
+      "strokeWidth": 2,
+      "strokeStyle": "dashed",
+      "roughness": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          212.5
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "createdAt": "2026-03-12T09:03:00.612Z",
+      "updatedAt": "2026-03-12T09:03:00.612Z",
+      "version": 1
+    },
+    {
+      "id": "a6-lbl-bg",
+      "type": "ellipse",
+      "x": 1160,
+      "y": 449,
+      "width": 40,
+      "height": 40,
+      "backgroundColor": "#1a1a1a",
+      "strokeColor": "transparent",
+      "strokeWidth": 0,
+      "roughness": 0,
+      "groupIds": [
+        "g-a6-lbl"
+      ],
+      "fillStyle": "solid",
+      "createdAt": "2026-03-12T09:03:00.616Z",
+      "updatedAt": "2026-03-12T09:03:00.616Z",
+      "version": 1
+    },
+    {
+      "id": "a6-lbl-tx",
+      "type": "text",
+      "x": 1176,
+      "y": 459,
+      "strokeColor": "#ffffff",
+      "text": "6",
+      "fontSize": 16,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "groupIds": [
+        "g-a6-lbl"
+      ],
+      "createdAt": "2026-03-12T09:03:00.628Z",
+      "updatedAt": "2026-03-12T09:03:00.628Z",
+      "version": 1
+    }
+  ]
+}

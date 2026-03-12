@@ -8,6 +8,7 @@ Checks for:
 3. Text-under-icons overlapping other text-under-icons
 4. Text-under-icons overlapping arrows
 5. Numbered circles (arrow labels) overlapping section borders or arrows
+6. Arrows crossing container header text or header icons
 
 Run directly:  python utilities/overlap_checks.py
 Import:        from utilities.overlap_checks import run_all_overlap_checks
@@ -934,13 +935,111 @@ def check_circle_label_overlaps(elements=None, margin=3):
 
 
 # ──────────────────────────────────────────────────────────────────────
+#  Check 10: Arrows crossing container header text/icons
+# ──────────────────────────────────────────────────────────────────────
+
+def check_arrow_header_overlaps(elements=None, margin=4):
+    """
+    Detect arrows that cross through container header text or header icons.
+
+    Container headers (text labels and small icons at the top of containers)
+    must not be crossed by arrows.  Arrows should route around header areas.
+
+    Identification strategy:
+      - A text or image element is a "header element" if it shares a groupId
+        with a rectangle that qualifies as a container (width>80, height>50).
+      - For images, only small ones (≤45px in both dimensions) count as
+        header icons.  Larger images are service icons, not headers.
+
+    Args:
+        elements: list of Excalidraw elements (fetched if None)
+        margin: pixel buffer around header bounding boxes
+
+    Returns:
+        list of issue dicts
+    """
+    if elements is None:
+        elements = get_elements().get("elements", [])
+    info = _classify_elements(elements)
+    containers = info["containers"]
+    arrows = info["arrows"]
+    groups = info["groups"]
+
+    container_ids = {c["id"] for c in containers}
+
+    # Collect (header_element, container_id) pairs
+    header_elements = []
+    for e in elements:
+        if e["type"] not in ("text", "image"):
+            continue
+        matched = False
+        for gid in e.get("groupIds", []):
+            if matched:
+                break
+            for mid in groups.get(gid, set()):
+                if mid in container_ids and mid != e["id"]:
+                    # For images keep only small header icons (≤45px)
+                    if e["type"] == "image":
+                        if e.get("width", 0) <= 45 and e.get("height", 0) <= 45:
+                            header_elements.append((e, mid))
+                            matched = True
+                    else:
+                        header_elements.append((e, mid))
+                        matched = True
+                    break
+
+    issues = []
+    for header_el, container_id in header_elements:
+        hbb = _bbox(header_el)
+        hbbm = (hbb[0] - margin, hbb[1] - margin,
+                hbb[2] + margin, hbb[3] + margin)
+
+        if header_el["type"] == "text":
+            el_type = "header text"
+            el_label = header_el.get("text", header_el["id"])[:40]
+        else:
+            el_type = "header icon"
+            el_label = header_el["id"]
+
+        for a in arrows:
+            segs = _arrow_segments(a)
+            for seg in segs:
+                if _segment_intersects_rect(seg, hbbm):
+                    issues.append({
+                        "type": "ARROW_HEADER_OVERLAP",
+                        "severity": "error",
+                        "message": (
+                            f"Arrow '{a['id']}' crosses {el_type} "
+                            f"'{el_label}' ({header_el['id']}) of "
+                            f"container '{container_id}'."
+                        ),
+                        "details": {
+                            "arrow_id": a["id"],
+                            "header_element_id": header_el["id"],
+                            "header_type": el_type,
+                            "header_label": el_label,
+                            "header_bbox": {
+                                "x": hbb[0], "y": hbb[1],
+                                "w": hbb[2] - hbb[0],
+                                "h": hbb[3] - hbb[1],
+                            },
+                            "container_id": container_id,
+                        },
+                    })
+                    break  # one hit per arrow per header element
+
+    return issues
+
+
+# ──────────────────────────────────────────────────────────────────────
 #  Main: run all checks and produce summary
 # ──────────────────────────────────────────────────────────────────────
 
 def run_all_overlap_checks(icon_margin=5, label_margin=3, label_arrow_margin=8,
                            border_margin=5, circle_arrow_margin=3,
                            section_margin=3, circle_icon_margin=5,
-                           penetration_threshold=5, circle_label_margin=3):
+                           penetration_threshold=5, circle_label_margin=3,
+                           header_arrow_margin=4):
     """
     Run every overlap check and return a structured report.
 
@@ -964,6 +1063,7 @@ def run_all_overlap_checks(icon_margin=5, label_margin=3, label_arrow_margin=8,
         ("Arrow-icon penetration", check_arrow_icon_penetration(elements, penetration_threshold=penetration_threshold)),
         ("Icon/label border crossings", check_icon_border_crossings(elements)),
         ("Circle-label overlaps", check_circle_label_overlaps(elements, margin=circle_label_margin)),
+        ("Arrow-header overlaps", check_arrow_header_overlaps(elements, margin=header_arrow_margin)),
     ]
 
     total_errors = 0
@@ -1062,6 +1162,13 @@ def run_all_overlap_checks(icon_margin=5, label_margin=3, label_arrow_margin=8,
                     f"    -> Increase gap between circle '{d['circle_label']}' and "
                     f"label '{d['label_text']}' ({d['label_id']}) "
                     f"(current: {d['gap_px']}px, min: {d['min_margin']}px)."
+                )
+            elif issue["type"] == "ARROW_HEADER_OVERLAP":
+                lines.append(
+                    f"    -> Reroute arrow '{d['arrow_id']}' to avoid "
+                    f"{d['header_type']} '{d['header_label']}' of container "
+                    f"'{d['container_id']}'. Use L-shaped routing or shift the "
+                    f"arrow path outside the header band."
                 )
 
     if total_errors == 0 and total_warnings == 0:
