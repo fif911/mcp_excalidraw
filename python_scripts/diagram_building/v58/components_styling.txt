@@ -1,0 +1,167 @@
+DIAGRAM STYLING: AI-Powered Conversational Avatar Architecture
+VERSION: v58
+
+========================================================
+GLOBAL CONSTANTS
+========================================================
+
+ICON_SIZE = 65          # All icons are 65px — no exceptions
+FONT_SIZE = 24          # All text is 24px — no exceptions
+ARROW_STROKE = 2        # Arrow stroke width
+CONTAINER_STROKE = 2    # Container border stroke width
+TEXT_BOX_STROKE = 2     # Service text box stroke width
+
+========================================================
+CONTAINERS STYLING
+========================================================
+
+1. OFFLINE FACILITY
+   - stroke_color: "#6B7280" (gray)
+   - stroke_style: "dashed"
+   - stroke_width: 2
+   - fill_color: transparent
+   - label_color: "#1a1a1a" (black) — italic text in reference
+   - corner_radius: 0
+   - NO header icon (text only, italic)
+
+2. LOCAL NETWORK
+   - stroke_color: "#3B82F6" (blue)
+   - stroke_style: "solid"
+   - stroke_width: 2
+   - fill_color: transparent
+   - label_color: "#1a1a1a" (black)
+   - corner_radius: 0
+   - Header icon: Small green/teal square icon (looks like a network icon)
+
+3. TERMINAL HARDWARE (nested in Local Network)
+   - stroke_color: "#3B82F6" (blue)
+   - stroke_style: "solid"
+   - stroke_width: 2
+   - fill_color: transparent
+   - label_color: "#1a1a1a" (black)
+   - corner_radius: 0
+   - NO header icon (text only)
+
+4. CUSTOMER'S CLOUD OR DATACENTER
+   - stroke_color: "#6B7280" (gray)
+   - stroke_style: "dashed"
+   - stroke_width: 2
+   - fill_color: transparent
+   - label_color: "#1a1a1a" (black) — italic text in reference
+   - corner_radius: 0
+   - NO header icon (text only, italic)
+
+========================================================
+SERVICE TEXT BOXES STYLING
+========================================================
+
+All 6 service text boxes share identical styling:
+- stroke_color: "#1a1a1a" (dark/black)
+- stroke_width: 2
+- fill_color: "#ffffff" (white)
+- text_color: "#1a1a1a" (black)
+- font_size: FONT_SIZE (24)
+- corner_radius: 0 (sharp corners, no rounding)
+- min_width: 180 (ensure consistent sizing)
+- padding: 16
+
+Text boxes: Avatar Engine, Text-to-speech, Spoken Language Identification,
+            Speech-to-text, Conversational Engine, Person Detection
+
+========================================================
+ICON + LABEL STYLING
+========================================================
+
+All icons use ICON_SIZE = 65. All labels use FONT_SIZE = 24.
+Label text color: "#1a1a1a" (black)
+
+1. Users
+   - Icon: Green people icon (Res_Users_48_Light.svg or custom green users)
+   - No background color needed
+   - text_color: "#1a1a1a"
+
+2. Avatar UI
+   - Icon: Blue video/media player icon
+   - Background: May need light blue bg (#DBEAFE)
+   - text_color: "#1a1a1a"
+
+3. Camera
+   - Icon: Blue camera icon
+   - No background color
+   - text_color: "#1a1a1a"
+
+4. Large Language Model
+   - Icon: Teal/green AI circuit brain icon (Arch-Category style from AI/ML)
+   - No background — icon already has teal fill
+   - text_color: "#1a1a1a"
+   - Label is multi-line: "Large\nLanguage\nModel"
+
+5. Knowledge Vector DB
+   - Icon: Blue database cylinder (similar to Res_Database)
+   - No background
+   - text_color: "#1a1a1a"
+   - Label: "Knowledge\nVector DB"
+
+6. Data Indexing Pipeline
+   - Icon: Dark document/scanner icon
+   - No background
+   - text_color: "#1a1a1a"
+
+7. Customer's Data Sources
+   - Icon: Stacked database/server icon (dark gray)
+   - No background
+   - text_color: "#1a1a1a"
+   - Label: "Customer's\nData Sources"
+
+8. On-premise Systems
+   - Icon: Server rack icon (dark gray)
+   - No background
+   - text_color: "#1a1a1a"
+   - Label: "On-premise\nSystems"
+
+9. Notification Pipeline
+   - Icon: Warning triangle with exclamation (dark outline)
+   - No background
+   - text_color: "#1a1a1a"
+
+10. Pink/Magenta Service Icon
+    - Icon: Magenta square with white orbit
+    - Background: Magenta (#D946EF)
+    - No label
+
+========================================================
+ARROWS STYLING
+========================================================
+
+SOLID ARROWS (primary data flow):
+- stroke_color: "#6B7280" (gray)
+- stroke_width: 2
+- stroke_style: "solid"
+- end_arrowhead: "arrow"
+
+DASHED ARROWS (cross-boundary connections):
+- stroke_color: "#6B7280" (gray)
+- stroke_width: 2
+- stroke_style: "dashed"
+- end_arrowhead: "arrow"
+
+BIDIRECTIONAL ARROWS:
+- start_arrowhead: "arrow"
+- end_arrowhead: "arrow"
+
+Arrow labels use italic font, font_size: FONT_SIZE, color: "#1a1a1a"
+
+========================================================
+LAYOUT DIMENSIONS (approximate)
+========================================================
+
+Canvas width: ~1400px
+Canvas height: ~800px
+
+Offline Facility:    x=20,  y=20,  w=180, h=230
+Local Network:       x=220, y=20,  w=900, h=430
+Terminal Hardware:    x=240, y=80,  w=220, h=340 (inside Local Network)
+Customer's Cloud:    x=20,  y=340, w=180, h=400
+
+Service text boxes: ~180x55 each
+Spacing between text boxes: ~40px horizontal, ~60px vertical

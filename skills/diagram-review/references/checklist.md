@@ -1,5 +1,12 @@
 # Diagram Review Checklist
 
+## CRITICAL — Check These First (override reference images)
+
+These rules override what the reference image shows. If the reference image contradicts any of these, the rule wins. Flag violations immediately — do not note them as "conflicts" or defer to the reference.
+
+- [ ] **AWS Cloud boundary is SOLID** — if `stroke_style="dashed"` exists for the AWS Cloud container in the build script, that is a bug. Fix it to `"solid"`. Even if the reference image shows dashed, AWS Cloud is always solid. This is the #1 most common mistake.
+- [ ] **Generic concepts use Resource icons (`Res_*`), not Architecture icons (`Arch_*`)** — items like "Git repository", "Studio IDE", "Tools", "Database assets" are generic concepts and MUST use generic Resource icons from the General-Icons category. Architecture icons (colored branded squares) are ONLY for specific named AWS services.
+
 ## Bounding Boxes & Containers
 
 ### Hierarchy & Nesting
@@ -14,6 +21,7 @@
 - [ ] **No auto-expansion overflow** — `container_box` silently expands width to fit header text + icon. Verify rendered container edges don't touch or cross parent borders (zoom into right/bottom edges)
 - [ ] **Cascade check on resize** — when enlarging a container in any direction, verify it does not overlap neighboring containers. If it does, push neighbors away. If neighbors no longer fit in their parent, enlarge the parent. Repeat until no overlaps remain at any level. Never enlarge a container without checking the cascade
 - [ ] **Initial dimension arithmetic** — before running the build script, manually verify every nesting level: `child_Y + child_H + padding ≤ parent_Y + parent_H`. The auto-sizer (`fit_container`) may not grow parent containers enough if the initial dimensions are too far off. Example: if Discovery is at y=880, h=300 (bottom=1180) but Private subnet is y=415, h=700 (bottom=1115), the child extends 65px below the parent — increase the parent's H to at least `child_bottom + 20 - parent_Y`
+- [ ] **Minimum 20px gap between adjacent header icons** — when a child container header sits directly below its parent's header (e.g., Region → SageMaker), at least 20px clear space between parent header icon bottom and child header icon top. Formula: `child_Y ≥ parent_Y + ICON_SIZE + 20`
 
 ### Header Styling
 - [ ] **HARD RULE: Structural containers (AWS Cloud, Region, capability groups, Lakehouse, etc.) MUST have their title and header icon set directly on the `container_box()` call via `label_text` and `icon_file_id` — NEVER as a separate floating `icon_label_component()`.** A container with `label_text=""` and a separate icon placed inside to fake a header is wrong for structural containers. **Exception:** Service-boundary containers (e.g., SageMaker Unified Studio) where the reference image shows a full-size service icon (48px+) inside the container — these use `icon_label_component()` placed inside the container as a service icon, not a small header icon. The distinction: structural headers use small icons (32–40px) flush with the border; service icons are full-size (48px+) positioned inside the container area.
@@ -28,6 +36,7 @@
 - [ ] **HARD RULE: Container header `label_color` is black (`#1a1a1a`) by default.** Colored header text should be the exception, not the rule. Only containers explicitly specified in the plan/reference as having colored text should use non-black `label_color`. Do NOT match `label_color` to `stroke_color` automatically — if most headers are colored (teal, purple, etc.), that's a bug.
 
 ### Border Styles
+- [ ] **HARD RULE: Container `stroke_color` MUST match the header icon's category color.** AWS icons have built-in category colors (teal for AI/ML, red for Security, purple for Analytics, etc.). The container border color must match. If the header icon is teal, the border is teal. If the header icon is red, the border is red. Do NOT use a generic color (e.g., dark gray) when the icon has a category color.
 - [ ] **HARD RULE: The AWS Cloud boundary container MUST always use a SOLID border — NEVER dashed.** AWS Region and service-group containers (like SageMaker Unified Studio) can use dashed borders, but they can also be solid — follow the reference image. The outermost cloud boundary is always solid. This is non-negotiable. Getting this wrong makes the diagram look unprofessional and inconsistent with AWS reference architecture standards.
 - [ ] Cloud provider boundary: solid, 2px stroke, brand color (teal for AWS)
 - [ ] AWS Region: dashed, 2px stroke, brand color
@@ -42,18 +51,14 @@
 - [ ] Service icons centered horizontally AND vertically within their container's content area
 - [ ] **HARD RULE: If a subsection/container has only one icon (with or without a text label), that icon MUST be centered both horizontally and vertically within the container's content area (below the header).** Calculate: `cx = container_x + container_w / 2`, `cy = container_y + header_height + (container_h - header_height) / 2`. No exceptions — a single icon off-center inside a box is always wrong.
 - [ ] Icon + label form a vertically stacked group: icon on top, text below, both centered on same vertical axis
-- [ ] **HARD RULE: Service icons and container header icons MUST be the same size.** The build script must use a single `ICON_SIZE` constant for both `icon_label_component(icon_size=ICON_SIZE)` and `container_box(icon_header_size=ICON_SIZE, header_height=ICON_SIZE)`. Separate `SVC_ICON`/`HDR_ICON` constants are a bug.
-- [ ] **Icon sizing reference (minimum sizes, enlarge if reference image demands it):**
-  - `ICON_SIZE = 65` — all icons (service + container header) are always 65px across all diagrams
-  - Group icons ≥ 32px — VPC, Private subnet header icons (AWS Group Icons 32px SVGs)
-  - User/external icons ≥ 50px
-  - Always compare against the reference image — if icons look smaller, increase sizes proportionally
+- [ ] **HARD RULE: ALL icons are 65px — no exceptions.** Grep the build script for `icon_size=` and `icon_header_size=`. Every value must reference `ICON_SIZE` (65). Common violations to check for: `HDR_ICON = 40` (header icons), `icon_size=50` (user/external icons), `icon_size=55` (grid icons), `grid_2x2(..., icon_size=55)`. Also check for multiple `HALF` aliases (`HALF_G`, `HALF_U`) which indicate different icon sizes were used for arrow calculations. If the styling spec lists different sizes for different icon categories, the spec is wrong.
 - [ ] Every icon+label pair is grouped (`groupIds`) — moving one moves both
 
 ### Icon Rules
 - [ ] Use generic icons for generic concepts (Git repo, IDE, Tools) — NOT service-branded icons
 - [ ] Use service icons ONLY for specific AWS/GCP/Azure services
 - [ ] AWS official SVG icons already include colored backgrounds — no extra `icon_bg_color` rectangle visible (double background = bug)
+- [ ] **HARD RULE: No icon may have a visible border.** ALL image elements must have `strokeWidth: 0`. Check both the Excalidraw element property AND the SVG source — AWS Category icons (`Arch-Category_*`) have a baked-in gray `#879196` border rect that must be removed via custom SVG copy
 - [ ] No visible borders/strokes on icon background rectangles or numbered circle ellipses (`strokeWidth: 0`)
 
 ### Icon Variant Correctness
@@ -72,7 +77,7 @@
 ## Text
 
 ### Readability
-- [ ] All text readable at export resolution — not too small (minimum `FONT_BODY >= 18`, `FONT_HDR >= 20`)
+- [ ] All text readable at export resolution — all text uses `FONT_SIZE = 24`
 - [ ] **HARD RULE: No arrow may cross any text — icon labels OR container headers.**
   - **Icon label text** (below service icons like "Studio IDE", "Tools") must NEVER be crossed by arrow shafts — use L-shaped routing to avoid.
   - **Container header text** (on container top borders like "Coding capabilities", "Amazon SageMaker Lakehouse") must ALSO NEVER be crossed by arrows. Route arrows to enter/exit containers through non-header portions of the border (sides or bottom). Use L-shaped waypoints to steer arrows away from the header band.
@@ -84,8 +89,8 @@
 
 ### Consistency
 - [ ] Font consistent across entire diagram — all text uses the same `fontFamily`
-- [ ] **HARD RULE: Exactly 2 font sizes in the entire diagram — `FONT_HDR` for ALL container headers and `FONT_BODY` for ALL other text (icon labels, arrow labels, circle numbers).** Any third font size is a bug. To verify: grep the build script for `font_size=` and `label_font_size=` — only two distinct numeric values should appear across the entire file. This is non-negotiable.
-- [ ] **HARD RULE: Every `container_box()` call MUST use the same `label_font_size`, `icon_header_size=ICON_SIZE`, and `header_height=ICON_SIZE` values.** Define once as constants (e.g., `FONT_HDR=20`, `ICON_SIZE=48`) and reuse everywhere. No container gets a special size — AWS Cloud, Region, sub-containers, and sub-boxes all share the same header parameters. If any container uses a different value, that is a bug.
+- [ ] **HARD RULE: ALL text is 24px — no exceptions.** There is exactly 1 font size in the entire diagram: `FONT_SIZE = 24`. Container headers, icon labels, arrow labels, circle numbers — everything uses `FONT_SIZE`. To verify: grep the build script for `font_size=` and `label_font_size=` — every value must reference `FONT_SIZE` (24). Common violations: `FONT_HDR=20` / `FONT_BODY=18` (two-size legacy pattern), `label_font_size=22` on circles, `font_size=18` on icon labels. If you see more than one font-size constant defined, that is a bug.
+- [ ] **HARD RULE: Every `container_box()` call MUST use the same `label_font_size=FONT_SIZE`, `icon_header_size=ICON_SIZE`, and `header_height=ICON_SIZE` values.** Define once as constants (e.g., `FONT_SIZE=24`, `ICON_SIZE=65`) and reuse everywhere. No container gets a special size — AWS Cloud, Region, sub-containers, and sub-boxes all share the same header parameters. If any container uses a different value, that is a bug.
 - [ ] No mixed font sizes within the same category (e.g. all circle numbers same size, all icon labels same size)
 
 ## Numbered Step Circles
@@ -112,6 +117,7 @@
 ## Arrows & Lines
 
 ### Endpoints & Routing
+- [ ] **HARD RULE: No diagonal arrow segments** — every arrow segment must be perfectly horizontal (same Y for start and end) or perfectly vertical (same X for start and end). Diagonal lines are NEVER allowed. For multi-icon chains (User → IAM → Studio), ALL icons must share the same `icon_cy`. Even 1px misalignment creates a visible diagonal at full zoom. Zoom into each arrow to verify.
 - [ ] **Connected icons should be aligned on the arrow's perpendicular axis** — for a horizontal arrow, both icons should share the same icon image center Y. For a vertical arrow, both icons should share the same icon image center X. Use `icy_to_cy()` helper to compute the component `cy` that places the icon image center at the desired target Y, regardless of label line count. **Exceptions**: break alignment when (a) the arrow is bent/L-shaped in the reference image, (b) layout constraints make it impossible, or (c) the reference shows a clear visual hierarchy where icons are intentionally at different heights. In exception cases, use an L-shaped arrow with a waypoint to connect icons at different Y/X positions
 - [ ] **vertical_stack alignment with external icons** — when a `vertical_stack` item connects to an icon outside the stack via a horizontal arrow, adjust the stack's `start_y` so that item's `icon_cy` matches the external icon's Y. Calculate backwards: determine the offset from `start_y` to the target item's `icon_cy`, then set `start_y = target_Y - offset`. After creation, verify with `stack["components"][i]["bbox"]["icon_cy"]`. Always read the actual `icon_cy` from the stack bbox for arrow endpoints
 - [ ] **Arrow endpoints: edge on travel axis, center on cross axis** — for horizontal arrows: X at icon edge (`cx ± ICON_R`), Y at icon image center. For vertical arrows: Y at icon edge, X at icon image center
@@ -177,7 +183,7 @@
 ## Consistent Styling
 - [ ] All numbered circles: same size, same background color, same font size
 - [ ] **All icons (service + header) use single `ICON_SIZE` constant** — no separate `SVC_ICON`/`HDR_ICON`. Verify: every `icon_size=`, `icon_header_size=`, and `header_height=` in the build script must reference the same constant.
-- [ ] **All container headers: same `label_font_size` (`FONT_HDR`)** — verify by checking every `container_box()` call in the build script
+- [ ] **All container headers: same `label_font_size` (`FONT_SIZE = 24`)** — verify by checking every `container_box()` call in the build script
 - [ ] Color used semantically (same color = same domain/category)
 
 ## Professional Polish

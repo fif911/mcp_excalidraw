@@ -1,0 +1,126 @@
+DIAGRAM: AWS SageMaker Unified Studio Architecture
+VERSION: v56
+REFERENCE: tg_image_565119128.png
+
+================================================================================
+CONTAINER HIERARCHY (outside-in)
+================================================================================
+
+1. AWS Cloud (outermost)
+   - SOLID teal border, AWS logo in header (HARD RULE: AWS Cloud is always solid)
+   - Contains everything except "ML engineers" user icon
+
+2. AWS Region (inside AWS Cloud)
+   - Dashed teal border, flag/region icon in header
+   - Contains all AWS services
+
+3. Amazon SageMaker (inside AWS Region, top-left area)
+   - Solid teal border, SageMaker icon in header
+   - Contains: SageMaker Unified Studio + Sales Forecasting Project
+
+4. Sales Forecasting Project (inside Amazon SageMaker, right portion)
+   - Solid purple border, purple header text
+   - Contains 2x2 grid: Database assets, Git repository, Studio IDE, Tools
+
+5. ML capabilities (inside AWS Region, top-right area)
+   - Solid teal border, brain/ML icon in header, "ML capabilities" label
+   - Contains: Amazon SageMaker (brain icon + label)
+
+6. Coding capabilities box (inside AWS Region, bottom-left area)
+   - Solid dark/black border, coding icon in header
+   - Contains: "Coding capabilities" label (header) + Amazon Q Developer (icon+label)
+
+7. Amazon SageMaker Lakehouse (inside AWS Region, bottom-right area)
+   - Solid teal border, header text "Amazon SageMaker Lakehouse"
+   - Contains: Amazon Redshift Serverless, Storage sub-section, Catalog sub-section
+
+8. Storage sub-section (inside Lakehouse, center)
+   - Light gray background, "Storage" header text
+   - Contains: Amazon S3
+
+9. Catalog sub-section (inside Lakehouse, right)
+   - Light gray background, "Catalog" header text
+   - Contains: AWS Glue Data Catalog
+
+================================================================================
+SERVICE ELEMENTS (icon + label pairs)
+================================================================================
+
+External:
+- ML engineers: Person/user icon + "ML engineers" label (outside AWS Cloud, far left)
+
+Inside AWS Cloud (outside AWS Region):
+- AWS IAM Identity Center: Red/pink key icon + "AWS IAM Identity Center" label
+
+Inside Amazon SageMaker container:
+- Amazon SageMaker Unified Studio: SageMaker cloud icon + "Amazon SageMaker\nUnified Studio" label
+
+Inside Sales Forecasting Project (2x2 grid):
+- Database assets: Database/cylinder icon + "Database assets" label (top-left)
+- Git repository: Git branch icon + "Git repository" label (top-right)
+- Studio IDE: IDE/window icon + "Studio IDE" label (bottom-left)
+- Tools: Hexagonal wrench icon + "Tools" label (bottom-right)
+
+Inside ML capabilities:
+- Amazon SageMaker: Brain/neural network icon + "Amazon SageMaker" label
+
+Inside Coding capabilities box:
+- Amazon Q Developer: Q icon + "Amazon Q Developer" label
+
+Inside Amazon SageMaker Lakehouse:
+- Amazon Redshift Serverless: Redshift icon + "Amazon Redshift\nServerless" label (left)
+
+Inside Storage sub-section:
+- Amazon S3: S3 bucket icon + "Amazon S3" label
+
+Inside Catalog sub-section:
+- AWS Glue Data Catalog: Glue/funnel icon + "AWS Glue\nData Catalog" label
+
+================================================================================
+INTERNAL ARROWS (inside Sales Forecasting Project)
+================================================================================
+
+- Git repository → Database assets: solid black horizontal arrow pointing LEFT (no number)
+
+================================================================================
+NUMBERED ARROWS (connecting major components)
+================================================================================
+
+Arrow 1: ML engineers → AWS IAM Identity Center
+  - Solid black, horizontal right
+  - Circle 1 (dark fill, white text) positioned above/near midpoint of arrow
+
+Arrow 2: AWS IAM Identity Center → Amazon SageMaker Unified Studio
+  - Solid black, horizontal right
+  - Circle 2 (dark fill, white text) positioned below SageMaker Unified Studio
+
+Arrow 3: Amazon Q Developer → Studio IDE
+  - Solid black, vertical upward
+  - Circle 3 (dark fill, white text) positioned between the two elements (near top of Coding capabilities box)
+
+Arrow 4: Tools/right side of Sales Forecasting Project → Amazon SageMaker (ML capabilities)
+  - Solid black, horizontal right
+  - Circle 4 (dark fill, white text) positioned near ML capabilities, above Amazon SageMaker icon
+
+Arrow 5: Bottom of Sales Forecasting Project → Amazon SageMaker Lakehouse
+  - Solid black, vertical downward
+  - Circle 5 (dark fill, white text) positioned between the two containers
+
+Arrow 6: Amazon SageMaker (ML capabilities) → Amazon SageMaker Lakehouse
+  - DASHED black, vertical downward
+  - Circle 6 (dark fill, white text) positioned between the two containers
+
+================================================================================
+LAYOUT NOTES
+================================================================================
+
+- Canvas size: approximately 1500x900
+- ML engineers is external, far-left, vertically centered with IAM Identity Center
+- IAM Identity Center sits between AWS Cloud left border and AWS Region left border
+- Amazon SageMaker container occupies top-left ~60% of AWS Region
+- Sales Forecasting Project is inside SageMaker, to the right of Unified Studio
+- ML capabilities is top-right of AWS Region, roughly same vertical as SageMaker top
+- Coding capabilities box is below SageMaker, left side
+- Lakehouse spans most of the bottom-right of AWS Region
+- Storage and Catalog sub-sections are side by side in the right portion of Lakehouse
+- Redshift Serverless is in the left portion of Lakehouse

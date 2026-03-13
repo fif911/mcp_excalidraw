@@ -1,0 +1,133 @@
+DIAGRAM: AI-Powered Conversational Avatar Architecture
+VERSION: v58
+REFERENCE: refs/photo_2026-03-13_15-59-10.jpg
+
+========================================================
+CONTAINERS (3 main + 1 nested)
+========================================================
+
+1. OFFLINE FACILITY
+   - Type: Container (dashed border)
+   - Position: Top-left corner of diagram
+   - Contents: Users icon
+   - Purpose: Represents the offline physical facility where users interact
+
+2. LOCAL NETWORK
+   - Type: Container (solid border)
+   - Position: Center-right, largest container on diagram
+   - Contents: Terminal Hardware sub-container, Avatar Engine, Text-to-speech,
+               Spoken Language Identification, Speech-to-text, Conversational Engine,
+               Person Detection
+   - Purpose: The local network boundary housing all processing components
+
+3. TERMINAL HARDWARE (nested inside Local Network)
+   - Type: Sub-container (solid border)
+   - Position: Top-left inside Local Network
+   - Contents: Avatar UI icon, Camera icon, small display and speaker icons near Avatar UI
+   - Purpose: Physical hardware terminal
+
+4. CUSTOMER'S CLOUD OR DATACENTER
+   - Type: Container (dashed border)
+   - Position: Bottom-left corner of diagram
+   - Contents: Customer's Data Sources icon, On-premise Systems icon
+   - Purpose: Customer infrastructure
+
+========================================================
+SERVICE TEXT BOXES (6 dark-bordered boxes)
+========================================================
+
+These are text boxes with dark (#1a1a1a) borders, placed inside the Local Network container.
+They do NOT have icons — just text labels inside bordered rectangles.
+
+1. Avatar Engine
+   - Position: Top row, center-right area of Local Network, to the right of Terminal Hardware
+
+2. Text-to-speech
+   - Position: Top row, far right of Local Network, right of Avatar Engine
+
+3. Spoken Language Identification
+   - Position: Middle row, left of center in Local Network, right of Terminal Hardware
+
+4. Speech-to-text
+   - Position: Middle row, center of Local Network, right of Spoken Language Identification
+
+5. Conversational Engine
+   - Position: Middle row, right side of Local Network, right of Speech-to-text
+
+6. Person Detection
+   - Position: Below middle row, center of Local Network, below Spoken Language Identification
+
+========================================================
+ICON + LABEL ELEMENTS (standalone)
+========================================================
+
+1. Users
+   - Icon: Green people/users icon (group of 3 people)
+   - Label: "Users" (below icon)
+   - Position: Inside Offline Facility container
+   - Note: This is NOT an AWS icon — use a custom green users icon or Res_Users
+
+2. Avatar UI
+   - Icon: Blue video play button in a monitor/screen (blue square with play icon)
+   - Label: "Avatar UI" (below icon)
+   - Position: Inside Terminal Hardware, upper area
+   - Note: Small display icon and speaker icon nearby (part of Terminal Hardware hardware indicators)
+
+3. Camera
+   - Icon: Blue camera icon
+   - Label: "Camera" (below icon)
+   - Position: Inside Terminal Hardware, lower area, below Avatar UI
+
+4. Large Language Model
+   - Icon: Teal/green circuit-brain icon (AI/ML category)
+   - Label: "Large\nLanguage\nModel" (multi-line, below icon)
+   - Position: Far right of diagram, outside Local Network, aligned with middle row
+   - Note: This is a large teal icon that looks like a circuit board brain pattern
+
+5. Knowledge Vector DB
+   - Icon: Blue database cylinder icon
+   - Label: "Knowledge\nVector DB" (multi-line, below icon)
+   - Position: Right side of diagram, below and left of LLM, outside Local Network
+
+6. Data Indexing Pipeline
+   - Icon: Dark/gray film strip or document scanner icon
+   - Label: "Data Indexing Pipeline" (below icon)
+   - Position: Center-bottom area, to the right of Customer's Cloud container
+
+7. Customer's Data Sources
+   - Icon: Stacked server/database icon (dark gray)
+   - Label: "Customer's\nData Sources" (multi-line, below icon)
+   - Position: Inside Customer's Cloud container, upper area
+
+8. On-premise Systems
+   - Icon: Server rack icon (dark gray, stacked disks)
+   - Label: "On-premise\nSystems" (multi-line, below icon)
+   - Position: Inside Customer's Cloud container, lower area
+
+9. Notification Pipeline
+   - Icon: Warning/alert triangle with exclamation mark (dark outline)
+   - Label: "Notification Pipeline" (below icon)
+   - Position: Bottom-center of diagram, below the pink/magenta icon
+
+10. Pink/Magenta Service Icon
+    - Icon: Magenta/pink square with white orbit/planet design
+    - Label: None visible
+    - Position: Center-bottom, between Data Indexing Pipeline and Notification Pipeline
+    - Note: This appears to be a decorative/branding element or Amazon service icon (possibly Amazon SageMaker or similar)
+
+========================================================
+FLOW DESCRIPTION
+========================================================
+
+The diagram shows a conversational AI avatar system:
+
+1. Users interact with Avatar UI in the Terminal Hardware
+2. Avatar UI sends audio to Spoken Language Identification
+3. Spoken Language Identification → Speech-to-text → Conversational Engine (processing pipeline)
+4. Conversational Engine communicates bidirectionally with Large Language Model for responses
+5. Responses flow back: Conversational Engine → Text-to-speech → Avatar Engine → Avatar UI (real-time avatar generation)
+6. Camera captures video → Person Detection → feeds into Conversational Engine
+7. Knowledge Vector DB provides context to Conversational Engine ("get context")
+8. LLM sends event notifications to Knowledge Vector DB
+9. Customer's Data Sources feed Data Indexing Pipeline → Knowledge Vector DB
+10. Notification Pipeline sends alerts to On-premise Systems

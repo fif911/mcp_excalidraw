@@ -1,0 +1,194 @@
+STYLING SPECIFICATION: AWS SageMaker Unified Studio Architecture
+VERSION: v56
+
+================================================================================
+GLOBAL CONSTANTS
+================================================================================
+
+ICON_SIZE = 65           # ALL icons (service icons AND container header icons — single size)
+FONT_HDR = 24            # Container header text
+FONT_BODY = 18           # Service labels and other text
+CIRCLE_SIZE = 50         # Numbered circle badges
+ARROW_WIDTH = 2          # Arrow stroke width
+
+================================================================================
+COLORS
+================================================================================
+
+TEAL = "#1a9e8f"         # Primary AWS teal for container borders
+PURPLE = "#7B61FF"       # Sales Forecasting Project border
+DARK = "#1a1a1a"         # Default text, Coding capabilities border
+WHITE = "#ffffff"         # Container fill, backgrounds
+LIGHT_GRAY = "#e8e8e8"   # Storage and Catalog sub-section backgrounds
+CIRCLE_BG = "#1a1a1a"    # Dark fill for numbered circles
+CIRCLE_TEXT = "#ffffff"   # White text on numbered circles
+RED_PINK = "#DD344C"     # IAM Identity Center icon background
+ARROW_COLOR = "#1a1a1a"  # Arrow stroke color
+HEADER_TEXT = "#1a1a1a"  # Container header text (black by default)
+PURPLE_TEXT = "#7B61FF"  # Sales Forecasting Project header text (exception)
+
+================================================================================
+CONTAINER STYLES
+================================================================================
+
+AWS Cloud:
+  - border: TEAL, SOLID, width=2 (HARD RULE: AWS Cloud always solid, never dashed)
+  - fill: WHITE
+  - header: AWS logo icon (dark) + "AWS Cloud" text in DARK
+  - header_bg: none (transparent)
+
+AWS Region:
+  - border: TEAL, dashed, width=2
+  - fill: WHITE
+  - header: Flag/region icon (teal) + "AWS Region" text in DARK
+  - header_bg: none (transparent)
+
+Amazon SageMaker:
+  - border: TEAL, solid, width=2
+  - fill: WHITE
+  - header: SageMaker cloud icon + "Amazon SageMaker" text in DARK
+  - header_bg: none (transparent)
+
+Sales Forecasting Project:
+  - border: PURPLE, solid, width=2
+  - fill: WHITE
+  - header: "Sales Forecasting Project" text in PURPLE (no icon)
+  - header_bg: none (transparent)
+
+ML capabilities:
+  - border: TEAL, solid, width=2
+  - fill: WHITE
+  - header: Brain/ML icon + "ML capabilities" text in DARK
+  - header_bg: none (transparent)
+
+Coding capabilities:
+  - border: DARK (#1a1a1a), solid, width=2
+  - fill: WHITE
+  - header: Coding/monitor icon + "Coding capabilities" text in DARK
+  - header_bg: none (transparent)
+
+Amazon SageMaker Lakehouse:
+  - border: TEAL, solid, width=2
+  - fill: WHITE
+  - header: "Amazon SageMaker Lakehouse" text in DARK (no specific icon)
+  - header_bg: none (transparent)
+
+Storage:
+  - border: none
+  - fill: LIGHT_GRAY (#e8e8e8)
+  - header: "Storage" text in DARK
+  - Smaller sub-container, no icon in header
+
+Catalog:
+  - border: none
+  - fill: LIGHT_GRAY (#e8e8e8)
+  - header: "Catalog" text in DARK
+  - Smaller sub-container, no icon in header
+
+================================================================================
+ICON STYLES (service elements)
+================================================================================
+
+ML engineers:
+  - Person/user icon, standard black/dark
+  - Size: ICON_SIZE (65px)
+  - Label below, FONT_BODY, DARK
+
+AWS IAM Identity Center:
+  - Architecture icon, red/pink background square with white key
+  - Size: ICON_SIZE (65px)
+  - Label below, FONT_BODY, DARK
+
+Amazon SageMaker Unified Studio:
+  - SageMaker cloud icon, teal colored
+  - Size: ICON_SIZE (65px)
+  - Label below (2 lines), FONT_BODY, DARK
+
+Database assets:
+  - Database/cylinder icon (dark/gray)
+  - Size: ICON_SIZE (65px)
+  - Label below, FONT_BODY, DARK
+
+Git repository:
+  - Git/branch icon (dark/gray)
+  - Size: ICON_SIZE (65px)
+  - Label below, FONT_BODY, DARK
+
+Studio IDE:
+  - IDE/code window icon (dark/gray)
+  - Size: ICON_SIZE (65px)
+  - Label below, FONT_BODY, DARK
+
+Tools:
+  - Hexagonal tools/wrench icon (dark/gray)
+  - Size: ICON_SIZE (65px)
+  - Label below, FONT_BODY, DARK
+
+Amazon SageMaker (ML):
+  - Brain/neural network icon, teal
+  - Size: ICON_SIZE (65px)
+  - Label below, FONT_BODY, DARK
+
+Amazon Q Developer:
+  - Amazon Q icon, teal
+  - Size: ICON_SIZE (65px)
+  - Label below (2 lines), FONT_BODY, DARK
+
+Amazon Redshift Serverless:
+  - Redshift icon, purple
+  - Size: ICON_SIZE (65px)
+  - Label below (2 lines), FONT_BODY, DARK
+
+Amazon S3:
+  - S3 bucket icon (Architecture variant - green/olive square)
+  - Size: ICON_SIZE (65px)
+  - Label below, FONT_BODY, DARK
+
+AWS Glue Data Catalog:
+  - Glue Data Catalog icon (purple funnel)
+  - Size: ICON_SIZE (65px)
+  - Label below (2 lines), FONT_BODY, DARK
+
+================================================================================
+ARROW STYLES
+================================================================================
+
+Arrows 1-5 (solid):
+  - stroke: DARK (#1a1a1a)
+  - width: ARROW_WIDTH (2)
+  - style: solid
+  - end: arrowhead
+
+Arrow 6 (dashed):
+  - stroke: DARK (#1a1a1a)
+  - width: ARROW_WIDTH (2)
+  - style: dashed
+  - end: arrowhead (double-headed / both ends in reference? No, just end arrow)
+
+Internal arrow (Git → Database):
+  - stroke: DARK (#1a1a1a)
+  - width: 2
+  - style: solid
+  - end: arrowhead
+
+================================================================================
+NUMBERED CIRCLE STYLES
+================================================================================
+
+All circles:
+  - Shape: circle (round)
+  - Size: CIRCLE_SIZE (50px)
+  - Background: CIRCLE_BG (#1a1a1a / dark)
+  - Text: CIRCLE_TEXT (#ffffff / white)
+  - Font size: 22
+  - Numbers: 1 through 6
+
+================================================================================
+SPACING AND MARGINS
+================================================================================
+
+- Container padding: 20px internal
+- Header height: 45px
+- Spacing between containers: 20-30px
+- Icon-to-label gap: 8px
+- 2x2 grid internal spacing: 30px between items

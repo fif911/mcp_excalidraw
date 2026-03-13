@@ -232,6 +232,7 @@ def icon_label_component(prefix, file_id, label_text, cx, cy,
         "x": round(icon_x, 1), "y": round(icon_y, 1),
         "width": icon_size, "height": icon_size,
         "fileId": file_id, "status": "saved", "scale": [1, 1],
+        "strokeWidth": 0,
         "groupIds": [group_id]
     })
 
@@ -422,6 +423,7 @@ def container_box(cid, x, y, w, h, stroke_color, fill_color="transparent",
             "x": x, "y": y,
             "width": icon_sz, "height": icon_sz,
             "fileId": icon_file_id, "status": "saved", "scale": [1, 1],
+            "strokeWidth": 0,
             "groupIds": [group_id]
         })
 
@@ -433,7 +435,11 @@ def container_box(cid, x, y, w, h, stroke_color, fill_color="transparent",
         if icon_file_id:
             lx = x + icon_sz + 5
             center_h = header_height or icon_sz
-            ly = y + (center_h - text_h) / 2
+            # Align text visual center with icon center.
+            # Text bounding box includes line-height padding below baseline,
+            # so geometric center sits lower than visual glyph center.
+            # Shift up by ~10% of font size to compensate.
+            ly = y + (center_h - text_h) / 2 - label_font_size * 0.1
         else:
             lx = x + (w - text_w) / 2   # centered horizontally
             ly = y + 8

@@ -1,0 +1,139 @@
+STYLING GUIDE: AWS SageMaker Unified Studio Architecture
+REFERENCE: refs/tg_image_565119128.png
+
+=== GLOBAL DEFAULTS ===
+ICON_SIZE = 65
+FONT_SIZE = 24
+ARROW_COLOR = "#000000"
+ARROW_STROKE_WIDTH = 2
+
+=== CONTAINER STYLES ===
+
+1. AWS Cloud (outermost)
+   - Border: dashed, teal (#1ba784 or similar AWS teal)
+   - Stroke width: 2
+   - Background: transparent
+   - Header: AWS logo icon (dark square) + "AWS Cloud" text in BLACK
+   - Corner radius: 10
+
+2. AWS Region
+   - Border: dashed, teal (#1ba784)
+   - Stroke width: 2
+   - Background: transparent
+   - Header: AWS Region icon (orange/teal flag icon) + "AWS Region" text in BLACK
+   - Corner radius: 10
+
+3. Amazon SageMaker (container)
+   - Border: solid, teal (#1ba784)
+   - Stroke width: 2
+   - Background: transparent
+   - Header: Amazon SageMaker icon (teal cloud) + "Amazon SageMaker" text in BLACK
+   - Corner radius: 10
+
+4. Sales Forecasting Project
+   - Border: solid, purple (#7B61FF or #8B5CF6)
+   - Stroke width: 2
+   - Background: transparent
+   - Header: "Sales Forecasting Project" text in PURPLE (italic style)
+   - No icon in header
+   - Corner radius: 10
+
+5. ML capabilities
+   - Border: solid, teal (#1ba784)
+   - Stroke width: 2
+   - Background: transparent
+   - Header: small teal icon + "ML capabilities" text in BLACK
+   - Corner radius: 10
+
+6. Amazon SageMaker Lakehouse
+   - Border: solid, teal (#1ba784)
+   - Stroke width: 2
+   - Background: transparent
+   - Header: "Amazon SageMaker Lakehouse" text in BLACK (no icon)
+   - Corner radius: 10
+
+7. Storage (sub-container)
+   - Border: solid, light gray (#D1D5DB)
+   - Stroke width: 1
+   - Background: light gray (#F3F4F6 or #E5E7EB)
+   - Header: "Storage" text in BLACK, bold
+   - Corner radius: 5
+
+8. Catalog (sub-container)
+   - Border: solid, light gray (#D1D5DB)
+   - Stroke width: 1
+   - Background: light gray (#F3F4F6 or #E5E7EB)
+   - Header: "Catalog" text in BLACK, bold
+   - Corner radius: 5
+
+=== ICON STYLES ===
+
+All icons: 65x65px
+
+- AWS IAM Identity Center: red/pink icon on dark pink/red background (Architecture icon, 48px variant)
+- Amazon SageMaker (header icon): teal cloud icon on teal background
+- Amazon SageMaker Unified Studio: teal multi-cloud icon
+- Database assets: generic database icon (gray/dark)
+- Git repository: generic git/branch icon (gray/dark)
+- Studio IDE: generic IDE/code editor icon (gray/dark)
+- Tools: generic wrench/tools icon (gray/dark)
+- Amazon SageMaker (ML capabilities): teal brain/gear icon on teal background
+- ML capabilities header icon: small teal icon
+- Amazon Redshift Serverless: purple database icon
+- Amazon S3: yellow/olive bucket icon on yellow background
+- AWS Glue Data Catalog: purple funnel icon on purple background
+- Coding capabilities: teal code/terminal icon
+- Amazon Q Developer: teal Q icon on teal background
+- ML engineers: generic person/user silhouette icon (black, no background)
+
+=== ARROW STYLES ===
+
+Arrows 1-5:
+  - Stroke: solid
+  - Color: black (#000000)
+  - Width: 2
+  - Arrowhead: triangle (end only)
+
+Arrow 6:
+  - Stroke: DASHED
+  - Color: black (#000000)
+  - Width: 2
+  - Arrowhead: triangle (end only)
+
+Internal arrow (Git repo → Database assets):
+  - Stroke: solid
+  - Color: black (#000000)
+  - Width: 2
+  - Arrowhead: triangle (end only)
+
+=== NUMBERED CIRCLES ===
+
+All circles:
+  - Shape: circle
+  - Size: 36 (diameter)
+  - Background: dark (#232F3E or black)
+  - Text color: white
+  - Font size: 20
+  - Border: none or matching background
+
+Circle positions:
+  1 - Above arrow between ML engineers and IAM Identity Center
+  2 - Below Amazon SageMaker Unified Studio
+  3 - Left of arrow between Q Developer and Studio IDE (near container border crossing)
+  4 - Right of ML capabilities header text
+  5 - Left of arrow between Tools and Lakehouse
+  6 - Right of dashed arrow between SageMaker and Lakehouse
+
+=== TEXT STYLES ===
+
+Container headers: FONT_SIZE 24, BLACK text (except Sales Forecasting Project = purple)
+Icon labels: FONT_SIZE 24, BLACK text
+All text: left-aligned or center-aligned as appropriate
+Sales Forecasting Project header: italic style, purple color
+
+=== PERSON ICON ===
+
+ML engineers uses a generic person/stick figure silhouette
+- Not an AWS service icon
+- Simple black silhouette
+- Label "ML engineers" below

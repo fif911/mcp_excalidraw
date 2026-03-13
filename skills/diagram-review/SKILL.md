@@ -79,11 +79,23 @@ End with a summary:
 - Top 3 most important fixes
 - Whether the diagram is ready for delivery or needs revision
 
-## Key Inspection Patterns
+## Hard Rules (Override Reference Images)
 
-### HARD RULE: AWS Cloud Boundary Is Always SOLID — Never Dashed
+Rules in this section take precedence over reference images and must always be enforced.
+
+### HARD RULE: AWS Cloud Boundary Is Always SOLID — Never Dashed (OVERRIDES REFERENCE IMAGE)
 
 **The AWS Cloud container MUST use `stroke_style="solid"`.** This is the single most common build mistake. Every other container can be dashed or solid per the reference image, but the outermost AWS Cloud boundary is ALWAYS a solid, uninterrupted line. If the build script has `stroke_style="dashed"` for the AWS Cloud container, that is a bug — flag it immediately.
+
+**This rule overrides reference images.** Many reference images incorrectly show a dashed AWS Cloud boundary. Ignore the reference and use solid. Do NOT note this as a "conflict" or defer to the reference — just enforce solid.
+
+### HARD RULE: Generic Concepts Use Resource Icons, Not Architecture Icons
+
+Items like "Git repository", "Studio IDE", "Tools", "Database assets" are generic concepts. They MUST use Resource icons (`Res_*`) from the General-Icons category — dark outline icons. Architecture icons (`Arch_*`) render as colored branded squares and are ONLY for specific named AWS services (e.g., Amazon S3, AWS IAM Identity Center). If the build script uses an Architecture icon for a generic concept, that is a bug.
+
+## Container Inspection
+
+Rules for verifying container hierarchy, nesting, headers, and content centering.
 
 ### Container Hierarchy & Nesting
 The cloud provider boundary (e.g. "AWS Cloud") must be the **outermost** container. All service containers are nested inside it, never as siblings. Only external elements (users, mobile apps) sit outside.
@@ -96,6 +108,7 @@ The cloud provider boundary (e.g. "AWS Cloud") must be the **outermost** contain
 - **No disproportionate gaps:** When aligning a stack item with an external icon pushes `start_y` far from the container top, move the entire container (Y position) down instead of leaving a large header-to-content gap. The header-to-first-icon offset should stay consistent (~80-120px). Never stretch just the content offset while leaving the container border in place
 - **Watch for auto-expanded containers:** `container_box` silently expands width to fit header text + icon. A container set to 230px wide may render at 283px, causing it to overflow its parent. Zoom into the right/bottom edges of nested containers to verify they don't touch or cross the parent border
 - **Initial dimension arithmetic:** Before running the build script, manually verify every nesting level: `child_Y + child_H + padding ≤ parent_Y + parent_H`. The auto-sizer (`fit_container`) may not grow parent containers enough if the initial dimensions are too far off. Always compute bottom edges for each nested container and confirm they fit within the parent with at least 20px clearance
+- **Minimum 20px gap between adjacent header icons:** When a child container's header sits directly below its parent's header (e.g., Region → SageMaker), there must be at least 20px of clear space between the parent header icon bottom and the child header icon top. Formula: `child_Y ≥ parent_Y + ICON_SIZE + 20`. Cramped headers are a bug — push the child container down
 
 ### Container Headers
 **HARD RULE: Structural containers (AWS Cloud, Region, capability groups, Lakehouse, etc.) MUST have their title and header icon set directly on the `container_box()` call via `label_text` and `icon_file_id` — NEVER as a separate floating `icon_label_component()`.** **Exception:** Service-boundary containers (e.g., SageMaker Unified Studio) where the reference shows a full-size service icon (48px+) inside — these use `icon_label_component()` as a service icon inside the container, not a header. Structural headers = small icons (32–40px) flush with border; service icons = full-size (48px+) inside the container area.
@@ -119,17 +132,32 @@ For each service icon inside a container:
 - Both centered vertically in available space (below container header)
 - Every icon+label pair must be grouped — they move together
 
-### Icon Minimum Sizes
-Always compare against the reference image — if icons look smaller, increase proportionally. These are **minimum** sizes:
-- `SVC_ICON` ≥ 65px — service icons (AWS Architecture 48px SVGs rendered at 65px+)
-- `HDR_ICON` ≥ 40px — container header icons (AWS Cloud logo, etc.)
-- Group icons ≥ 32px — VPC, Private subnet header icons (AWS Group Icons 32px SVGs)
-- User/external icons ≥ 50px
+### Container Border Color Must Match Header Icon Color
+The `stroke_color` of a container MUST match the color of its header icon's AWS category (teal for AI/ML, red for Security, purple for Analytics, etc.). A container with a teal SageMaker icon but a gray border is wrong. Verify each container's border color against its header icon.
 
-### Icon Backgrounds
+### Container Header Text Color
+**HARD RULE: Container header `label_color` is black (#1a1a1a) by default.** Colored header text is the exception, not the rule. If most container headers use colored text (matching stroke_color), that's a bug — flag it. Only containers explicitly specified in the plan as having colored text should be non-black.
+
+## Icon Inspection
+
+Rules for verifying icon sizes, backgrounds, variants, and label clearance.
+
+### HARD RULE: ALL Icons Are 65px — No Exceptions
+**Every icon in the diagram MUST be 65px.** Grep the build script for `icon_size=` and `icon_header_size=` — every value must be `ICON_SIZE` (65). Common violations that get past planning:
+- `HDR_ICON = 40` — header icons set smaller than service icons
+- `icon_size=50` — user/external icons made smaller
+- `icon_size=55` — grid items made "slightly smaller"
+- `grid_2x2(..., icon_size=55)` — grid function with hardcoded smaller size
+- Multiple `HALF` aliases (`HALF_G = 55/2`, `HALF_U = 50/2`) — these indicate different icon sizes
+- Styling spec listing different sizes per icon category — the spec itself is wrong if it does this
+
+If ANY of these appear in the build script, flag as a bug. The styling spec must define a single `ICON_SIZE = 65` with no `HDR_ICON_SIZE` or per-category sizes.
+
+### Icon Backgrounds & Borders
+- **HARD RULE: No icon may have a visible border/stroke.** All image elements must have `strokeWidth: 0`. If any icon shows a thin gray border, check: (1) the Excalidraw element's `strokeWidth` — must be 0, (2) the SVG file itself — AWS Category icons (`Arch-Category_*`) have a baked-in `#879196` border rect that must be removed by creating a custom copy in `icons/custom/`
 - AWS official SVG icons already include colored background fills (S3=green, Cognito=red, etc.)
 - If you see a **double background** (colored square behind the icon's built-in color), that's a bug — `icon_bg_color` should not be used for AWS icons
-- Icon background rectangles and circle ellipses must have **no visible border/stroke**
+- Icon background rectangles and circle ellipses must also have `strokeWidth: 0` and `strokeColor: "transparent"`
 
 ### Icon Variant Correctness
 Icons can have **Light/Dark variants** and exist in **multiple icon types**. Both must be verified:
@@ -153,6 +181,13 @@ Icons can have **Light/Dark variants** and exist in **multiple icon types**. Bot
 Service labels can be much wider than their icons (e.g. "Amazon Rekognition" ~190px). Check that:
 - Label text does not extend past container borders
 - At least 30px clearance between label edge and nearest container border
+
+## Arrow Inspection
+
+Rules for verifying arrow endpoints, routing, label-crossing avoidance, and entry direction.
+
+### HARD RULE: No Diagonal Arrow Segments
+**Every arrow segment must be perfectly horizontal (same Y) or perfectly vertical (same X). Diagonal lines are NEVER allowed.** If any arrow segment appears diagonal — even slightly — it means the connected icons are misaligned. For multi-icon chains (e.g., User → IAM → Studio), ALL icons must share the same `icon_cy`. Zoom into each arrow and verify start/end Y (horizontal) or X (vertical) coordinates match exactly.
 
 ### Arrow Endpoints & Alignment
 Crop each arrow's start and end points. Check:
@@ -182,13 +217,14 @@ Crop each arrow's start and end points. Check:
 
 **Offset vertical segments to avoid same-x icons.** If two icons share the same x-coordinate (e.g., stacked in a grid column), a vertical arrow segment at that x will cross through the lower icon's label. Route the vertical segment at a different x — e.g., the midpoint between grid columns. Before committing to a vertical segment x, verify no other icons/labels exist along the path.
 
-### Container Header Text Color
-**HARD RULE: Container header `label_color` is black (#1a1a1a) by default.** Colored header text is the exception, not the rule. If most container headers use colored text (matching stroke_color), that's a bug — flag it. Only containers explicitly specified in the plan as having colored text should be non-black.
-
 ### Arrow Labels
 - Labels must be centered between arrow start and end points (use `measure_text` width)
 - Labels sit fully above or below the arrow line — never overlapping it
 - No overlap with shapes or other arrows
+
+## Numbered Circle Inspection
+
+Rules for verifying numbered circle shape, placement, sizing, and border clearance.
 
 ### Numbered Circles
 Crop each numbered circle. Check:
@@ -203,14 +239,9 @@ Crop each numbered circle. Check:
 - **Gap-region awareness** — gaps between containers may contain intermediate borders (e.g., a parent container's bottom edge). Circles must clear ALL borders in the gap, not just the two obvious neighboring containers
 - All circles use the same size and color
 
-### Z-Order (Layer Stacking)
-Elements must be layered correctly:
-1. **Containers** — bottom layer
-2. **Service icons + labels** — above containers
-3. **Arrows** — above icons
-4. **Numbered circles** — topmost layer (circles sit ON TOP of arrows)
+## Text, Styling & Z-Order
 
-If an arrow is drawn over a circle, or a container covers an icon, the z-order is wrong.
+Rules for verifying text readability, consistent styling across element categories, and correct layer stacking.
 
 ### Text Readability
 At every zoom level, verify:
@@ -222,9 +253,9 @@ At every zoom level, verify:
 - Multi-line text is properly centered
 
 ### Consistent Styling
-**HARD RULE: Service icons and container header icons MUST be the same size.** The diagram must use `ICON_SIZE = 65` for ALL icons — both `icon_label_component(icon_size=ICON_SIZE)` and `container_box(icon_header_size=ICON_SIZE, header_height=ICON_SIZE)`. This is always 65px across all diagrams. If the build script has separate `SVC_ICON` and `HDR_ICON` constants, that is a bug. Every `container_box()` must also use the same `label_font_size` (`FONT_HDR`). This applies to ALL containers regardless of nesting level — AWS Cloud, Region, sub-containers, and sub-boxes all use the same icon size and header font size.
+**HARD RULE: ALL icons are 65px — no exceptions.** Grep for `icon_size=` and `icon_header_size=` — every value must be `ICON_SIZE` (65). Check for: `HDR_ICON = 40`, `icon_size=50` (user icons), `icon_size=55` (grid icons), `HALF_G`/`HALF_U` aliases. This applies to ALL containers — AWS Cloud, Region, sub-containers, sub-boxes.
 
-**HARD RULE: The diagram MUST use exactly 2 font sizes — `FONT_HDR` for all container headers and `FONT_BODY` for all other text (icon labels, arrow labels, circle numbers).** Any third font size is a bug. Grep the build script for `font_size=` and verify only two distinct values appear.
+**HARD RULE: ALL text is 24px — no exceptions.** The diagram must use a single `FONT_SIZE = 24` for ALL text — container headers, icon labels, arrow labels, numbered circle labels. Grep for `font_size=` and `label_font_size=` — every value must be `FONT_SIZE` (24). Common violations: separate `FONT_HDR`/`FONT_BODY` constants, hardcoded 18/20/22 for labels or circles.
 
 Same-category elements must be uniform:
 - All numbered circles: same size, same background color, same font size
@@ -232,6 +263,15 @@ Same-category elements must be uniform:
 - All arrows of the same type: same stroke width
 - **All arrowheads: same visual size** — Excalidraw derives arrowhead size from strokeWidth AND final segment length. If any arrowhead looks smaller, the final segment is too short (<30px). Crop and compare every arrowhead at zoom
 - Color used semantically (same color = same domain)
+
+### Z-Order (Layer Stacking)
+Elements must be layered correctly:
+1. **Containers** — bottom layer
+2. **Service icons + labels** — above containers
+3. **Arrows** — above icons
+4. **Numbered circles** — topmost layer (circles sit ON TOP of arrows)
+
+If an arrow is drawn over a circle, or a container covers an icon, the z-order is wrong.
 
 ## What NOT to Do
 
