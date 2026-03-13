@@ -1,0 +1,137 @@
+# Components Styling Specification - Data Transfer Hub v2
+
+## Canvas
+- Size: 1500 x 900
+- Background: white
+
+## Containers
+
+### AWS Cloud (outer boundary)
+- Border: solid, #545B64 (dark gray), stroke-width: 2
+- Corner radius: 8
+- Fill: transparent (white)
+- Header: AWS logo icon (32x32) + "AWS Cloud" text in black, font-size: 20
+- Position: x=20, y=20, w=1460, h=860
+
+### Customer's AWS Account
+- Border: solid, #545B64 (dark gray), stroke-width: 2
+- Corner radius: 8
+- Fill: transparent
+- Header: AWS Cloud/Account icon (32x32) + "Customer's AWS Account" in black, font-size: 18
+- Position: x=50, y=80, w=920, h=740
+
+### AWS Managed Account
+- Border: solid, #545B64 (dark gray), stroke-width: 2
+- Corner radius: 8
+- Fill: transparent
+- Header: "AWS Managed Account" in black, font-size: 18
+- Position: x=1010, y=80, w=450, h=740
+
+### Authentication (sub-boundary, DASHED)
+- Border: DASHED, #545B64 (dark gray), stroke-width: 1.5
+- Corner radius: 4
+- Fill: transparent
+- Header: "Authentication" text in black, font-size: 16
+- Position: x=80, y=130, w=320, h=200
+
+### AWS Step Functions workflow (sub-container, PINK border)
+- Border: solid, #E7157B (pink/magenta), stroke-width: 2
+- Corner radius: 4
+- Fill: transparent
+- Header: Step Functions icon (32x32) + "AWS Step Functions workflow" in black, font-size: 16
+- Position: x=640, y=120, w=300, h=370
+
+## Service Elements - Icon Sizes
+- All service icons: 65x65 px (hard rule)
+- Icon background: colored square behind icon (matches AWS category color)
+- Header icons (container): 32x32 px
+
+## Service Element Positions
+
+### Inside Authentication (dashed):
+- Amazon Cognito: cx=140, cy=220 (pink/red icon on pink bg)
+- OpenID Connect: cx=280, cy=220 (gray/dark icon)
+
+### Top row (Customer Account):
+- Amazon DynamoDB: cx=510, cy=210 (purple icon on purple bg)
+
+### Inside Step Functions workflow:
+- AWS Lambda (SF): cx=760, cy=210 (orange icon on orange bg)
+- AWS CloudFormation: cx=760, cy=380 (orange icon on orange bg)
+
+### Middle row (Customer Account):
+- AWS AppSync: cx=360, cy=400 (pink/magenta icon on pink bg)
+- AWS Lambda: cx=540, cy=400 (orange icon on orange bg)
+
+### Bottom row (Customer Account):
+- Data Transfer Hub UI: cx=110, cy=590 (dark monitor icon)
+- Amazon CloudFront: cx=360, cy=660 (purple icon on purple bg)
+- Amazon S3 (Customer): cx=560, cy=660 (green/olive bucket icon)
+- AWS Fargate: cx=760, cy=660 (orange icon on orange bg)
+
+### Inside Managed Account:
+- S3 replication component template: cx=1090, cy=210 (orange icon)
+- DynamoDB replication component template: cx=1290, cy=210 (orange icon)
+- Amazon S3 (Managed): cx=1090, cy=410 (green/olive bucket icon)
+- ECR replication component template: cx=1290, cy=410 (orange icon)
+- Amazon ECR: cx=1090, cy=620 (orange icon)
+- ECR replication Docker image: cx=1290, cy=620 (orange/pink icon)
+
+### Outside all containers:
+- User: cx=90, cy=800 (gray person/user icon)
+
+## Icon Variant Notes
+- Amazon Cognito: Architecture icon, 64px
+- OpenID Connect: use custom identity icon (gray with orange arrows)
+- Amazon DynamoDB: Architecture icon, 64px, purple variant
+- AWS Lambda: Architecture icon, 64px, orange variant
+- AWS CloudFormation: Architecture icon, 64px, orange variant
+- AWS AppSync: Architecture icon, 64px, pink variant
+- Amazon CloudFront: Architecture icon, 64px, purple variant
+- Amazon S3: Architecture icon, 64px, green variant
+- AWS Fargate: Architecture icon, 64px, orange variant
+- AWS Step Functions: Architecture icon (for header), 32px
+- Data Transfer Hub UI: Resource icon (computer/monitor)
+- Amazon ECR: Architecture icon, 64px, orange variant
+- S3/DynamoDB/ECR replication templates: Resource icons, orange
+- ECR replication Docker image: Resource icon or custom
+- User: General resource icon (person)
+
+## Arrows
+- Stroke color: #545B64 (dark gray)
+- Stroke width: 2
+- Style: solid with arrowhead
+- Routing: L-shaped where needed, straight where possible
+- Arrowhead: standard triangle
+
+## Numbered Badges
+- Shape: circle (dark)
+- Background: #232F3E (AWS dark navy)
+- Text color: white
+- Font size: 14
+- Circle diameter: 28
+- Position: adjacent to the arrow, near the source end
+- Border: none
+
+## Font
+- Container headers: 18-20px, black, bold
+- Sub-container headers: 16px, black, bold
+- Service labels: 14px, black, regular
+- All labels below icons, centered
+
+## Z-Order (bottom to top)
+1. AWS Cloud container
+2. Customer Account / Managed Account containers
+3. Authentication / Step Functions sub-containers
+4. Service icons and labels
+5. Arrows
+6. Numbered badges (topmost)
+
+## Special Notes
+- Step Functions workflow pink border is a prominent visual element
+- Authentication boundary is DASHED - do not make it solid
+- AWS Cloud outer boundary is SOLID (per hard rule override)
+- Two main containers side by side with gap
+- User icon outside and below AWS Cloud
+- Managed Account elements: 2-column, 3-row grid
+- All icons should have their appropriate AWS category color background squares

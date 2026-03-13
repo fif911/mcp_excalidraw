@@ -93,6 +93,24 @@ Rules in this section take precedence over reference images and must always be e
 
 Items like "Git repository", "Studio IDE", "Tools", "Database assets" are generic concepts. They MUST use Resource icons (`Res_*`) from the General-Icons category — dark outline icons. Architecture icons (`Arch_*`) render as colored branded squares and are ONLY for specific named AWS services (e.g., Amazon S3, AWS IAM Identity Center). If the build script uses an Architecture icon for a generic concept, that is a bug.
 
+### HARD RULE: All Container Corners Must Be Straight — Never Rounded
+
+Every `container_box()` call MUST use `corner_radius=0`. AWS architecture diagrams use sharp 90-degree corners. Rounded corners (`corner_radius=4`, `corner_radius=8`, etc.) look unprofessional and deviate from AWS reference standards. If any container has `corner_radius > 0`, that is a bug.
+
+### HARD RULE: No Phantom Arrows — Every Arrow Must Trace to the Reference
+
+Do NOT invent arrows that aren't in the reference image or `icons_graph_structure.md`. Every arrow must have a clear source and target that matches the reference. Common violations:
+- Adding "external → Service" arrows from the diagram edge when no such connection exists in the reference
+- Adding arrows between elements that are spatially close but not connected in the reference
+- Reversing arrow direction (e.g., Cognito→AppSync when the reference shows DTH→AppSync)
+- Adding arrows to/from elements that have NO connections in the reference (e.g., a User icon that is purely illustrative)
+
+Before creating any arrow, cross-reference `icons_graph_structure.md` for the exact source, target, and direction.
+
+### HARD RULE: Element Placement (Inside/Outside Sections) Must Match Reference
+
+Do NOT assume external elements (Users, clients) go outside the cloud boundary. Check the reference image. If the User icon is inside Customer's AWS Account in the reference, it must be inside in the diagram. Getting this wrong changes the diagram's architectural meaning (internal user vs external user).
+
 ## Container Inspection
 
 Rules for verifying container hierarchy, nesting, headers, and content centering.
@@ -109,6 +127,7 @@ The cloud provider boundary (e.g. "AWS Cloud") must be the **outermost** contain
 - **Watch for auto-expanded containers:** `container_box` silently expands width to fit header text + icon. A container set to 230px wide may render at 283px, causing it to overflow its parent. Zoom into the right/bottom edges of nested containers to verify they don't touch or cross the parent border
 - **Initial dimension arithmetic:** Before running the build script, manually verify every nesting level: `child_Y + child_H + padding ≤ parent_Y + parent_H`. The auto-sizer (`fit_container`) may not grow parent containers enough if the initial dimensions are too far off. Always compute bottom edges for each nested container and confirm they fit within the parent with at least 20px clearance
 - **Minimum 20px gap between adjacent header icons:** When a child container's header sits directly below its parent's header (e.g., Region → SageMaker), there must be at least 20px of clear space between the parent header icon bottom and the child header icon top. Formula: `child_Y ≥ parent_Y + ICON_SIZE + 20`. Cramped headers are a bug — push the child container down
+- **HARD RULE: No container borders may overlap or touch.** Every child container must have at least 15px clearance from its parent's border on ALL sides. The `validate_diagram()` CONTAINER_OVERLAP check detects this. If the outer container is too small, enlarge it. Never let nested borders share the same edge — this is the most common layout bug after auto-expansion overflow
 
 ### Container Headers
 **HARD RULE: Structural containers (AWS Cloud, Region, capability groups, Lakehouse, etc.) MUST have their title and header icon set directly on the `container_box()` call via `label_text` and `icon_file_id` — NEVER as a separate floating `icon_label_component()`.** **Exception:** Service-boundary containers (e.g., SageMaker Unified Studio) where the reference shows a full-size service icon (48px+) inside — these use `icon_label_component()` as a service icon inside the container, not a header. Structural headers = small icons (32–40px) flush with border; service icons = full-size (48px+) inside the container area.
@@ -289,3 +308,9 @@ If an arrow is drawn over a circle, or a container covers an icon, the z-order i
 - Don't accept different sizes for service icons vs header icons — both must use the same `ICON_SIZE` constant
 - Don't accept mixed header heights or header icon sizes — every `container_box()` must use the same `icon_header_size`, `header_height`, and `label_font_size`
 - Don't accept double backgrounds on AWS service icons
+- Don't accept rounded corners on any container — all `corner_radius` must be 0
+- Don't accept container borders that touch or overlap their parent's borders — minimum 15px clearance on all sides
+- Don't invent arrows not in the reference — every arrow must trace to `icons_graph_structure.md`
+- Don't assume User/client icons go outside the cloud boundary — check the reference image
+- Don't use "component template" as a single line in grid labels — split wide text ("component\ntemplate") to prevent cross-column overlap
+- Don't trust `container_box` specified width — it silently auto-expands for header text. Always verify rendered width fits inside parent after build

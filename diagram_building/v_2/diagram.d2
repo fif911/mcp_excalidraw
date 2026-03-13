@@ -1,0 +1,83 @@
+# Data Transfer Hub - AWS Architecture Diagram
+# Outer boundary: AWS Cloud (solid gray border, AWS logo top-left)
+
+aws_cloud: AWS Cloud {
+  # Customer's AWS Account (solid border, cloud icon top-left)
+  customer_account: Customer's AWS Account {
+
+    # Authentication sub-boundary (DASHED border)
+    auth: Authentication {
+      style.stroke-dash: 5
+      cognito: Amazon Cognito
+      openid: OpenID Connect
+    }
+
+    # DynamoDB - standalone, top area right of Auth
+    dynamodb: Amazon DynamoDB
+
+    # Step Functions workflow container (PINK/RED solid border)
+    step_functions: AWS Step Functions workflow {
+      style.stroke: "#E7157B"
+      lambda_sf: AWS Lambda
+      cloudformation: AWS CloudFormation
+    }
+
+    # Standalone services
+    appsync: AWS AppSync
+    lambda: AWS Lambda
+    cloudfront: Amazon CloudFront
+    s3: Amazon S3
+    fargate: AWS Fargate
+    data_transfer_hub: Data Transfer Hub UI
+  }
+
+  # AWS Managed Account (solid border)
+  managed_account: AWS Managed Account {
+    s3_replication_template: S3 replication component template
+    dynamodb_replication_template: DynamoDB replication component template
+    s3: Amazon S3
+    ecr_replication_template: ECR replication component template
+    ecr: Amazon ECR
+    ecr_docker_image: ECR replication Docker image
+  }
+}
+
+# User - outside AWS Cloud, bottom-left
+user: User
+
+# === NUMBERED ARROWS ===
+
+# 1: Data Transfer Hub UI -> Amazon CloudFront (horizontal right, bottom row)
+customer_account.data_transfer_hub -> customer_account.cloudfront: 1
+
+# 2: Authentication/Cognito -> AWS AppSync (down-right, L-shape)
+customer_account.auth -> customer_account.appsync: 2
+
+# 3: User -> Data Transfer Hub UI (vertical up, enters Customer Account)
+user -> customer_account.data_transfer_hub: 3
+
+# 4: AWS AppSync -> AWS Lambda (horizontal right, middle row)
+customer_account.appsync -> customer_account.lambda: 4
+
+# 5: AWS Lambda -> Step Functions workflow (horizontal right, enters pink box)
+customer_account.lambda -> customer_account.step_functions: 5
+
+# 6: Amazon S3 (Managed) -> AWS CloudFormation (horizontal left, cross-container)
+managed_account.s3 -> customer_account.step_functions.cloudformation: 6
+
+# 7: Amazon ECR -> AWS Fargate (horizontal left, cross-container, bottom row)
+managed_account.ecr -> customer_account.fargate: 7
+
+# 8: AWS AppSync -> Amazon DynamoDB (vertical up, L-shape from AppSync up to DynamoDB)
+customer_account.appsync -> customer_account.dynamodb: 8
+
+# === UNLABELED ARROWS ===
+
+# External authentication input -> Cognito (from left edge)
+# (represented as arrow entering from outside the diagram into Auth)
+
+# CloudFront -> S3 (horizontal right, bottom row, static content)
+customer_account.cloudfront -> customer_account.s3
+
+# CloudFormation -> Fargate (vertical down, deployment)
+customer_account.step_functions.cloudformation -> customer_account.fargate

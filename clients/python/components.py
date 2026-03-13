@@ -157,15 +157,23 @@ def estimate_text_height(text, font_size=22):
     return len(lines) * font_size * 1.25
 
 
+# ─── LOCKED DIAGRAM CONSTANTS ───
+# Enforced in all component functions. Build scripts cannot override these.
+ICON_SIZE = 65    # ALL icons — service AND header — no exceptions
+FONT_SIZE = 24    # ALL text — headers, labels, circles — no exceptions
+
+
 # ─── REUSABLE COMPONENTS ───
 
 def icon_label_component(prefix, file_id, label_text, cx, cy,
-                          icon_size=65, font_size=22, gap=8,
-                          text_color="#000000", label_width=None,
+                          gap=8, text_color="#000000", label_width=None,
                           icon_bg_color=None, icon_bg_padding=6,
                           font_family="2"):
     """
     Create an icon centered above a label, grouped.
+
+    Icon size and font size are locked to ICON_SIZE (65) and FONT_SIZE (24).
+    These cannot be overridden — all icons and text must be uniform.
 
     Args:
         prefix: Unique prefix for element IDs
@@ -173,11 +181,9 @@ def icon_label_component(prefix, file_id, label_text, cx, cy,
         label_text: Label text (can contain \\n for multi-line).
                     Pass None or "" to skip label — icon centers directly at cy.
         cx, cy: CENTER position of the entire component (icon + gap + label)
-        icon_size: Icon width/height
-        font_size: Label font size
         gap: Pixels between icon bottom and text top
         text_color: Label color
-        label_width: Explicit label width (default: max(icon_size + 60, 140))
+        label_width: Explicit label width (default: max(ICON_SIZE + 60, 140))
         icon_bg_color: Optional background color for a rounded rect behind the icon
         icon_bg_padding: Padding around icon for the background rect (default 6)
         font_family: Font family string (default "2" = Helvetica)
@@ -186,6 +192,8 @@ def icon_label_component(prefix, file_id, label_text, cx, cy,
         dict with keys: icon_id, icon_bg_id, label_id (None if no label),
         group_id, bbox (includes icon_cx, icon_cy = actual image center)
     """
+    icon_size = ICON_SIZE
+    font_size = FONT_SIZE
     icon_id = f"img-{prefix}"
     icon_bg_id = f"{prefix}-ibg" if icon_bg_color else None
     label_id = f"{prefix}-lbl"
@@ -285,9 +293,11 @@ def icon_label_component(prefix, file_id, label_text, cx, cy,
 
 def numbered_circle(prefix, number, cx, cy, size=50,
                     bg_color="#1a1a1a", text_color="#ffffff",
-                    font_size=18, shape="circle"):
+                    shape="circle"):
     """
     Create a colored shape with centered number, grouped.
+
+    Font size is locked to FONT_SIZE (24). Cannot be overridden.
 
     Shapes: "circle" (ellipse), "square" (sharp corners), "rounded" (rounded
     rectangle), "diamond" (rotated square).
@@ -295,6 +305,7 @@ def numbered_circle(prefix, number, cx, cy, size=50,
     Returns:
         dict with keys: bg_id, text_id, group_id, bbox
     """
+    font_size = FONT_SIZE
     bg_id = f"{prefix}-bg"
     text_id = f"{prefix}-tx"
     group_id = f"g-{prefix}"
@@ -328,11 +339,12 @@ def numbered_circle(prefix, number, cx, cy, size=50,
 
     create(bg_props)
 
-    # Measure text for accurate centering — no rounding, exact floats
+    # LOCKED centering — agents cannot override text position.
+    # Width from measure_text, height locked to font_size * 1.25 for
+    # consistent vertical centering (measure_text height underestimates).
     txt = str(number)
-    tw, th = measure_text(txt, font_size)
-    if th <= 0:
-        th = font_size * 1.25
+    tw, _ = measure_text(txt, font_size)
+    th = font_size * 1.25  # locked — matches Excalidraw visual line height
 
     create({
         "id": text_id, "type": "text",
@@ -359,18 +371,18 @@ def numbered_circle(prefix, number, cx, cy, size=50,
 def container_box(cid, x, y, w, h, stroke_color, fill_color="transparent",
                    icon_file_id=None, label_text=None, label_color=None,
                    stroke_width=2, stroke_style="solid", corner_radius=0,
-                   icon_header_size=None,
                    header_bg_color=None, header_height=None,
-                   header_fill=True,
-                   label_font_size=22):
+                   header_fill=True):
     """
     Create a container rectangle with optional header (icon + label in top-left).
 
+    Icon header size and label font size are locked to ICON_SIZE (65) and
+    FONT_SIZE (24). These cannot be overridden.
+
     Args:
         header_bg_color: Optional colored bar spanning full width at top
-        header_height: Height of the header bar (default: icon_size + 10)
+        header_height: Height of the header bar (default: ICON_SIZE)
         header_fill: If False, skip drawing the header background even if header_bg_color is set
-        label_font_size: Font size for the header label (default 22)
 
     Returns:
         dict with keys: box_id, header_bg_id, icon_id, label_id, group_id, bbox
@@ -380,9 +392,11 @@ def container_box(cid, x, y, w, h, stroke_color, fill_color="transparent",
     label_id = None
     header_bg_id = None
 
+    icon_sz = ICON_SIZE
+    label_font_size = FONT_SIZE
+
     # Auto-expand width to fit header text on one line
     if label_text:
-        icon_sz = icon_header_size or 55
         text_w, _ = measure_text(label_text, label_font_size)
         min_w = (icon_sz + 5 + text_w + 20) if icon_file_id else (10 + text_w + 20)
         w = max(w, min_w)
@@ -403,8 +417,7 @@ def container_box(cid, x, y, w, h, stroke_color, fill_color="transparent",
 
     # Header background bar (created BEFORE icon/label for z-order)
     if header_bg_color and header_fill:
-        icon_sz = icon_header_size or 55
-        hdr_h = header_height or (icon_sz + 10)
+        hdr_h = header_height or icon_sz
         header_bg_id = f"{cid}-hdr-bg"
         create({
             "id": header_bg_id, "type": "rectangle",
@@ -417,7 +430,6 @@ def container_box(cid, x, y, w, h, stroke_color, fill_color="transparent",
     # Header icon (flush with top-left corner)
     if icon_file_id:
         icon_id = f"img-{cid}-hdr"
-        icon_sz = icon_header_size or 55
         create({
             "id": icon_id, "type": "image",
             "x": x, "y": y,
@@ -430,7 +442,6 @@ def container_box(cid, x, y, w, h, stroke_color, fill_color="transparent",
     # Header label — right of icon, or centered horizontally when no icon
     if label_text:
         label_id = f"{cid}-lbl"
-        icon_sz = icon_header_size or 55
         text_w, text_h = measure_text(label_text, label_font_size)
         if icon_file_id:
             lx = x + icon_sz + 5
@@ -460,19 +471,18 @@ def container_box(cid, x, y, w, h, stroke_color, fill_color="transparent",
 
 
 def service_in_container(prefix, file_id, label_text, container_id,
-                          icon_size=65, font_size=22,
                           text_color="#000000", icon_bg_color=None):
     """
     Create an icon+label component centered within an existing container.
 
     Reads the container's position and centers the component within it,
-    accounting for any header (assumes 60px header height).
+    accounting for any header (assumes ICON_SIZE header height).
 
     Returns:
         dict from icon_label_component
     """
     ctr = get_element(container_id)
-    header_h = 60  # space for header icon (55px) + padding
+    header_h = ICON_SIZE  # space for header icon + padding
 
     # Content area
     content_x = ctr['x']
@@ -484,11 +494,10 @@ def service_in_container(prefix, file_id, label_text, container_id,
     cy = content_y + content_h / 2
 
     return icon_label_component(prefix, file_id, label_text, cx, cy,
-                                 icon_size=icon_size, font_size=font_size,
                                  text_color=text_color, icon_bg_color=icon_bg_color)
 
 
-def grid_2x2(prefix, items, container_id, header_h=45, icon_size=55, font_size=22,
+def grid_2x2(prefix, items, container_id, header_h=45,
              icon_bg_color=None):
     """
     Create a 2x2 grid of icon+label components inside a container.
@@ -532,7 +541,6 @@ def grid_2x2(prefix, items, container_id, header_h=45, icon_size=55, font_size=2
         comp = icon_label_component(
             item["id_suffix"], item["file_id"], item["label"],
             cell_cx, cell_cy,
-            icon_size=icon_size, font_size=font_size,
             icon_bg_color=item.get("icon_bg_color", icon_bg_color),
             text_color=item.get("text_color", "#000000"),
         )
@@ -542,7 +550,7 @@ def grid_2x2(prefix, items, container_id, header_h=45, icon_size=55, font_size=2
 
 
 def vertical_stack(items, cx, start_y, spacing=25,
-                   icon_size=55, font_size=16, gap=8, font_family="2",
+                   gap=8, font_family="2",
                    text_color="#1a1a1a",
                    arrows=False, arrow_color="#1a1a1a", arrow_width=2,
                    arrow_direction="up"):
@@ -561,7 +569,7 @@ def vertical_stack(items, cx, start_y, spacing=25,
         cx: X center for all components (vertical alignment)
         start_y: Y center of the FIRST component
         spacing: pixels between bottom of one component bbox and top of next
-        icon_size, font_size, gap: passed to icon_label_component
+        gap: passed to icon_label_component
         text_color: label color
         arrows: if True, draw vertical arrows between consecutive items
         arrow_color, arrow_width: arrow styling
@@ -581,7 +589,7 @@ def vertical_stack(items, cx, start_y, spacing=25,
         comp = icon_label_component(
             item["prefix"], item["file_id"], item["label"],
             cx=cx, cy=current_cy,
-            icon_size=icon_size, font_size=font_size, gap=gap,
+            gap=gap,
             text_color=text_color, font_family=font_family,
         )
         components.append(comp)
@@ -612,8 +620,8 @@ def vertical_stack(items, cx, start_y, spacing=25,
         # We estimate next height same as current (will be corrected when created)
         if i < len(items) - 1:
             next_label = items[i + 1]["label"]
-            next_text_h = estimate_text_height(next_label, font_size)
-            next_total_h = icon_size + gap + next_text_h
+            next_text_h = estimate_text_height(next_label, FONT_SIZE)
+            next_total_h = ICON_SIZE + gap + next_text_h
             current_cy = comp_bottom + spacing + next_total_h / 2
 
     first_top = components[0]["bbox"]["y"]
@@ -628,7 +636,7 @@ def vertical_stack(items, cx, start_y, spacing=25,
 
 def text_box(prefix, text, cx, cy,
              width=None, height=None, min_width=0, max_height=0, padding=12,
-             font_size=18, font_family="2",
+             font_family="2",
              text_color="#1a1a1a", stroke_color="#1a1a1a",
              fill_color="transparent", stroke_width=1,
              corner_radius=8):
@@ -645,6 +653,7 @@ def text_box(prefix, text, cx, cy,
     Returns:
         dict with keys: box_id, text_id, group_id, bbox
     """
+    font_size = FONT_SIZE
     box_id = f"{prefix}-box"
     text_id = f"{prefix}-tx"
     group_id = f"g-{prefix}"
@@ -776,12 +785,14 @@ def _build_segments(all_pts):
 
 def arrow_style(stroke_color="#1a1a1a", stroke_width=2, stroke_style="solid",
                 label_bg="#1a1a1a", label_text_color="#ffffff",
-                label_size=36, label_font_size=16, label_shape="circle"):
+                label_size=36, label_shape="circle"):
     """
     Create a reusable arrow style dict.
 
     Define once as a global constant in each build script, then unpack into
     every arrow() call with **ARROW_STYLE to guarantee uniform appearance.
+
+    label_font_size is locked to FONT_SIZE (24) and cannot be overridden.
 
     Returns dict with keys matching arrow() keyword arguments.
     """
@@ -792,7 +803,6 @@ def arrow_style(stroke_color="#1a1a1a", stroke_width=2, stroke_style="solid",
         "label_bg": label_bg,
         "label_text_color": label_text_color,
         "label_size": label_size,
-        "label_font_size": label_font_size,
         "label_shape": label_shape,
     }
 
@@ -803,7 +813,7 @@ def arrow(aid, start_x, start_y, end_x, end_y,
           start_binding=None, end_binding=None,
           waypoints=None, elbowed=False,
           label_number=None, label_bg="#1a1a1a", label_text_color="#ffffff",
-          label_size=36, label_font_size=16, label_offset=None,
+          label_size=36, label_offset=None,
           label_shape="circle",
           label_segment=None, label_cx=None, label_cy=None):
     """
@@ -816,7 +826,7 @@ def arrow(aid, start_x, start_y, end_x, end_y,
     IMPORTANT: Use arrow_style() to define a single ARROW_STYLE dict, then unpack
     it into every arrow() call with **ARROW_STYLE. This guarantees all arrows share
     identical stroke_color, stroke_width, stroke_style, label_bg, label_text_color,
-    label_size, and label_font_size. Per-arrow overrides (start_arrowhead,
+    label_size, and label_shape. Per-arrow overrides (start_arrowhead,
     end_arrowhead, waypoints, label_number, etc.) are passed directly.
 
     Base arrow args:
@@ -832,7 +842,7 @@ def arrow(aid, start_x, start_y, end_x, end_y,
         label_bg: background color of the circle
         label_text_color: text color for the number
         label_size: circle diameter (default 36)
-        label_font_size: font size (default 16)
+        (label font size is locked to FONT_SIZE)
         label_offset: perpendicular offset from arrow in px.
                       None = auto (label_size/2 + 5). Positive = above/right.
         label_shape: "circle", "square", "rounded", or "diamond"
@@ -855,10 +865,25 @@ def arrow(aid, start_x, start_y, end_x, end_y,
     """
     if waypoints:
         all_pts = [(start_x, start_y)] + list(waypoints) + [(end_x, end_y)]
-        points = [[px - start_x, py - start_y] for px, py in all_pts]
     else:
         all_pts = [(start_x, start_y), (end_x, end_y)]
-        points = [[0, 0], [end_x - start_x, end_y - start_y]]
+
+    # Collapse degenerate segments (length < 3px) to prevent missing arrowheads.
+    # A zero-length last segment means Excalidraw can't determine arrowhead direction.
+    cleaned = [all_pts[0]]
+    for pt in all_pts[1:]:
+        prev = cleaned[-1]
+        dx = pt[0] - prev[0]
+        dy = pt[1] - prev[1]
+        if (dx * dx + dy * dy) >= 9:  # >= 3px
+            cleaned.append(pt)
+        else:
+            print(f"  NOTE: collapsed degenerate segment at ({pt[0]:.0f}, {pt[1]:.0f})")
+    if len(cleaned) < 2:
+        cleaned = all_pts  # fallback — keep original
+    all_pts = cleaned
+
+    points = [[px - all_pts[0][0], py - all_pts[0][1]] for px, py in all_pts]
 
     element = {
         "id": aid, "type": "arrow",
@@ -927,7 +952,7 @@ def arrow(aid, start_x, start_y, end_x, end_y,
         label_prefix = f"{aid}-lbl"
         numbered_circle(label_prefix, label_number, cx=round(cx), cy=round(cy),
                         size=label_size, bg_color=label_bg,
-                        text_color=label_text_color, font_size=label_font_size,
+                        text_color=label_text_color,
                         shape=label_shape)
         label_info = {"prefix": label_prefix, "cx": round(cx), "cy": round(cy),
                       "number": label_number, "segment": resolved_seg_idx}
@@ -985,7 +1010,7 @@ def elbowed_arrow(aid, start_id, end_id, label=None,
     return {"arrow_id": aid}
 
 
-def arrow_label(arrow_id, text, font_size=16, text_color="#1a1a1a",
+def arrow_label(arrow_id, text, text_color="#1a1a1a",
                 offset_x=0, offset_y=-14, font_family="2"):
     """
     Place a text annotation near an arrow's midpoint.
@@ -998,6 +1023,7 @@ def arrow_label(arrow_id, text, font_size=16, text_color="#1a1a1a",
     Returns:
         dict with label_id
     """
+    font_size = FONT_SIZE
     a = get_element(arrow_id)
     pts = a.get("points", [[0, 0], [0, 0]])
     ax, ay = a["x"], a["y"]
@@ -1531,6 +1557,47 @@ def validate_diagram():
                 b1['y'] < b2['b'] and b1['b'] > b2['y']):
                 issues.append(f"OVERLAP: '{t1.get('text','')}' overlaps '{t2.get('text','')}'")
     
+    # Check: container border overlap — nested containers must have clearance
+    MIN_CONTAINER_GAP = 15  # minimum px between nested container borders
+    for i, c1 in enumerate(containers):
+        b1 = bboxes.get(c1['id'])
+        if not b1 or b1['w'] == 0:
+            continue
+        for c2 in containers[i+1:]:
+            b2 = bboxes.get(c2['id'])
+            if not b2 or b2['w'] == 0:
+                continue
+            # Check if one contains the other (parent-child)
+            c1_contains_c2 = (b1['x'] <= b2['x'] and b1['y'] <= b2['y'] and
+                              b1['r'] >= b2['r'] and b1['b'] >= b2['b'])
+            c2_contains_c1 = (b2['x'] <= b1['x'] and b2['y'] <= b1['y'] and
+                              b2['r'] >= b1['r'] and b2['b'] >= b1['b'])
+            if c1_contains_c2:
+                # c1 is parent of c2 — check clearance on all sides
+                gaps = {
+                    'left': b2['x'] - b1['x'],
+                    'top': b2['y'] - b1['y'],
+                    'right': b1['r'] - b2['r'],
+                    'bottom': b1['b'] - b2['b'],
+                }
+                for side, gap in gaps.items():
+                    if gap < MIN_CONTAINER_GAP:
+                        issues.append(
+                            f"CONTAINER_OVERLAP: {c2['id']} {side} border is "
+                            f"{gap:.0f}px from {c1['id']} (min {MIN_CONTAINER_GAP}px)")
+            elif c2_contains_c1:
+                gaps = {
+                    'left': b1['x'] - b2['x'],
+                    'top': b1['y'] - b2['y'],
+                    'right': b2['r'] - b1['r'],
+                    'bottom': b2['b'] - b1['b'],
+                }
+                for side, gap in gaps.items():
+                    if gap < MIN_CONTAINER_GAP:
+                        issues.append(
+                            f"CONTAINER_OVERLAP: {c1['id']} {side} border is "
+                            f"{gap:.0f}px from {c2['id']} (min {MIN_CONTAINER_GAP}px)")
+
     # Check: non-standard font colors on service labels
     # Container header labels may use the container's stroke color — that's OK.
     # Service labels (icon+label components) should be black/dark.

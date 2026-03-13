@@ -1,76 +1,253 @@
-General workflow:
-We need to create a diagram that is high-quality and has no errors, based on the user's input or the reference image provided.
-It can be done in several steps, with each passing through the workflow of planner -> main -> critic agent, creating feedback loop between critic and other agents:
-1. Fill the diagram up with sections and service elements with icon images and place them correctly, do not care for arrow connections of styles, they will be added later.
-2. Properly style the sections and elements with sizing, colors, etc.
-3. Add arrows to connect the sections and elements, move them as needed to fit the arrows properly not causing any overlap.
+# Excalidraw Diagram Building Workflow
 
-This is the list of agents we need in order of execution and their roles. Follow this workflow precisely. NEVER read previous build scripts or previous diagrams, always start from scratch.
-This should be followed both for creating new diagrams and for updating existing ones or fixing errors in them.
+## Overview
 
-1. Planner agent:
-   - Goal: create a plan for the main agent to create the diagram.
-   - Do not use previously created diagrams and build scripts as a starting point, start from scratch.
-   - Needs to support both photo and text prompts/descriptions.
-   - If a reference image is provided, it will be used to create the plan and refine it, save it in the folder so you can always refer to it.
-   - There need to be two plans with folder structure diagram_building/v_{number of version} (e.g. diagram_building/v44, this is our number 1, then count from the previous version):
-     - components_plan.txt where we list all the components used on the diagram and their connections and descriptions.
-     - components_styling.txt where we list all the styling options for the components, colors, sizing, etc.
-   - Also create a file icons_graph_structure.md where we track which icons are connected to each other and what number and direction the arrow has (or if it is bidirectional), so it is easier to add new icons and fix errors. 
-   - Store icons_graph_structure.md in format Icon_1 | Icon_2 | Arrow_direction (options: from 1 to 2, from 2 to 1, bidirectional) | Arrow_number | Number box style (color and shape).
+This workflow produces high-quality, error-free architecture diagrams from either a **reference image** or a **text description**. It uses a three-agent loop: **Planner → Main → Critic**, iterating until the diagram matches the input.
+
+### Input types
+
+| Input type | How it's used |
+|---|---|
+| **Reference image** | Saved to the version folder. Planner traces all elements, containers, connections, and layout from it. Critic compares the output directly against it pixel-by-pixel. |
+| **Text description** | Planner interprets the description to define all elements, containers, connections, and a logical layout. Critic validates against the description and plan files. |
+
+### Three-phase build order
+
+1. Place all sections and service elements with icons — ignore arrows and styles for now
+2. Apply all styling: sizes, colors, borders, icon backgrounds
+3. Add arrows and numbered badges, adjusting element positions to avoid overlaps
+
+Follow this order precisely. **Never read or reuse previous build scripts or diagrams — always start from scratch.**
+
+Each agent may freely use `awslabs.aws-diagram-mcp-server` and Excalidraw MCP tools.
+
+---
+
+## Agent 1: Planner
+
+**Goal:** Produce a fully structured D2-based plan that the Main agent builds from directly, with no ambiguity.
+
+### Input handling
+
+- **Reference image:** Save the image to `diagram_building/v_{number}/reference.png`. Trace every element, container, sub-boundary, connection, and numbered badge visible in it. Use it as the source of truth for structure and layout intent.
+- **Text description:** Interpret the description to define all elements, containers, connections, and a logical spatial arrangement. Make layout decisions explicit in `components_styling.txt`.
+
+### Output files
+
+Create all files under `diagram_building/v_{number}/` (count up from the last version).
+
+---
+
+### `diagram.d2` — primary structural spec
+
+Write the full diagram in D2 syntax. This replaces the old `components_plan.txt` and is the **single source of truth for structure**. The Main agent must not deviate from it.
+
+**D2 syntax rules to follow:**
+
+```d2
+# Containers use nested braces
+customer_account: Customer's AWS Account {
+  auth: Authentication {
+    cognito: Amazon Cognito
+    openid: OpenID Connect
+  }
+  appsync: AWS AppSync
+  lambda: AWS Lambda
+}
+
+managed_account: AWS Managed Account {
+  s3: Amazon S3
+  ecr: Amazon ECR
+}
+
+# Connections with numeric labels = numbered arrows
+cognito -> appsync: 2
+appsync -> lambda: 4
+lambda -> step_functions: 5
+
+# Bidirectional
+appsync <-> lambda: 3
+
+# Dashed sub-boundary
+auth: Authentication {
+  style.stroke-dash: 5
+}
+
+# Icon assignment (URL-based)
+cognito: Amazon Cognito {
+  icon: https://icons.terrastruct.com/aws/Security-Identity-Compliance/Amazon-Cognito.svg
+}
+
+# Non-rectangle shapes
+dynamodb: Amazon DynamoDB {
+  shape: cylinder
+}
+```
+
+**Rules:**
+- Every container, sub-container, node, and connection from the input must be present
+- Connection labels must be the arrow numbers (e.g., `: 2`, `: 5`) — these map directly to numbered badges
+- Dashed boundaries must use `style.stroke-dash: 5`
+- D2 layout is a **structural guide only** — pixel positions come from `components_styling.txt`
+
+---
+
+### `components_styling.txt` — visual styling spec
+
+All styling the Main agent applies via `components.py`. Covers:
+
+- Canvas size
+- Container colors, stroke colors, stroke widths, corner radius, fill colors
+- Header background colors and heights
+- Font sizes for container labels and service labels
+- Icon sizes and styles (especially color and light/dark variants)
+- Arrow stroke color, width, style (solid/dashed)
+- Numbered badge: background color, shape (`circle`, `square`, `rounded`, `diamond`), size
+- Any special positioning notes (e.g., "Step Functions container is centered, not left-aligned")
+- Provide approximate positions within sections for all elements, e.g. "Cognito at 30% from left, 40% from top of container"
+
+---
+
+### `icons_graph_structure.md` — arrow connection reference
+
+Tracks every arrow for the Main agent and Critic to validate against.
+For example:
+| Icon_1 | Icon_2 | Arrow_direction | Arrow_number | Number box style |
+|--------|--------|-----------------|--------------|------------------|
+| Amazon Cognito | AWS AppSync | from 1 to 2 | 2 | dark circle |
+| AWS AppSync | AWS Lambda | from 1 to 2 | 4 | dark circle |
+| AWS Lambda | Step Functions | from 1 to 2 | 5 | dark circle |
+
+---
+
+## Agent 2: Main
+
+**Goal:** Parse `diagram.d2` as the structural spec and use `components.py` and skills to build the diagram on the Excalidraw canvas.
+
+### Before starting
+
+- Read relevant skill files from `skills/excalidraw-diagramming/`
+- Run `npm run canvas`
+- Do **not** read or reuse previous build scripts — start from scratch
+- If any feedback comes from the Critic, fix it in the source code and re-run the build, do not do targeted updates with new temp scripts.
+
+### Build steps
+
+#### 1. Parse `diagram.d2`
+Use create_from_d2 MCP server tool. 
+For reference:
+
+| D2 element | `components.py` call |
+|---|---|
+| Container / nested container | `container_box()` |
+| Node | `icon_label_component()` + `upload_svg()` |
+| Connection with numeric label | `arrow()` with `label_number` |
+| Dashed boundary | `container_box()` with `stroke_style="dashed"` |
+
+D2 layout is a **guide for hierarchy only** — use `components_styling.txt` for actual pixel positions and sizes.
+
+#### 2. Icon lookup
+
+- Always use `excalidraw search_aws_icons` MCP tool — never manual search
+- Here are parameters: 
+    • query: string - Keyword search (e.g., "lambda", "S3", "database", "step functions", "VPC"). Matches service names with fuzzy matching and AWS abbreviation aliases.           
+    • category: string - Filter by AWS category (e.g., "Compute", "Analytics", "Security-Identity", "Storage", "Databases"). Use alone to browse all icons in a category.           
+    • icon_type: string - Filter by icon type: architecture = service icons (Arch_*), resource = sub-resource icons (Res_*), group = boundary/region/VPC icons, category = 
+    category-level icons, custom = user-added icons in icons/custom/
+    • size: string - Filter by pixel size. Most service icons come in 16/32/48/64, group icons are 32.
+    • variant: string - For general resource icons only: Light or Dark variant.
+    • color: string - Filter by recolored variant color name (e.g., "Orange", "Green", "Purple"). Only applies to custom recolored icons in icons/custom/.
+    • limit: number - Max results to return (default: 20, max: 50)
+- Match light/dark icon variants to `components_styling.txt`, this is variant parameter.
+- If the exact color is unavailable, recolor and save as a new color option
+- Same icon can be in different folders and have light and dark versions in different folders.
 
 
-2. Main agent: 
-   - Goal: using skills, python scripts and MCP server tools to build high-quality diagrams.
-   - Skills are saved in skills/excalidraw-diagramming folder.
-   - Closely follow the plan, styling, skills and icons_graph_structure files, they are non negotiable to follow.
-   - Double check arrows follow the icons_graph_structure.md file.
-   - Do not use previously created diagrams and build scripts as a starting point, start from scratch. python_scripts\diagram_building is off limits with all versions besides the one being worked on.
-   - Never view anything else than the plan and styling files.
-   - Use the components_plan.txt and components_styling.txt to create the diagram.
-   - Do not forget to do npm run canvas before starting to build the diagram.
-   - Tasks:
-     - Needs to create a diagram by the plan described the components_plan.txt and components_styling.txt.
-     - Needs to create and run a python script which can be used to create diagrams (diagram_building/v{num}/build-diagram.py). 
-     - Save them to python_scripts/diagram_building and name them with a version number.
-     - Reuses components from components.py.
-     - Correctly adds icons from aws-icons-official on the diagram, judging by section contents. Do not perform manual searches, always use tool excalidraw - search_aws_icons (MCP)/ for this task, properly setting the parameters.
-     - Do not forget about icons styling, like background color. The icons set has different options and you need to clearly tell the tool which one is needed based on reference image.
-     - Remember icons can be recolored as well if the correct color is not available in the set and need to be saved as new color options. The tool also knows how to look up icons.
-     - For each icon keep proper track of light and dark background versions, many icons have both and it needs to choose the proper one.
-     - Ensures elements, sections or subsections do not overlap with one another (unless some arrows cross at some point).
-     - It is free to create new components if they are missing from the components.py file and adjust them accordingly.
-     - Based on the critic agent/user feedback, readjust the skills and change components if needed to accommodate the new design.
-     - When it creates/changes components, it needs to keep them as generalized as possible so they work for many diagrams, not just the one we are building now.
-     - Tip: These utilities are meant to help you check for overlaps, always use them in python diagram build script, all errors that they catch are valid, true and critical to fix:
-            from utilities.overlap_checks import run_all_overlap_checks
-            report = run_all_overlap_checks()
-     - Export the final diagram to a file in the folder diagram_building/v_{number of version} (e.g. diagram_building/v44/diagram.png and diagram_building/v44/diagram.excalidraw).
+#### 3. Apply styling
 
-3. Critic agent: 
-   - Goal: to evaluate the quality of the plan and the diagrams and identify errors. Closely compare the diagram to the reference image or text descriptions.
-   - If the critic agent deems the diagram not suitable, it has to ask the main agent to fix the diagram. 
-   - If the critic deems the components_plan, components_styling or icons_graph_structure not suitable, it has to ask the planner agent to fix the plan and pass it to main agent again with clear description what was updated. 
-   - Use skills stored in skills/diagram-review folder and compare the diagram to skills/diagram-review/references/checklist.md
-   - It should use Agentic Vision if it struggles to detect the diagram elements, especially to identify arrows.
-   - Use excalidraw MCP if available to capture output diagram and compare to the input file, looking closely to spot all the differences, zooming into the picture for a better view (skills/diagram-review/crop_region.py).
-   - Reading components_plan.txt and components_styling.txt and identifying errors in the diagram and where it does not match the plan.
-   - Using skills and scripts from skills/diagram-review. Following the checklist in the reference.
-   - Reviewing the file icons_graph_structure.md and comparing it to the diagram and reference image to identify missing or wrongly connected icons.
-   - It should be able to detect the following errors:
-     - Sections not in the correct order or hierarchy.
-     - Missing sections.
-     - Missing elements.
-     - Wrong section names and border styles
-     - Missing icons
-     - Overlapping elements
-     - Incorrectly sized elements
-     - Incorrectly positioned elements
-     - Incorrectly colored elements
-     - Incorrectly sized text
-     - Incorrectly positioned text
-     - Arrows starting not from the center of the element or ending not at the center of another element.
-     - Arrows pointing to the wrong direction. 
-     - Arrows connecting elements that are not connected or not connecting elements that are connected.
-     - Arrows overlapping with text or ending not at the end of an element, either reaching into the icon or having some space between the icon and arrow end.
-     - Other errors that are not covered by the above.
+Apply all values from `components_styling.txt`:
+- Container colors, stroke styles, header backgrounds
+- Font sizes, icon sizes — these are LOCKED in `components.py` (`ICON_SIZE=65`, `FONT_SIZE=24`). Do NOT pass `icon_size`, `font_size`, `icon_header_size`, or `label_font_size` to any component function.
+- Arrow styles, numbered badge colors, shapes, and sizes
+- **All container corners MUST be straight** — always `corner_radius=0`. Never use rounded corners.
+- **Element placement (inside/outside sections)** must match the reference image exactly. Do NOT assume external elements go outside the cloud boundary.
+- **No phantom arrows** — only create arrows that exist in `icons_graph_structure.md`. Verify source, target, and direction for every arrow.
+
+#### 3a. Post-build verification
+
+After running the build script, verify these critical items:
+- **Container auto-expansion**: `container_box()` silently expands width to fit header text + icon. A container specified at `w=280` may render at `w=312`. Verify that no child container's rendered edges exceed its parent. The `CONTAINER_OVERLAP` check in `validate_diagram()` catches this.
+- **Grid label widths**: In multi-column grids, wide labels (e.g., "component template" = 259px at font 24) can overlap between columns. Split long lines ("component\ntemplate") or increase column spacing.
+- **Circle text centering**: `numbered_circle()` uses `measure_text` + `align_in_parent` for browser-delegated centering. Font size is locked to `FONT_SIZE`. No parameters are exposed to override centering.
+
+#### 4. Validate overlaps
+
+```python
+from utilities.overlap_checks import run_all_overlap_checks
+report = run_all_overlap_checks()
+```
+
+All reported errors are valid and critical to fix before exporting.
+
+#### 5. Validate arrows
+
+Cross-check every arrow against `icons_graph_structure.md`:
+- Correct source and target
+- Correct direction
+- Correct number and badge style
+
+#### 6. Export
+
+```
+diagram_building/v_{number}/diagram.png
+diagram_building/v_{number}/diagram.excalidraw
+```
+
+#### 7. Component generalization
+
+Any new or modified `components.py` functions must remain generalized — not specific to the current diagram.
+
+---
+
+## Agent 3: Critic
+
+**Goal:** Compare the output diagram against the input (reference image or text description) and all plan files. Flag all discrepancies and route fixes to the correct agent.
+
+### Inputs to read
+
+- Reference image (`reference.png`) **or** original text description
+- `diagram.d2`
+- `components_styling.txt`
+- `icons_graph_structure.md`
+- `skills/diagram-review/references/checklist.md`
+
+### Tools to use
+
+- Excalidraw MCP — capture canvas output
+- `skills/diagram-review/crop_region.py` — zoom in for detailed comparison
+- Agentic Vision — when arrow direction or small elements are unclear
+
+### Routing fixes
+
+| Error type | Route to |
+|---|---|
+| Wrong hierarchy, missing containers/nodes, wrong connections | **Planner** — fix `diagram.d2`, re-pass to Main with change description |
+| Wrong colors, sizes, overlaps, arrow routing, badge styles | **Main** — fix directly |
+
+### Errors to detect
+
+- Sections in wrong order or hierarchy
+- Missing sections, elements, or icons
+- Wrong section names or border styles (solid vs dashed)
+- Overlapping elements
+- Service badges missing icon images or being blended with background
+- Incorrectly sized, positioned, or colored elements
+- Incorrectly sized or positioned text
+- Arrows not starting/ending at element centers
+- Arrows pointing in wrong direction
+- Missing or extra connections vs `icons_graph_structure.md`
+- Arrows overlapping text or icons
+- Arrows having different head sizes, they should be the same
+- Numbers in numbered badges not being center aligned
+- Numbered badges with wrong color, shape, or number
+- Any other visual discrepancy vs the input, check `skills/diagram-review/SKILL.md` and `skills/diagram-review/references/checklist.md` for details.

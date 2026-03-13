@@ -12,7 +12,7 @@ These rules override what the reference image shows. If the reference image cont
 ### Hierarchy & Nesting
 - [ ] Cloud provider boundary (AWS Cloud, Azure, GCP) is the **outermost** container encompassing ALL cloud services
 - [ ] Service-specific containers (Step Functions, VPC, ECS, etc.) are nested INSIDE the cloud boundary, never as siblings
-- [ ] Only external/on-premise elements (users, mobile clients, third-party APIs) sit outside the cloud boundary
+- [ ] **Element placement (inside/outside) matches reference** — do NOT assume users/clients go outside the cloud boundary. If the reference shows User inside Customer's AWS Account, place it inside. Getting this wrong changes architectural meaning
 - [ ] **External element gap** — icons that are by design outside the main diagram boundary (Users, on-prem servers, etc.) must have a visible gap of at least 10px from the boundary border, but not excessively large (10–25px ideal)
 - [ ] Cloud boundary is visibly larger than nested containers on ALL sides — at least 30px clearance so nesting is obvious
 - [ ] Every nested sub-section is **fully contained** within its parent container — at least 15px clearance from parent border on all sides
@@ -36,6 +36,7 @@ These rules override what the reference image shows. If the reference image cont
 - [ ] **HARD RULE: Container header `label_color` is black (`#1a1a1a`) by default.** Colored header text should be the exception, not the rule. Only containers explicitly specified in the plan/reference as having colored text should use non-black `label_color`. Do NOT match `label_color` to `stroke_color` automatically — if most headers are colored (teal, purple, etc.), that's a bug.
 
 ### Border Styles
+- [ ] **HARD RULE: All container corners MUST be straight (corner_radius=0) — NEVER rounded.** AWS architecture diagrams use sharp 90-degree corners on all containers. If any `container_box()` call uses `corner_radius` > 0, that is a bug. This applies to ALL containers: AWS Cloud, Region, sub-containers, dashed boundaries — everything.
 - [ ] **HARD RULE: Container `stroke_color` MUST match the header icon's category color.** AWS icons have built-in category colors (teal for AI/ML, red for Security, purple for Analytics, etc.). The container border color must match. If the header icon is teal, the border is teal. If the header icon is red, the border is red. Do NOT use a generic color (e.g., dark gray) when the icon has a category color.
 - [ ] **HARD RULE: The AWS Cloud boundary container MUST always use a SOLID border — NEVER dashed.** AWS Region and service-group containers (like SageMaker Unified Studio) can use dashed borders, but they can also be solid — follow the reference image. The outermost cloud boundary is always solid. This is non-negotiable. Getting this wrong makes the diagram look unprofessional and inconsistent with AWS reference architecture standards.
 - [ ] Cloud provider boundary: solid, 2px stroke, brand color (teal for AWS)
@@ -44,6 +45,7 @@ These rules override what the reference image shows. If the reference image cont
 - [ ] Logical sub-sections: gray dashed, 1px stroke
 - [ ] No background fill on logical containers (Cloud, Region, service groups) — only sub-sections like Storage/Catalog get fills
 - [ ] No duplicate borders from icon library elements
+- [ ] **HARD RULE: No container borders may overlap or touch.** Every child container must have at least 15px clearance from its parent container's border on ALL sides. The `validate_diagram()` check `CONTAINER_OVERLAP` detects this. If the outer container is too small, enlarge it — never let nested borders share the same edge.
 
 ## Icons & Labels
 
@@ -73,6 +75,7 @@ These rules override what the reference image shows. If the reference image cont
 
 ### Label Width Near Borders
 - [ ] Service icon labels (e.g. "Amazon Rekognition" ~190px wide) do not extend past container borders — at least 30px clearance between label edge and nearest container border
+- [ ] **Grid layout label width** — in multi-column grids, the widest label line must not overlap with adjacent column labels. Estimate: `chars × fontSize × 0.6` per line. If overlap occurs, split long lines (e.g., "component template" → "component\ntemplate") or increase column spacing
 
 ## Text
 
@@ -115,6 +118,11 @@ These rules override what the reference image shows. If the reference image cont
 - [ ] **Gap-region circle placement** — when circles sit in gaps between containers, check for INTERMEDIATE container borders that cut through the gap. E.g., a parent container's bottom border (Unified Studio at y=500) may sit between two child-level containers (Project bottom at y=465, Coding cap top at y=555). The circle must clear ALL borders in the gap, not just the two obvious ones. Calculate: find every container border Y within the gap range, then ensure `circle_cy ± CIRCLE_R` doesn't straddle any of them
 
 ## Arrows & Lines
+
+### Completeness & Accuracy
+- [ ] **No phantom arrows** — every arrow must trace to a specific connection in the reference image or `icons_graph_structure.md`. Do NOT invent arrows (e.g., "external → Service" from diagram edge when no such connection exists)
+- [ ] **Every arrow's source, target, and direction** verified against `icons_graph_structure.md` — common mistakes: reversed direction, wrong source element, fabricated connections
+- [ ] **Elements with no arrows in the reference have no arrows in the diagram** — some elements (e.g., User icon) may be purely illustrative with no connections
 
 ### Endpoints & Routing
 - [ ] **HARD RULE: No diagonal arrow segments** — every arrow segment must be perfectly horizontal (same Y for start and end) or perfectly vertical (same X for start and end). Diagonal lines are NEVER allowed. For multi-icon chains (User → IAM → Studio), ALL icons must share the same `icon_cy`. Even 1px misalignment creates a visible diagonal at full zoom. Zoom into each arrow to verify.
