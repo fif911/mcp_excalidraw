@@ -18,7 +18,7 @@ derived from real reference diagrams and must be followed precisely.
 
 ```python
 ICON_SIZE = 65       # All service icons and container header icons
-FONT_SIZE = 22       # All text: container headers, icon labels, arrow labels, badges
+FONT_SIZE = 24       # All text: container headers, icon labels, arrow labels, badges
 HEADER_HEIGHT = 75   # Container header height (ICON_SIZE + 10)
 ```
 

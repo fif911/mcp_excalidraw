@@ -142,12 +142,12 @@ must be `ICON_SIZE` (65). Check for: `HDR_ICON = 40`, `icon_size=50` (user icons
 `icon_size=55` (grid icons). This applies to ALL elements — service icons, header icons,
 external actor icons.
 
-### HARD RULE: All Text Is 22px — No Exceptions
+### HARD RULE: All Text Is 24px — No Exceptions
 
-**ALL text is 22px.** The diagram must use a single `FONT_SIZE = 22` for ALL text —
+**ALL text is 24px.** The diagram must use a single `FONT_SIZE = 24` for ALL text —
 container headers, icon labels, arrow labels, numbered badge labels. Grep for `font_size=`
-and `label_font_size=` — every value must be `FONT_SIZE` (22). Common violations:
-separate `FONT_HDR`/`FONT_BODY` constants, hardcoded 18/20/24 for labels or circles.
+and `label_font_size=` — every value must be `FONT_SIZE` (24). Common violations:
+separate `FONT_HDR`/`FONT_BODY` constants, hardcoded 18/20/22 for labels or circles.
 
 ---
 
@@ -255,7 +255,7 @@ Text-box workflow steps ("extract text", "describe face", etc.) require:
 
 - Every solid-border container has a header icon and label
 - Header icon is `ICON_SIZE` (65px) — same as service icons
-- Header label is `FONT_SIZE` (22px)
+- Header label is `FONT_SIZE` (24px)
 - Header label doesn't overflow the container width
 - **Text-only containers** (dashed sub-boundaries like "Parallel processing",
   "Storage", "Catalog") may have NO header icon — label only. This is correct,
@@ -276,7 +276,7 @@ Text-box workflow steps ("extract text", "describe face", etc.) require:
 Same-category elements must be uniform:
 - All numbered badges: same size, same background color, same shape, same font size
 - All service icons + header icons: same size (`ICON_SIZE` = 65)
-- All text: same font size (`FONT_SIZE` = 22)
+- All text: same font size (`FONT_SIZE` = 24)
 - All arrows of the same type: same stroke width
 - Color used semantically (same color = same domain)
 
@@ -304,7 +304,7 @@ If an arrow is drawn over a badge, or a container covers an icon, the z-order is
 - Don't accept arrows passing through unrelated containers
 - Don't accept text-only container headers for solid-border containers (needs icon)
 - Don't accept header icons for dashed text-label-only sub-boundaries (no icon needed)
-- Don't accept mixed font sizes — all must be 22px
+- Don't accept mixed font sizes — all must be 24px
 - Don't accept mixed icon sizes — all must be 65px
 - Don't accept double backgrounds on AWS service icons
 - Don't accept rounded corners on any container

@@ -111,7 +111,7 @@ All styling the Main agent applies via `components.py`. Covers:
 - Special positioning notes (e.g., "Step Functions container is centered, not left-aligned")
 - Approximate positions within sections for all elements (e.g., "Cognito at 30% from left, 40% from top of container")
 
-**Note:** Font sizes and icon sizes are globally locked constants in `components.py` (`ICON_SIZE=65`, `FONT_SIZE=22`). Do not specify them here — they cannot be overridden.
+**Note:** Font sizes and icon sizes are globally locked constants in `components.py` (`ICON_SIZE=65`, `FONT_SIZE=24`). Do not specify them here — they cannot be overridden.
 
 ---
 
