@@ -29,8 +29,15 @@ Each agent may freely use `awslabs.aws-diagram-mcp-server` and Excalidraw MCP to
 
 ### Input handling
 
-- **Reference image:** Save the image to `diagram_building/v_{number}/reference.png`. Trace every element, container, sub-boundary, connection, and numbered badge visible in it. Use it as the source of truth for structure and layout intent.
+- **Reference image:** Trace every element, container, sub-boundary, connection, and numbered badge visible in it. Use it as the source of truth for structure and layout intent.
 - **Text description:** Interpret the description to define all elements, containers, connections, and a logical spatial arrangement. Make layout decisions explicit in `components_styling.txt`.
+
+### Before starting
+
+- **Read `skills/excalidraw-diagramming/SKILL.md` in full** before writing any plan files — all rules there (header_bg_color prohibition, container_border_point usage, external actor validation, badge manual positioning) apply equally to the plan
+- Read relevant skill files from `skills/excalidraw-diagramming/`
+- Do **not** read or reuse previous build scripts — start from scratch
+- If any feedback comes from the Critic, fix it in the relevant output files
 
 ### Output files
 
@@ -137,6 +144,7 @@ Tracks every arrow for the Main agent and Critic to validate against.
 - Run `npm run canvas`
 - Do **not** read or reuse previous build scripts — start from scratch
 - If any feedback comes from the Critic, fix it in the source code and re-run the full build script — do not make targeted updates with new temp scripts
+- When fixing arrows specifically: always `delete(arrow_id)` the existing arrow before drawing the replacement. After fixing, verify total arrow count on canvas matches the total connection count in `icons_graph_structure.md` (numbered + unlabeled). Any surplus arrows are ghosts and must be deleted.
 
 ### How to read `diagram.d2`
 
@@ -168,8 +176,10 @@ For every leaf node in `diagram.d2`, resolve its icon using `search_aws_icons` M
   - `limit` — max results (default 20)
 - If found: `upload_svg()` the SVG, use returned `file_id` in `icon_label_component()`
 - If not found: use a generic placeholder — do not block on missing icon
-- If exact color unavailable: recolor and save as a new color option
-- Track light vs dark variants carefully — many icons exist in both in different folders
+- If exact color is unavailable: recolor and save as a new color option
+- Track light vs dark variants carefully — many icons exist in both in the same or different folders
+  - For example, light background (it has a dark blue fill and white cloud) cloud icon is in aws-icons-official/Architecture-Group-Icons_01302026/AWS-Cloud_32.svg                                                                                                     
+  - Its counterpart is in aws-icons-official/Architecture-Group-Icons_01302026/AWS-Cloud_32_Dark.svg    
 
 #### 2. Place service nodes
 
@@ -285,6 +295,14 @@ Any new or modified `components.py` functions must remain generalized — not sp
 ## Agent 3: Critic
 
 **Goal:** Compare the output diagram against the input (reference image or text description) and all plan files. Flag all discrepancies and route fixes to the correct agent.
+
+### Pre-build verification (Phase 0)
+
+Before the Main agent starts building, the Critic **must** verify every row in
+`icons_graph_structure.md` against the reference image:
+- Direction, source, target, and existence of every connection confirmed
+- Any error routes back to **Planner** before build begins
+- This prevents the Main agent from building arrows that don't exist in the reference
 
 ### Inputs to read
 

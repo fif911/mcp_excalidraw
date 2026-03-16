@@ -15,6 +15,9 @@ Before any visual checks, verify the canvas matches `diagram.d2`:
 - [ ] No extra elements on canvas not present in `diagram.d2`
 - [ ] Every arrow in `icons_graph_structure.md` is present — correct source, target, direction, and badge number
 - [ ] No arrows on canvas that are NOT in `icons_graph_structure.md`
+- [ ] Every connection in `icons_graph_structure.md` verified against reference image before build (Phase 0)
+- [ ] No external arrows — every arrow start/end point is on a real element, never in empty canvas space or at the diagram edge
+- [ ] No internal stub arrows — no arrows drawn purely inside a container going to its own border (these are ghost stubs; cross-container exits start FROM the border)
 
 ---
 
@@ -57,6 +60,11 @@ Before any visual checks, verify the canvas matches `diagram.d2`:
 - [ ] Vertical spacing between boxes is uniform
 - [ ] Boxes align on a single vertical center axis
 - [ ] Connecting arrows between boxes are perfectly vertical (no diagonal)
+
+### Container Header Rules
+- [ ] `header_bg_color` not set on any container — no filled header bars
+- [ ] `external_actor_inside_container()` called and returned no violations
+- [ ] All cross-boundary arrow badges use manual `label_cx`/`label_cy` overrides
 
 ### Element Hygiene
 - [ ] Consistent `fontFamily` across all text (one font, not mixed)
@@ -104,7 +112,7 @@ assert len(issues) == 0, f"Validation failed: {issues}"
 - [ ] Badges do not touch or overlap arrow lines (offset ≥ `CIRCLE_R + 5` px)
 - [ ] Badges are on the arrow body — not at endpoints
 - [ ] Badges don't overlap adjacent icons, labels, or text
-- [ ] Badges fully inside or fully outside every container (≥15px from any border)
+- [ ] Badges fully inside or fully outside every container (≥15px from any border, including AWS Cloud outer boundary)
 - [ ] Badges in container gaps clear ALL borders in the gap region
 
 ### Labels & Readability

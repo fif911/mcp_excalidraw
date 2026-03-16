@@ -18,6 +18,23 @@ to catch fine-grained issues that full-image review misses.
 
 ## Core Workflow
 
+### Phase 0: Pre-Build Plan Verification (before Main agent starts)
+
+Before the Main agent builds anything, the Critic reads `icons_graph_structure.md` and
+verifies every connection against the reference image:
+
+1. Read `icons_graph_structure.md` — list every numbered and unlabeled arrow
+2. For each arrow, confirm against the reference:
+   - Source element exists in the reference
+   - Target element exists in the reference
+   - Direction matches (from source to target, not reversed)
+   - The connection itself exists (not a phantom arrow)
+3. Check for connections in the reference that are MISSING from `icons_graph_structure.md`
+4. Verify no `header_bg_color` is planned for any container
+5. Verify all cross-boundary arrow badges have manual position overrides planned
+
+**Errors at Phase 0 route to Planner, NOT Main.** The plan must be correct before building.
+
 ### Phase 1: Full-Image Overview (Think)
 
 1. View the full diagram image
@@ -127,6 +144,16 @@ named AWS services (e.g., Amazon S3, AWS IAM Identity Center).
 Every `container_box()` call MUST use `corner_radius=0`. If any container has
 `corner_radius > 0`, that is a bug.
 
+### HARD RULE: No External Arrows — Every Arrow Connects Two Real Elements
+
+Arrows must NEVER start or end at the canvas edge, outside a container boundary,
+or at any phantom entry/exit point. Every arrow must connect two elements that
+exist on the canvas. If an arrow's start or end point is in empty canvas space
+(not on any icon, container, or actor), it is a ghost external arrow and must be
+deleted. The source element must be traced from the reference — external entry
+lines in reference images represent connections FROM actual actors (User, DTH UI,
+etc.), not from the void.
+
 ### HARD RULE: No Phantom Arrows — Every Arrow Must Trace to the Reference
 
 Do NOT invent arrows that aren't in `icons_graph_structure.md`. Every arrow must have
@@ -141,6 +168,18 @@ a clear source and target that matches the reference. Common violations:
 must be `ICON_SIZE` (65). Check for: `HDR_ICON = 40`, `icon_size=50` (user icons),
 `icon_size=55` (grid icons). This applies to ALL elements — service icons, header icons,
 external actor icons.
+
+### HARD RULE: Never Use `header_bg_color` on Any Container
+
+`header_bg_color` creates a filled color bar behind the header. This is never used in
+standard AWS architecture diagrams. If any `container_box()` call includes
+`header_bg_color`, it is a bug. Colored borders use `stroke_color` only.
+
+### HARD RULE: Cross-Boundary Arrow Badges Must Have Manual Position
+
+Any arrow badge that crosses between containers must use explicit `label_cx` and
+`label_cy` overrides. Auto-positioned badges near container borders land on or inside
+borders, causing visual overlap. Always position in the gap between containers.
 
 ### HARD RULE: All Text Is 24px — No Exceptions
 
@@ -213,7 +252,9 @@ Crop each numbered badge. Check:
   above/below horizontal arrows, left/right of vertical arrows
 - Badge is on the arrow body, away from both endpoints
 - Badge doesn't overlap adjacent elements (icons, labels, text)
-- Badge is fully inside or fully outside every container — at least 15px from any border
+- Badge is fully inside or fully outside every container — at least 15px from any border,
+  **including the AWS Cloud outer boundary**. If offsetting to one side causes a border
+  overlap, offset to the other side instead.
 - **Gap-region awareness** — circles in gaps between containers must clear ALL borders
   in that gap, not just the two obvious neighboring containers
 

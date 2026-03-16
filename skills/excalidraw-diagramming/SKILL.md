@@ -28,6 +28,43 @@ governed by the constants above.
 
 ---
 
+## Hard Rules
+
+### HARD RULE: Never use `header_bg_color` on any container
+
+`header_bg_color` creates a filled color bar behind the header. This is **never used** in
+standard AWS diagrams. Always omit it from every `container_box()` call. Colored borders
+(like Step Functions' pink `stroke_color="#E7157B"`) are applied via `stroke_color` only.
+
+### HARD RULE: Cross-boundary arrow badges must use manual `label_cx`/`label_cy`
+
+When an arrow crosses between containers (e.g., Managed Account → Customer Account),
+the badge auto-position can land on a container border. Always override with explicit
+`label_cx` and `label_cy` positioned in the gap between containers.
+
+### HARD RULE: Use `container_border_point()` for cross-container arrow endpoints
+
+Cross-container arrows must end at the receiving container's border. Use
+`container_border_point(container_id, side, at_y=target_y)` to get the exact pixel
+coordinate. Never use internal icon coordinates as the endpoint of a cross-container arrow.
+
+### HARD RULE: Validate external actors with `external_actor_inside_container()`
+
+After placing all external actors, call `external_actor_inside_container(cx, cy, [container_ids])`
+for each actor. This confirms they are truly outside the containers they should not be inside.
+
+### Canonical Header Icons for AWS Boundaries
+
+| Boundary | Icon | `icon_type` | `icon_file_id` |
+|---|---|---|---|
+| AWS Cloud | AWS Cloud logo | `group` | `"file-cloud-logo"` |
+| AWS Account | AWS Account | `group` | `"file-account"` |
+| Region | AWS Cloud (region variant) | `group` | `"file-cloud"` |
+| VPC | VPC | `group` | `"file-vpc"` |
+| Availability Zone | (none — text only) | — | `None` |
+
+---
+
 ## Build Script Structure
 
 Every build script follows this exact order:
@@ -35,6 +72,7 @@ Every build script follows this exact order:
 ```python
 from components import *
 from utilities.overlap_checks import run_all_overlap_checks
+from utilities.arrow_utils import container_border_point, external_actor_inside_container
 import time
 
 # 1. Clear canvas
@@ -391,6 +429,68 @@ for i in range(len(boxes) - 1):
 
 ## Arrow Routing Patterns
 
+### HARD RULE: No External Arrows — Every Arrow Connects Two Real Elements
+
+Arrows must NEVER start or end at the canvas edge, outside a container boundary,
+or at any phantom entry/exit point. Every arrow must connect two elements that
+exist on the canvas (icons, containers, or external actors). If the reference
+image shows a line entering from the diagram edge, trace it to the actual source
+element (User, DTH UI, etc.) and draw the arrow from that element instead.
+
+**Detection:** After building, filter `get_elements()` for `type == "arrow"` and
+verify every arrow's start point (`x, y`) and end point are within or on an
+actual element's bounding box. Any arrow starting/ending in empty canvas space
+is a ghost external arrow.
+
+### HARD RULE: Cross-Container Arrows Exit FROM the Border — No Internal Stub Arrows
+
+When a flow exits a nested container (e.g., CloudFormation inside Step Functions
+goes to Fargate outside), draw ONE arrow starting at the container's border and
+ending at the target. Do NOT draw an arrow from the internal icon to the border —
+that is a ghost stub arrow. The internal icon's connection to the border is
+implicit by being inside the container.
+
+### HARD RULE: Track Border Arrows Explicitly in `icons_graph_structure.md`
+
+Arrows that start or end at a container border (not at an icon) are error-prone.
+They get confused with ghost stubs, duplicated across iterations, or accidentally
+deleted. To prevent this:
+
+1. **In `icons_graph_structure.md`**, mark border arrows clearly with the container
+   name and side — e.g., "SFN border (bottom)" or "Auth box (left)" as the
+   source/target instead of the internal icon name.
+2. **In the build script**, always use `container_border_point()` to compute the
+   exact coordinate — never hardcode border positions.
+3. **After every build**, verify border arrows with a dedicated check:
+   ```python
+   # List all arrows touching container borders
+   for a in arrows:
+       pts = a['points']
+       start = (a['x'], a['y'])
+       end = (a['x'] + pts[-1][0], a['y'] + pts[-1][1])
+       # Check if start/end matches any container border coordinate
+   ```
+4. **Three types of border arrow — know which you're drawing:**
+   - **Entry:** arrow ends at container border (comes from outside, stops at border)
+   - **Exit:** arrow starts at container border (leaves container, goes to target)
+   - **Through:** NEVER allowed — arrows must not pierce container boundaries
+
+### HARD RULE: Always delete before replacing an arrow
+
+When fixing an existing arrow, call `delete(old_arrow_id)` before drawing the
+replacement. Never draw a new arrow while the old one still exists. After any
+arrow fix, verify canvas arrow count matches `icons_graph_structure.md` exactly —
+count numbered arrows + unlabeled arrows and compare against `get_elements()`
+filtered by `type == "arrow"`.
+
+### HARD RULE: Prefer Straight Arrows When Source and Target Share the Same Y (or X)
+
+If two elements are at the same Y level, draw a straight horizontal arrow — do
+not route through an L-shape to reach a different icon inside a container. Same
+principle for vertical: if two elements share the same X, use a straight vertical
+arrow. Only use L-shapes or waypoints when the source and target are at different
+X AND Y positions.
+
 ### Define ARROW_STYLE once — unpack everywhere
 
 ```python
@@ -436,15 +536,20 @@ arrow("a-hub-appsync",
 
 Arrows crossing from one top-level container into another must stop at the
 receiving container's border — not pierce through to the internal icon.
+**Always use `container_border_point()` — never manually read container coordinates.**
 
 ```python
+from utilities.arrow_utils import container_border_point
+
 # Arrow from Managed Account → Customer Account (Step Functions border)
-# End point: left border of Step Functions container, not the internal icon
-step_fn = get_element("step_functions")
+# End point: left border of Step Functions container at the target's Y level
+sfn_border_x, sfn_border_y = container_border_point("step_functions", "left", at_y=cfn_cy)
 arrow("a-s3-cfn",
       start_x=s3_cx + ICON_SIZE/2, start_y=s3_cy,
-      end_x=step_fn["x"],          end_y=cfn_cy,  # left border of container
-      label_number=6, **ARROW_STYLE)
+      end_x=sfn_border_x, end_y=sfn_border_y,
+      label_number=6,
+      label_cx=gap_cx, label_cy=s3_cy - 28,  # ALWAYS manual position for cross-boundary
+      **ARROW_STYLE)
 ```
 
 ### High arrow count strategy (10+ arrows)

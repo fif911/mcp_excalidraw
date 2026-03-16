@@ -7,3 +7,7 @@ from .overlap_checks import (
     check_label_arrow_overlaps,
     check_numbered_circle_overlaps,
 )
+from .arrow_utils import (
+    container_border_point,
+    external_actor_inside_container,
+)

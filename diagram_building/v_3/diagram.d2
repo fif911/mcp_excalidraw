@@ -1,0 +1,56 @@
+# Data Transfer Hub Architecture Diagram
+
+aws_cloud: AWS Cloud {
+  customer_account: Customer's AWS Account {
+    auth: Authentication {
+      style.stroke-dash: 5
+      cognito: Amazon Cognito
+      openid: OpenID Connect
+    }
+
+    dynamodb: Amazon DynamoDB
+
+    appsync: AWS AppSync
+    lambda: AWS Lambda
+
+    step_functions: AWS Step Functions workflow {
+      # layout: vertical-stack
+      lambda_sf: AWS Lambda
+      cloudformation: AWS CloudFormation
+    }
+
+    # Bottom row
+    # layout: horizontal-row
+    dth_ui: Data Transfer Hub UI
+    cloudfront: Amazon CloudFront
+    s3_customer: Amazon S3
+    fargate: AWS Fargate
+
+    user: User
+  }
+
+  managed_account: AWS Managed Account {
+    # layout: 2-column grid, 3 rows
+    s3_repl: S3 replication component template
+    dynamodb_repl: DynamoDB replication component template
+    s3_managed: Amazon S3
+    ecr_repl: ECR replication component template
+    ecr: Amazon ECR
+    ecr_docker: ECR replication Docker image
+  }
+}
+
+# Numbered arrows
+dth_ui -> cloudfront: 1
+dth_ui -> appsync: 2
+user -> dth_ui: 3
+appsync -> lambda: 4
+lambda -> step_functions.lambda_sf: 5
+s3_managed -> step_functions.cloudformation: 6
+ecr -> fargate: 7
+appsync -> dynamodb: 8
+
+# Unlabeled arrows
+dth_ui -> cognito
+cloudfront -> s3_customer
+step_functions.cloudformation -> fargate

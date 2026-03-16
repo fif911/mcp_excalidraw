@@ -342,13 +342,23 @@ def numbered_circle(prefix, number, cx, cy, size=50,
     create(bg_props)
 
     txt = str(number)
-    tw, th = measure_text(txt, font_size)
+    _, th = measure_text(txt, font_size)
     if th <= 0:
         th = font_size * 1.25
 
+    # Vertical centering correction: Excalidraw's line-height box (1.25x)
+    # places the visual glyph center ~font_size*0.05 below the geometric
+    # box center. Without this, text appears slightly high on reload.
+    vert_correction = font_size * 0.05
+
+    # Horizontal centering: with textAlign "center" and auto-width (width=0),
+    # Excalidraw centers the text glyph AT the x position. So x = cx puts
+    # the text center at the circle center. Do NOT subtract tw/2 — that
+    # would double-shift left because measure_text width is not used by
+    # the renderer when textAlign is "center".
     create({
         "id": text_id, "type": "text",
-        "x": cx - tw / 2, "y": cy - th / 2,
+        "x": cx, "y": cy - th / 2 + vert_correction,
         "text": txt,
         "fontSize": font_size, "fontFamily": "2",
         "textAlign": "center",

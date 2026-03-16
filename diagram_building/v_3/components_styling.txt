@@ -1,0 +1,77 @@
+# Data Transfer Hub — Visual Styling Spec
+
+## Canvas
+- Size: 1660 x 1020
+
+## Arrow Style
+- Stroke color: #545B64 (AWS gray)
+- Stroke width: 2
+- Badge: dark circle, bg=#232F3E, text=#ffffff, size=38, shape=circle
+
+## Containers
+
+### AWS Cloud (outermost)
+- Position: x=20, y=20, w=1640, h=1000
+- Stroke: #545B64, width=2, solid
+- Header: AWS Cloud logo icon, label "AWS Cloud", label_color=#000000
+- No header background color
+
+### Customer's AWS Account
+- Position: x=50, y=100, w=990, h=860
+- Stroke: #545B64, width=2, solid
+- Header: Account icon, label "Customer's AWS Account", label_color=#000000
+- No header background color
+
+### AWS Managed Account
+- Position: x=1090, y=100, w=520, h=860
+- Stroke: #545B64, width=2, solid
+- Header: no icon, label "AWS Managed Account", label_color=#000000
+- No header background color
+
+### Authentication (sub-boundary)
+- Position: x=75, y=215, w=310, h=175
+- Stroke: #545B64, width=1.5, dashed
+- Header: no icon, label "Authentication", label_color=#000000
+
+### AWS Step Functions workflow
+- Position: x=700, y=165, w=280, h=480
+- Stroke: #E7157B (pink), width=2, solid
+- Header: Step Functions icon, label "AWS Step Functions\nworkflow", label_color=#000000
+- No header background (just pink border)
+
+## Service Elements (cx, cy positions)
+
+### Inside Authentication
+- Amazon Cognito: cx=170, cy=310
+- OpenID Connect: cx=310, cy=310
+
+### Inside Customer Account (free-placed)
+- Amazon DynamoDB: cx=560, cy=270
+- AWS AppSync: cx=400, cy=510
+- AWS Lambda (middle): cx=580, cy=510
+- Data Transfer Hub UI: cx=150, cy=640
+- Amazon CloudFront: cx=400, cy=790
+- Amazon S3: cx=600, cy=790
+- AWS Fargate: cx=840, cy=790
+- User: cx=150, cy=870
+
+### Inside Step Functions
+- AWS Lambda: cx=840, cy=330
+- AWS CloudFormation: cx=840, cy=510
+
+### Inside Managed Account (2-col x 3-row grid)
+- S3 replication component template: cx=1210, cy=280
+- DynamoDB replication component template: cx=1440, cy=280
+- Amazon S3 (bucket): cx=1210, cy=510
+- ECR replication component template: cx=1440, cy=510
+- Amazon ECR: cx=1210, cy=790
+- ECR replication Docker image: cx=1440, cy=790
+
+## Icon Variants
+- All AWS service icons: architecture type, 64px, Light variant
+- User: resource type, 48px, Light variant (outline silhouette)
+- Data Transfer Hub UI: resource Client icon, 48px, Light variant
+- OpenID Connect: custom/icons8-openid.svg
+- Template icons (S3/DynamoDB/ECR repl): resource CloudFormation Template, 48px
+- S3 bucket (managed): resource S3 Bucket, 48px
+- ECR Docker image: resource ECR Image, 48px
