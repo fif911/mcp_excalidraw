@@ -103,6 +103,7 @@ These rules override what the reference image shows. If the reference image cont
 - [ ] Badge color matches reference — check `bg_color`/`label_bg` against the plan. Different arrows may use different colors
 - [ ] All badges of the same type use **consistent size** — uniform across the diagram
 - [ ] White number on filled background (unless reference specifies otherwise)
+- [ ] **Number perfectly centered** — `numbered_circle()` uses Excalidraw's built-in `label` property on the shape (not a separate text element). If numbers appear off-center, the function was modified incorrectly — revert to the `label` approach
 - [ ] No visible border/stroke on badge background
 
 ### Placement

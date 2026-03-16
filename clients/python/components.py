@@ -161,6 +161,7 @@ def estimate_text_height(text, font_size=22):
 # Enforced in all component functions. Build scripts cannot override these.
 ICON_SIZE = 65    # ALL icons — service AND header — no exceptions
 FONT_SIZE = 24    # ALL text — headers, labels, circles — no exceptions
+HEADER_HEIGHT = 75  # ICON_SIZE + 10px padding — all container headers
 
 
 # ─── REUSABLE COMPONENTS ───
@@ -298,6 +299,8 @@ def numbered_circle(prefix, number, cx, cy, size=50,
     Create a colored shape with centered number, grouped.
 
     Font size is locked to FONT_SIZE (24). Cannot be overridden.
+    Centering is computed from measure_text (width) and font_size * 1.25
+    (height). Do NOT use align_in_parent — it worsens centering.
 
     Shapes: "circle" (ellipse), "square" (sharp corners), "rounded" (rounded
     rectangle), "diamond" (rotated square).
@@ -310,7 +313,6 @@ def numbered_circle(prefix, number, cx, cy, size=50,
     text_id = f"{prefix}-tx"
     group_id = f"g-{prefix}"
 
-    # Map shape name to Excalidraw element type + roundness
     if shape == "circle":
         el_type = "ellipse"
         roundness = None
@@ -339,12 +341,10 @@ def numbered_circle(prefix, number, cx, cy, size=50,
 
     create(bg_props)
 
-    # LOCKED centering — agents cannot override text position.
-    # Width from measure_text, height locked to font_size * 1.25 for
-    # consistent vertical centering (measure_text height underestimates).
     txt = str(number)
-    tw, _ = measure_text(txt, font_size)
-    th = font_size * 1.25  # locked — matches Excalidraw visual line height
+    tw, th = measure_text(txt, font_size)
+    if th <= 0:
+        th = font_size * 1.25
 
     create({
         "id": text_id, "type": "text",
@@ -356,16 +356,38 @@ def numbered_circle(prefix, number, cx, cy, size=50,
         "groupIds": [group_id]
     })
 
-    # Browser-delegated centering for pixel-perfect alignment
-    try:
-        align_in_parent(text_id, bg_id, alignment="center")
-    except Exception:
-        pass
-
     return {
         "bg_id": bg_id, "text_id": text_id, "group_id": group_id,
         "bbox": {"x": cx - size/2, "y": cy - size/2, "w": size, "h": size, "cx": cx, "cy": cy}
     }
+
+
+def center_all_badge_texts():
+    """
+    Re-center all numbered badge texts using browser-rendered dimensions.
+
+    Call ONCE after the full build is complete and the browser has rendered
+    all elements. Finds all ellipse/rectangle badge backgrounds (id ending
+    in '-bg') and their paired text elements ('-tx'), then uses
+    align_in_parent for pixel-perfect centering.
+    """
+    import time
+    time.sleep(0.5)  # let browser finish rendering
+    els = get_elements().get('elements', [])
+    pairs = []
+    el_map = {e['id']: e for e in els}
+    for e in els:
+        if e['id'].endswith('-bg') and e['type'] in ('ellipse', 'rectangle', 'diamond'):
+            tx_id = e['id'][:-3] + '-tx'
+            if tx_id in el_map:
+                pairs.append((tx_id, e['id']))
+    for tx_id, bg_id in pairs:
+        try:
+            align_in_parent(tx_id, bg_id, alignment="center")
+        except Exception:
+            pass
+    if pairs:
+        print(f"  Re-centered {len(pairs)} badge texts via browser alignment")
 
 
 def container_box(cid, x, y, w, h, stroke_color, fill_color="transparent",
@@ -377,11 +399,12 @@ def container_box(cid, x, y, w, h, stroke_color, fill_color="transparent",
     Create a container rectangle with optional header (icon + label in top-left).
 
     Icon header size and label font size are locked to ICON_SIZE (65) and
-    FONT_SIZE (24). These cannot be overridden.
+    FONT_SIZE (24). Header height is locked to HEADER_HEIGHT (75).
+    These cannot be overridden.
 
     Args:
         header_bg_color: Optional colored bar spanning full width at top
-        header_height: Height of the header bar (default: ICON_SIZE)
+        header_height: IGNORED — kept for backward compat, locked to HEADER_HEIGHT
         header_fill: If False, skip drawing the header background even if header_bg_color is set
 
     Returns:
@@ -417,7 +440,7 @@ def container_box(cid, x, y, w, h, stroke_color, fill_color="transparent",
 
     # Header background bar (created BEFORE icon/label for z-order)
     if header_bg_color and header_fill:
-        hdr_h = header_height or icon_sz
+        hdr_h = HEADER_HEIGHT
         header_bg_id = f"{cid}-hdr-bg"
         create({
             "id": header_bg_id, "type": "rectangle",
@@ -445,7 +468,7 @@ def container_box(cid, x, y, w, h, stroke_color, fill_color="transparent",
         text_w, text_h = measure_text(label_text, label_font_size)
         if icon_file_id:
             lx = x + icon_sz + 5
-            center_h = header_height or icon_sz
+            center_h = HEADER_HEIGHT
             # Align text visual center with icon center.
             # Text bounding box includes line-height padding below baseline,
             # so geometric center sits lower than visual glyph center.
@@ -482,7 +505,7 @@ def service_in_container(prefix, file_id, label_text, container_id,
         dict from icon_label_component
     """
     ctr = get_element(container_id)
-    header_h = ICON_SIZE  # space for header icon + padding
+    header_h = HEADER_HEIGHT  # locked constant
 
     # Content area
     content_x = ctr['x']
@@ -514,6 +537,7 @@ def grid_2x2(prefix, items, container_id, header_h=45,
     Returns:
         List of 4 component dicts from icon_label_component
     """
+    header_h = HEADER_HEIGHT  # locked — param ignored
     ctr = get_element(container_id)
     cx = ctr['x']
     cy = ctr['y'] + header_h
@@ -1610,6 +1634,130 @@ def validate_diagram():
                     issues.append(f"COLOR: {e['id']} has non-black color {color}")
     
     return issues
+
+
+# ─── POST-LAYOUT HELPERS (for Mermaid hybrid workflow) ───
+
+def replace_with_aws_icon(element_id, file_id, label_text,
+                          gap=8, text_color="#000000", label_width=None,
+                          icon_bg_color=None, icon_bg_padding=6):
+    """
+    Replace a Mermaid-generated rectangle with an AWS icon+label component.
+
+    Reads the element's center position, deletes it, and creates an
+    icon_label_component at the same center.
+
+    Args:
+        element_id: ID of the Mermaid-generated element to replace
+        file_id: Uploaded SVG file ID for the AWS icon
+        label_text: Label text for the service
+        (remaining args passed through to icon_label_component)
+
+    Returns:
+        dict from icon_label_component() with keys: icon_id, label_id, group_id, bbox
+    """
+    el = get_element(element_id)
+    cx = el["x"] + el.get("width", 0) / 2
+    cy = el["y"] + el.get("height", 0) / 2
+
+    # Delete the Mermaid-generated element
+    _delete(f"/elements/{element_id}")
+
+    # Create AWS icon+label at same center
+    prefix = element_id.replace("-", "_")
+    return icon_label_component(
+        prefix, file_id, label_text, cx, cy,
+        gap=gap, text_color=text_color, label_width=label_width,
+        icon_bg_color=icon_bg_color, icon_bg_padding=icon_bg_padding,
+    )
+
+
+def style_container(element_id, stroke_color="#545B64", fill_color="transparent",
+                    icon_file_id=None, label_text=None, label_color=None,
+                    stroke_width=2, stroke_style="solid",
+                    header_bg_color=None, header_height=None, header_fill=True,
+                    padding=None):
+    """
+    Replace a Mermaid-generated subgraph with a styled container_box.
+
+    Reads the element's position/size, deletes it, and creates a container_box
+    with AWS-style formatting.
+
+    Args:
+        element_id: ID of the Mermaid-generated subgraph rectangle
+        padding: Optional padding to add around the original bounds
+        (remaining args passed through to container_box)
+
+    Returns:
+        dict from container_box()
+    """
+    el = get_element(element_id)
+    x = el["x"]
+    y = el["y"]
+    w = el.get("width", 200)
+    h = el.get("height", 100)
+
+    if padding:
+        x -= padding
+        y -= padding
+        w += 2 * padding
+        h += 2 * padding
+
+    # Delete the Mermaid-generated element
+    _delete(f"/elements/{element_id}")
+
+    return container_box(
+        element_id, x, y, w, h,
+        stroke_color=stroke_color, fill_color=fill_color,
+        icon_file_id=icon_file_id, label_text=label_text,
+        label_color=label_color, stroke_width=stroke_width,
+        stroke_style=stroke_style, corner_radius=0,
+        header_bg_color=header_bg_color, header_height=header_height,
+        header_fill=header_fill,
+    )
+
+
+def add_badge_to_arrow(element_id, badge_number,
+                       label_bg="#1a1a1a", label_text_color="#ffffff",
+                       label_size=36, label_shape="circle",
+                       label_offset=None):
+    """
+    Add a numbered badge to an existing arrow at its midpoint.
+
+    Reads the arrow's points, computes the midpoint using _path_midpoint(),
+    and places a numbered_circle adjacent using _perp_offset().
+
+    Args:
+        element_id: ID of the arrow element
+        badge_number: Number to display in the badge
+        label_bg: Badge background color
+        label_text_color: Badge text color
+        label_size: Badge diameter
+        label_shape: Badge shape (circle/square/rounded/diamond)
+        label_offset: Distance from arrow to badge center (default: label_size/2 + 5)
+
+    Returns:
+        dict from numbered_circle() with keys: bg_id, text_id, group_id, bbox
+    """
+    el = get_element(element_id)
+    ox, oy = el["x"], el["y"]
+    pts = el.get("points", [[0, 0], [100, 0]])
+
+    # Convert relative points to absolute
+    abs_pts = [(ox + p[0], oy + p[1]) for p in pts]
+
+    if label_offset is None:
+        label_offset = label_size / 2 + 5
+
+    mx, my, seg_dx, seg_dy = _path_midpoint(abs_pts)
+    off_x, off_y = _perp_offset(seg_dx, seg_dy, label_offset)
+
+    return numbered_circle(
+        f"badge-{element_id}", badge_number,
+        cx=round(mx + off_x), cy=round(my + off_y),
+        size=label_size, bg_color=label_bg,
+        text_color=label_text_color, shape=label_shape,
+    )
 
 
 if __name__ == "__main__":

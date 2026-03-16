@@ -27,6 +27,7 @@ export interface IconSearchParams {
   variant?: string;
   color?: string;
   limit?: number;
+  resolve?: boolean;
 }
 
 export interface IconSearchResult {
@@ -41,6 +42,7 @@ export interface IconSearchResult {
   for_dark_background: boolean; // true = designed for dark backgrounds (light strokes), false = for light/white backgrounds
   color?: string;             // recolored variant color name, e.g. "Orange"
   color_hex?: string;         // hex value of the color, e.g. "#ED7100"
+  absolute_path?: string;     // full filesystem path — present only when resolve=true
 }
 
 export interface IconSearchResponse {
@@ -676,6 +678,7 @@ export function searchIcons(params: IconSearchParams): IconSearchResponse {
       color_hex: entry.color
         ? NAMED_COLORS[entry.color.toLowerCase()]
         : AWS_CATEGORY_COLORS[entry.category],
+      ...(params.resolve && iconsBaseDir ? { absolute_path: path.join(iconsBaseDir, entry.path) } : {}),
     })),
   };
 }

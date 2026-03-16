@@ -279,6 +279,7 @@ const SearchAwsIconsSchema = z.object({
   variant: z.enum(['Light', 'Dark']).optional(),
   color: z.string().optional(),
   limit: z.number().min(1).max(50).optional(),
+  resolve: z.boolean().optional(),
 });
 
 // Diagram design guide — injected into LLM context via read_diagram_guide tool
@@ -631,6 +632,29 @@ const tools: Tool[] = [
     }
   },
   {
+    name: 'create_from_d2',
+    description: 'Converts a D2 diagram definition into Excalidraw elements on the canvas. Supports shapes, containers, connections, labels, and basic styles.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        d2Diagram: {
+          type: 'string',
+          description: 'D2 diagram syntax. Supports nodes, containers (nested {}), connections (->, <-, <->), labels, and style attributes.'
+        },
+        layout: {
+          type: 'string',
+          enum: ['dagre', 'elk'],
+          description: 'Layout engine hint — used for CLI validation only. Actual layout is computed by the converter.'
+        },
+        validate: {
+          type: 'boolean',
+          description: 'If true and d2 CLI is installed, validates syntax before converting. Defaults to true.'
+        }
+      },
+      required: ['d2Diagram']
+    }
+  },
+  {
     name: 'batch_create_elements',
     description: 'Create multiple Excalidraw elements at once. For arrows, use startElementId/endElementId to bind arrows to shapes — Excalidraw auto-routes to element edges. Assign custom id to shapes so arrows can reference them.',
     inputSchema: {
@@ -896,6 +920,10 @@ const tools: Tool[] = [
         limit: {
           type: 'number',
           description: 'Max results to return (default: 20, max: 50)'
+        },
+        resolve: {
+          type: 'boolean',
+          description: 'When true, include absolute_path in results for direct use with upload_svg(). Default: false.'
         }
       }
     }
@@ -1444,7 +1472,54 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
           throw new Error(`Failed to process Mermaid diagram: ${(error as Error).message}`);
         }
       }
-      
+
+      case 'create_from_d2': {
+        const params = z.object({
+          d2Diagram: z.string(),
+          layout: z.enum(['dagre', 'elk']).optional().default('dagre'),
+          validate: z.boolean().optional().default(true),
+        }).parse(args);
+
+        logger.info('Creating Excalidraw elements from D2 diagram via MCP', {
+          diagramLength: params.d2Diagram.length,
+          layout: params.layout,
+          validate: params.validate
+        });
+
+        try {
+          const response = await fetch(`${EXPRESS_SERVER_URL}/api/elements/from-d2`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              d2Diagram: params.d2Diagram,
+              layout: params.layout,
+              validate: params.validate,
+            }),
+          });
+
+          if (!response.ok) {
+            const err = await response.json() as any;
+            return {
+              content: [{
+                type: 'text',
+                text: `D2 conversion failed: ${err.error ?? response.statusText}${err.details ? `\n\nDetails:\n${err.details}` : ''}`
+              }]
+            };
+          }
+
+          const result = await response.json() as any;
+
+          return {
+            content: [{
+              type: 'text',
+              text: `D2 diagram converted successfully!\n\nElements created: ${result.elementCount}\n\n${JSON.stringify(result, null, 2)}`
+            }]
+          };
+        } catch (error) {
+          throw new Error(`Failed to process D2 diagram: ${(error as Error).message}`);
+        }
+      }
+
       case 'batch_create_elements': {
         const params = z.object({ elements: z.array(ElementSchema) }).parse(args);
         logger.info('Batch creating elements via MCP', { count: params.elements.length });
@@ -2335,6 +2410,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
           variant: params.variant,
           color: params.color,
           limit: params.limit ?? 20,
+          resolve: params.resolve,
         });
         return {
           content: [{ type: 'text', text: JSON.stringify(results, null, 2) }]

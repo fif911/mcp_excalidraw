@@ -22,7 +22,7 @@ R = 33  # Half icon + gap for arrow endpoints
 ARROW_CFG = arrow_style(
     stroke_color="#545B64", stroke_width=2, stroke_style="solid",
     label_bg="#232F3E", label_text_color="#ffffff",
-    label_size=32, label_shape="circle",
+    label_size=38, label_shape="circle",
 )
 ARROW_PLAIN = {k: v for k, v in ARROW_CFG.items() if 'label' not in k}
 

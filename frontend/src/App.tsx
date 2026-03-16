@@ -86,6 +86,41 @@ const cleanElementForExcalidraw = (element: ServerElement): Partial<ExcalidrawEl
   return cleanElement;
 }
 
+// Center badge texts: match text center to ellipse center using rendered dimensions
+const centerBadgeTexts = (api: any) => {
+  const els = api.getSceneElements()
+  if (!els || els.length === 0) return
+  // Build groupId -> elements map
+  const groups: Record<string, any[]> = {}
+  for (const el of els) {
+    if (el.isDeleted) continue
+    for (const gid of (el.groupIds || [])) {
+      if (!groups[gid]) groups[gid] = []
+      groups[gid].push(el)
+    }
+  }
+  let updated = false
+  for (const members of Object.values(groups)) {
+    const ellipse = members.find((e: any) => e.type === 'ellipse')
+    const text = members.find((e: any) => e.type === 'text')
+    if (!ellipse || !text || !text.width || !text.height) continue
+    const ecx = ellipse.x + ellipse.width / 2
+    const ecy = ellipse.y + ellipse.height / 2
+    const newX = ecx - text.width / 2
+    const newY = ecy - text.height / 2
+    if (Math.abs(text.x - newX) > 0.5 || Math.abs(text.y - newY) > 0.5) {
+      api.updateScene({
+        elements: els.map((e: any) =>
+          e.id === text.id ? { ...e, x: newX, y: newY } : e
+        ),
+        captureUpdate: CaptureUpdateAction.NEVER
+      })
+      updated = true
+    }
+  }
+  if (updated) console.log('[badge-center] Re-centered badge texts')
+}
+
 // Helper: restore startBinding/endBinding/boundElements after convertToExcalidrawElements strips them
 const restoreBindings = (
   convertedElements: readonly any[],
@@ -312,6 +347,10 @@ function App(): JSX.Element {
               elements: [...convertedElements, ...fullImageElements],
               captureUpdate: CaptureUpdateAction.NEVER
             })
+            // Auto-center badge texts using browser font metrics
+            setTimeout(() => {
+              centerBadgeTexts(excalidrawAPI)
+            }, 150)
           }
           // Load files for image elements
           if ((data as any).files) {

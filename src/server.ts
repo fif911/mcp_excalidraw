@@ -27,6 +27,10 @@ import {
 } from './types.js';
 import { z } from 'zod';
 import WebSocket from 'ws';
+import { execSync } from 'child_process';
+import fs from 'fs';
+import os from 'os';
+import { convertD2ToExcalidraw } from './utils/d2Converter.js';
 
 // Load environment variables
 dotenv.config();
@@ -730,6 +734,70 @@ app.post('/api/elements/from-mermaid', (req: Request, res: Response) => {
   }
 });
 
+// Convert D2 diagram to Excalidraw elements
+app.post('/api/elements/from-d2', async (req: Request, res: Response) => {
+  try {
+    const { d2Diagram, layout = 'dagre', validate = true } = req.body;
+    if (!d2Diagram || typeof d2Diagram !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'D2 diagram definition is required'
+      });
+    }
+
+    logger.info('Received D2 conversion request', {
+      diagramLength: d2Diagram.length,
+      layout,
+      validate
+    });
+
+    // Optional: validate syntax using d2 CLI if installed
+    if (validate) {
+      try {
+        const tmpIn = path.join(os.tmpdir(), `d2-validate-${Date.now()}.d2`);
+        fs.writeFileSync(tmpIn, d2Diagram);
+        execSync(`d2 --check ${tmpIn}`, { stdio: 'pipe' });
+        fs.unlinkSync(tmpIn);
+      } catch (err: any) {
+        // d2 CLI not installed or syntax error — log but don't block
+        const stderr = err.stderr?.toString() ?? '';
+        if (stderr.includes('syntax') || stderr.includes('error')) {
+          return res.status(400).json({
+            success: false,
+            error: 'D2 syntax error',
+            details: stderr || err.message,
+          });
+        }
+        // CLI not found — skip validation silently
+        logger.info('d2 CLI not available, skipping validation');
+      }
+    }
+
+    // Convert D2 syntax → Excalidraw elements
+    const d2Elements = convertD2ToExcalidraw(d2Diagram);
+
+    // Broadcast to all WebSocket clients
+    broadcast({
+      type: 'd2_convert',
+      elements: d2Elements,
+      timestamp: new Date().toISOString()
+    } as any);
+
+    res.json({
+      success: true,
+      elementCount: d2Elements.length,
+      elements: d2Elements,
+      message: 'D2 diagram converted and sent to canvas.'
+    });
+  } catch (error) {
+    logger.error('Error processing D2 diagram:', error);
+    res.status(400).json({
+      success: false,
+      error: (error as Error).message
+    });
+  }
+});
+
 // Sync elements from frontend (overwrite sync)
 app.post('/api/elements/sync', (req: Request, res: Response) => {
   try {
@@ -1305,7 +1373,7 @@ function measureText(text: string, fontSize: number): { width: number; height: n
     }
     if (lineWidth > maxWidth) maxWidth = lineWidth;
   }
-  return { width: Math.ceil(maxWidth), height: Math.ceil(lines.length * lineHeight) };
+  return { width: Math.round(maxWidth * 100) / 100, height: Math.round(lines.length * lineHeight * 100) / 100 };
 }
 
 // Text measurement endpoint (Helvetica character-width approximation)
