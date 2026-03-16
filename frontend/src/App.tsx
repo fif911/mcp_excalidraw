@@ -717,7 +717,29 @@ function App(): JSX.Element {
             }
           }
           break
-          
+
+        case 'd2_convert':
+          console.log('Received D2 conversion result from server')
+          if (data.elements && data.elements.length > 0) {
+            try {
+              const cleanedD2Elements = data.elements.map(cleanElementForExcalidraw)
+              const validatedD2Elements = validateAndFixBindings(cleanedD2Elements)
+              const allD2Elements = [...currentElements, ...validatedD2Elements] as any[]
+              const rawConvertedD2 = convertToExcalidrawElements(allD2Elements, { regenerateIds: false })
+              const convertedD2Elements = restoreBindings(rawConvertedD2, allD2Elements)
+              excalidrawAPI.updateScene({
+                elements: convertedD2Elements,
+                captureUpdate: CaptureUpdateAction.IMMEDIATELY
+              })
+
+              console.log('D2 diagram rendered:', data.elements.length, 'elements')
+              await syncToBackend()
+            } catch (error) {
+              console.error('Error rendering D2 diagram from WebSocket:', error)
+            }
+          }
+          break
+
         default:
           console.log('Unknown WebSocket message type:', data.type)
       }
