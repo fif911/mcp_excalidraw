@@ -30,6 +30,26 @@ governed by the constants above.
 
 ## Hard Rules
 
+### HARD RULE: Every Element's Connection Status Must Be Explicitly Tracked
+
+Every leaf node in `diagram.d2` must appear in exactly one of three sections in
+`icons_graph_structure.md`: numbered arrows, unlabeled arrows, or standalone elements.
+If any element is missing from all three, the plan has a gap that must be fixed before
+building.
+
+**Elements in the "Standalone Elements" section have zero arrows.** Whether an element
+is standalone depends entirely on the specific reference image — not on the element type.
+A "User" icon may be standalone in one diagram and have arrows in another. The Planner
+must trace the reference carefully to determine this per diagram.
+
+**Common mistake:** The agent sees an unconnected icon and assumes it's an error, then
+invents a connection (e.g., User → DTH UI) to "fix" it. This creates a phantom arrow
+that doesn't exist in the reference. The arrows tables in `icons_graph_structure.md` are
+the **exhaustive** list — if an element doesn't appear there, it has no arrows.
+
+**Verification:** After building all arrows, count them. The total must equal the number
+of rows in the numbered + unlabeled arrow tables. Any extra arrow is a phantom.
+
 ### HARD RULE: Never use `header_bg_color` on any container
 
 `header_bg_color` creates a filled color bar behind the header. This is **never used** in
@@ -148,6 +168,35 @@ search_aws_icons(
 
 If the exact color variant is unavailable, recolor and save as a new color option via
 the `search_aws_icons` recolor capability.
+
+### HARD RULE: Verify Icon Color Against the Reference Image
+
+After finding an icon by name, **always compare its `color_hex` against the reference
+image**. The same icon shape can exist in multiple color variants (e.g., CloudFormation
+Template comes in pink `#E7157B` and orange `#ED7100`). Picking the wrong color is a
+common error that is hard to catch later.
+
+**Verification steps for every icon:**
+
+1. Find the icon by name/query via `search_aws_icons`
+2. Note the `color_hex` in the result
+3. Compare against the reference image — does the icon color match?
+4. If the color does NOT match, search for a recolored variant:
+   ```
+   search_aws_icons(query="<icon name>", icon_type="custom")
+   ```
+   Custom recolored variants live in `icons/custom/` with color suffixes like
+   `_Orange.svg`, `_Green.svg`, `_Purple.svg`.
+5. If no custom variant exists, recolor the SVG and save it as a new custom variant
+6. Use a **distinct `file_id`** for each color variant (e.g., `"file-cfn-template-orange"`
+   vs `"file-cfn-template"`) — reusing the same file_id with a different SVG path may
+   not update due to caching
+
+**Common color mismatches to watch for:**
+
+| Icon | Standard color | Common reference color | Custom variant |
+|---|---|---|---|
+| CloudFormation Template | Pink #E7157B | Orange #ED7100 | `custom/Res_AWS-CloudFormation_Template_48_Orange.svg` |
 
 ---
 
@@ -441,6 +490,22 @@ element (User, DTH UI, etc.) and draw the arrow from that element instead.
 verify every arrow's start point (`x, y`) and end point are within or on an
 actual element's bounding box. Any arrow starting/ending in empty canvas space
 is a ghost external arrow.
+
+### HARD RULE: Arrow Endpoint Container Check
+
+Before coding each arrow, check: is the target icon inside a container that the
+source icon is NOT inside? If yes, the arrow ends at that container's border.
+
+```
+1. Same container (or both outside)     → icon-to-icon
+2. Source outside, target inside         → end at container border (Entry)
+3. Source inside, target outside         → start at container border (Exit)
+4. Different containers                  → both ends at respective borders
+```
+
+The arrow stops at the FIRST container boundary it would cross. In
+`icons_graph_structure.md`, always write the actual endpoint — e.g.,
+"Auth box (left border)" not "Amazon Cognito".
 
 ### HARD RULE: Cross-Container Arrows Exit FROM the Border — No Internal Stub Arrows
 

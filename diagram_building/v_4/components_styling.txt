@@ -1,0 +1,81 @@
+# Data Transfer Hub — Visual Styling Spec
+
+## Canvas
+- Size: 1860 x 1000
+
+## Arrow Style
+- Stroke color: #545B64 (AWS gray)
+- Stroke width: 2
+- Badge: dark circle, bg=#232F3E, text=#ffffff, size=38, shape=circle
+
+## Containers
+
+### AWS Cloud (outermost)
+- Position: x=20, y=20, w=1860, h=1000
+- Stroke: #545B64, width=2, solid
+- Header: AWS Cloud logo icon (file-cloud-logo), label "AWS Cloud", label_color=#000000
+- No header_bg_color
+
+### Customer's AWS Account
+- Position: x=200, y=100, w=980, h=860
+- Stroke: #545B64, width=2, solid
+- Header: Cloud icon (file-cloud-hdr), label "Customer's AWS Account", label_color=#000000
+- No header_bg_color
+
+### AWS Managed Account
+- Position: x=1230, y=100, w=530, h=860
+- Stroke: #545B64, width=2, solid
+- Header: Cloud icon (file-cloud-hdr), label "AWS Managed Account", label_color=#000000
+- No header_bg_color
+
+### Authentication (sub-boundary)
+- Position: x=225, y=230, w=310, h=175
+- Stroke: #545B64, width=1.5, dashed
+- Header: no icon, label "Authentication", label_color=#000000
+
+### AWS Step Functions workflow
+- Position: x=850, y=165, w=280, h=480
+- Stroke: #E7157B (pink), width=2, solid
+- Header: Step Functions icon (file-step-functions), label "AWS Step Functions\nworkflow", label_color=#000000
+- No header_bg_color (pink border only)
+
+## External Actors (inside AWS Cloud, outside Customer Account)
+- Data Transfer Hub UI: cx=110, cy=640 (computer/client icon)
+- User: cx=110, cy=870 (person silhouette)
+
+## Service Elements (cx, cy positions)
+
+### Inside Authentication
+- Amazon Cognito: cx=320, cy=330 (pink, Security-Identity)
+- OpenID Connect: cx=460, cy=330 (custom icon)
+
+### Inside Customer Account (free-placed)
+- Amazon DynamoDB: cx=710, cy=230 (purple, Databases)
+- AWS AppSync: cx=550, cy=510 (pink, App Integration)
+- AWS Lambda (middle): cx=730, cy=510 (orange, Compute)
+
+### Bottom row (inside Customer Account)
+- Amazon CloudFront: cx=550, cy=790 (purple, Networking)
+- Amazon S3 (customer): cx=730, cy=790 (green, Storage)
+- AWS Fargate: cx=990, cy=790 (orange, Containers)
+
+### Inside Step Functions workflow (vertical stack)
+- AWS Lambda: cx=990, cy=330 (orange, Compute)
+- AWS CloudFormation: cx=990, cy=510 (orange, Management)
+
+### Inside Managed Account (2-col x 3-row grid)
+- S3 replication component template: cx=1350, cy=280 (orange, CFN template resource icon)
+- DynamoDB replication component template: cx=1610, cy=280 (orange, CFN template resource icon)
+- Amazon S3 (bucket): cx=1350, cy=510 (green, S3 bucket resource icon)
+- ECR replication component template: cx=1610, cy=510 (orange, CFN template resource icon)
+- Amazon ECR: cx=1350, cy=790 (orange, Containers)
+- ECR replication Docker image: cx=1610, cy=790 (orange, ECR image resource icon)
+
+## Icon Variants
+- All AWS service icons: architecture type, 64px, Light variant
+- User: resource type, Res_User_48_Light
+- Data Transfer Hub UI: resource type, Res_Client_48_Light
+- OpenID Connect: custom/icons8-openid.svg
+- Template icons (S3/DynamoDB/ECR repl): Res_AWS-CloudFormation_Template_48
+- S3 bucket (managed): Res_Amazon-Simple-Storage-Service_Bucket_48
+- ECR Docker image: Res_Amazon-Elastic-Container-Registry_Image_48

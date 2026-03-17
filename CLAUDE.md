@@ -102,6 +102,7 @@ managed_account: AWS Managed Account {
 - Use `# layout:` comments inside containers to specify arrangement: `single`, `horizontal-row`, `vertical-stack`, `2-column grid`, `2x2`, etc.
 - Do NOT specify icon URLs — icon lookup is handled by the Main agent via `search_aws_icons`
 - Do NOT specify colors, sizes, or positions — those belong in `components_styling.txt`
+- **Mark standalone elements** — nodes with NO connections must be annotated with `# standalone: true`. Whether an element is standalone depends on the specific reference image, not on the element type. If the reference shows no arrows for an element, mark it standalone. Never invent connections to "fix" a standalone element.
 
 ---
 
@@ -132,6 +133,20 @@ Tracks every arrow for the Main agent and Critic to validate against.
 | AWS AppSync | AWS Lambda | from 1 to 2 | 4 | dark circle |
 | AWS Lambda | Step Functions | from 1 to 2 | 5 | dark circle |
 
+**IMPORTANT: Include a "Standalone Elements" section** listing every element that has NO
+arrows connecting to or from it. This prevents the Main agent from inventing phantom
+connections. Example:
+
+```markdown
+## Standalone Elements (no arrows)
+- User — no connections in this diagram's reference image
+```
+
+Every leaf node in `diagram.d2` must appear in exactly one of these three sections
+(numbered arrows, unlabeled arrows, or standalone). If any element is missing from all
+three, that is a gap in the plan. Whether an element is standalone depends on the
+specific reference image — not on the element type.
+
 ---
 
 ## Agent 2: Main
@@ -145,6 +160,7 @@ Tracks every arrow for the Main agent and Critic to validate against.
 - Do **not** read or reuse previous build scripts — start from scratch
 - If any feedback comes from the Critic, fix it in the source code and re-run the full build script — do not make targeted updates with new temp scripts
 - When fixing arrows specifically: always `delete(arrow_id)` the existing arrow before drawing the replacement. After fixing, verify total arrow count on canvas matches the total connection count in `icons_graph_structure.md` (numbered + unlabeled). Any surplus arrows are ghosts and must be deleted.
+- **NEVER invent connections for standalone elements.** If `icons_graph_structure.md` lists an element under "Standalone Elements (no arrows)", do NOT draw any arrow to or from it. Whether an element is standalone depends on the specific reference image — not on the element type. A "User" icon may be standalone in one diagram and connected in another. The `icons_graph_structure.md` is the exhaustive source of truth for what gets connected.
 
 ### How to read `diagram.d2`
 
@@ -178,8 +194,9 @@ For every leaf node in `diagram.d2`, resolve its icon using `search_aws_icons` M
 - If not found: use a generic placeholder — do not block on missing icon
 - If exact color is unavailable: recolor and save as a new color option
 - Track light vs dark variants carefully — many icons exist in both in the same or different folders
-  - For example, light background (it has a dark blue fill and white cloud) cloud icon is in aws-icons-official/Architecture-Group-Icons_01302026/AWS-Cloud_32.svg                                                                                                     
-  - Its counterpart is in aws-icons-official/Architecture-Group-Icons_01302026/AWS-Cloud_32_Dark.svg    
+  - For example, light background (it has a dark blue fill and white cloud) cloud icon is in aws-icons-official/Architecture-Group-Icons_01302026/AWS-Cloud_32.svg
+  - Its counterpart is in aws-icons-official/Architecture-Group-Icons_01302026/AWS-Cloud_32_Dark.svg
+- **IMPORTANT — Verify icon color against reference image:** After finding an icon by name, check its `color_hex` against the reference. The same icon shape can exist in multiple colors (e.g., CloudFormation Template: pink #E7157B vs orange #ED7100). If colors don't match, search for a custom recolored variant with `search_aws_icons(query="<name>", icon_type="custom")`. Custom variants live in `icons/custom/` with color suffixes like `_Orange.svg`. Always use a **distinct file_id** per color variant to avoid caching issues.
 
 #### 2. Place service nodes
 
@@ -261,6 +278,7 @@ After running the build script verify:
 - **Circle text centering**: `numbered_circle()` uses browser-delegated centering. Font size is locked — no override is possible.
 - **No phantom arrows**: Cross-check every arrow against `icons_graph_structure.md` before exporting.
 - **Icon sizes**: All icons must use locked `ICON_SIZE=65` — do NOT pass `icon_size`, `font_size`, `icon_header_size`, or `label_font_size` to any component function, they are silently ignored.
+- **Icon colors**: Verify every icon's color matches the reference image. If a standard icon's `color_hex` doesn't match, check `icons/custom/` for a recolored variant (e.g., `_Orange.svg`).
 - **Element placement**: Must match reference image or text description exactly.
 
 #### 6. Validate overlaps
@@ -343,4 +361,6 @@ Before the Main agent starts building, the Critic **must** verify every row in
 - Numbered badges with wrong color, shape, or number
 - Container corners not straight (rounded corners are never allowed)
 - Icon sizes inconsistent across elements (all must use locked `ICON_SIZE=65`)
+- Icon color mismatch vs reference image — same icon shape can exist in multiple color variants (e.g., CloudFormation Template in pink vs orange). Always crop and compare each icon's color against the reference. Check `icons/custom/` for recolored variants.
+- Phantom connections to standalone elements — elements listed under "Standalone Elements" in `icons_graph_structure.md` must have ZERO arrows. If any arrow touches a standalone element, it is a phantom arrow that must be deleted.
 - Any other visual discrepancy vs the input — check `skills/diagram-review/SKILL.md` and `skills/diagram-review/references/checklist.md` for full details

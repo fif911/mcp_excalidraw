@@ -71,6 +71,7 @@ python3 scripts/crop_region.py <image> <x> <y> <width> <height> <o>.png
 - Pass 6: Targeted crops of every cross-container arrow (stops at border, not piercing)
 - Pass 7: Targeted crops of every external actor (position, connection entry point)
 - Pass 8: Targeted crops of every text-box chain (alignment, spacing uniformity)
+- Pass 9: Targeted crops of every icon — verify color matches reference image (not just shape)
 
 Do NOT skip passes. Issues invisible at full-image scale become obvious when zoomed in.
 
@@ -161,6 +162,27 @@ a clear source and target that matches the reference. Common violations:
 - Adding "external → Service" arrows from the diagram edge that don't exist in reference
 - Adding return arrows that aren't shown
 - Connecting icons that happen to be near each other but aren't linked
+- **Connecting standalone elements** — elements listed under "Standalone Elements" in
+  `icons_graph_structure.md` must have ZERO arrows. The agent often "helpfully" connects
+  unconnected icons (e.g., inventing User → DTH UI). Whether an element is standalone
+  depends on the specific reference image — not the element type. Verify by checking that
+  every leaf node in `diagram.d2` appears in exactly one of: numbered arrows, unlabeled
+  arrows, or standalone elements.
+
+### HARD RULE: Icon Color Must Match the Reference Image
+
+Every icon's color must be verified against the reference image. The same icon shape
+(e.g., CloudFormation Template) can exist in multiple color variants (pink, orange, etc.).
+The standard `search_aws_icons` result may return a different color than the reference.
+
+**Detection:** For each icon on the canvas, crop it and compare the dominant color against
+the corresponding icon in the reference image. If the colors differ, check whether a
+custom recolored variant exists in `icons/custom/` (e.g., `_Orange.svg`, `_Green.svg`).
+
+**Common mismatch:** CloudFormation Template icon — standard is pink (#E7157B), but many
+reference diagrams use the orange (#ED7100) custom variant.
+
+**Route to:** Main — fix by switching to the correct color variant with a distinct file_id.
 
 ### HARD RULE: All Icons Are 65px — No Exceptions
 
@@ -348,6 +370,7 @@ If an arrow is drawn over a badge, or a container covers an icon, the z-order is
 - Don't accept mixed font sizes — all must be 24px
 - Don't accept mixed icon sizes — all must be 65px
 - Don't accept double backgrounds on AWS service icons
+- Don't accept icons with the wrong color variant (e.g., pink template when reference shows orange)
 - Don't accept rounded corners on any container
 - Don't accept container borders that touch parent borders (min 15px clearance)
 - Don't invent arrows not in `icons_graph_structure.md`

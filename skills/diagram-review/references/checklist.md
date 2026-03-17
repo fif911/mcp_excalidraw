@@ -15,6 +15,8 @@ Before any visual checks, verify the canvas matches `diagram.d2`:
 - [ ] No extra elements on canvas not present in `diagram.d2`
 - [ ] Every arrow in `icons_graph_structure.md` is present — correct source, target, direction, and badge number
 - [ ] No arrows on canvas that are NOT in `icons_graph_structure.md`
+- [ ] **Standalone elements have zero arrows** — elements in the "Standalone Elements" section of `icons_graph_structure.md` must not be the source or target of any arrow on canvas
+- [ ] Every leaf node in `diagram.d2` accounted for in exactly one of: numbered arrows, unlabeled arrows, or standalone elements
 - [ ] Every connection in `icons_graph_structure.md` verified against reference image before build (Phase 0)
 - [ ] No external arrows — every arrow start/end point is on a real element, never in empty canvas space or at the diagram edge
 - [ ] No internal stub arrows — no arrows drawn purely inside a container going to its own border (these are ghost stubs; cross-container exits start FROM the border)
@@ -130,6 +132,7 @@ assert len(issues) == 0, f"Validation failed: {issues}"
 - [ ] External actors: dark outline silhouette (Resource icons) — no colored backgrounds
 - [ ] No double backgrounds on AWS service icons
 - [ ] All icons consistent size within same hierarchy level
+- [ ] **Icon color matches reference image** — crop each icon and compare its color against the reference. The same icon shape can exist in multiple color variants (e.g., CloudFormation Template in pink vs orange). If colors differ, check `icons/custom/` for a recolored variant with a `_Orange`, `_Green`, etc. suffix
 
 ### Container Visual Rules
 - [ ] Solid-border containers have header icon + label
@@ -178,3 +181,5 @@ assert len(issues) == 0, f"Validation failed: {issues}"
 | Dashed AWS Cloud boundary | L2 | Visual inspection of outermost border |
 | Too detailed for proposal | L2 | >20 components or 4+ nesting levels (non-VPC) |
 | No external actors shown | L2 | Missing user/client elements on periphery |
+| Phantom arrow to standalone element | L0+L1 | Element in "Standalone Elements" list has arrow — delete arrow |
+| Icon color mismatch vs reference | L2 | Crop each icon, compare color against reference — check custom/ for recolored variants |
