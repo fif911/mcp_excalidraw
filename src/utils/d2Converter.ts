@@ -289,18 +289,19 @@ function resolveIconForLabel(label: string): ResolvedIcon | null {
   return null;
 }
 
-// AWS container detection from label
-const AWS_CONTAINER_PATTERNS: Array<{ pattern: RegExp; headerQuery: string; strokeColor: string }> = [
-  { pattern: /aws\s+cloud/i, headerQuery: 'aws cloud', strokeColor: '#232F3E' },
-  { pattern: /account/i, headerQuery: 'aws account', strokeColor: '#545B64' },
-  { pattern: /region/i, headerQuery: 'aws region', strokeColor: '#007FAA' },
-  { pattern: /vpc/i, headerQuery: 'aws vpc', strokeColor: '#248814' },
-  { pattern: /step\s*functions/i, headerQuery: 'step functions', strokeColor: '#E7157B' },
+// AWS container detection from label — uses explicit icon paths for group icons
+const ICONS_BASE = 'aws-icons-official/Architecture-Group-Icons_01302026';
+const AWS_CONTAINER_PATTERNS: Array<{ pattern: RegExp; headerIcon: string; strokeColor: string }> = [
+  { pattern: /aws\s+cloud/i, headerIcon: `${ICONS_BASE}/AWS-Cloud-logo_32.svg`, strokeColor: '#232F3E' },
+  { pattern: /account/i, headerIcon: `${ICONS_BASE}/AWS-Cloud_32.svg`, strokeColor: '#545B64' },
+  { pattern: /region/i, headerIcon: `${ICONS_BASE}/Region_32.svg`, strokeColor: '#007FAA' },
+  { pattern: /vpc/i, headerIcon: `${ICONS_BASE}/Virtual-private-cloud-VPC_32.svg`, strokeColor: '#248814' },
+  { pattern: /step\s*functions/i, headerIcon: '', strokeColor: '#E7157B' }, // resolved via search
 ];
 
-function detectContainerType(label: string): { headerQuery: string; strokeColor: string } | null {
+function detectContainerType(label: string): { headerIcon: string; strokeColor: string } | null {
   for (const p of AWS_CONTAINER_PATTERNS) {
-    if (p.pattern.test(label)) return { headerQuery: p.headerQuery, strokeColor: p.strokeColor };
+    if (p.pattern.test(label)) return { headerIcon: p.headerIcon, strokeColor: p.strokeColor };
   }
   return null;
 }
@@ -555,9 +556,21 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
 
       // Header icon (for detected AWS containers, not for dashed sub-boundaries)
       if (containerType && !isDashed) {
-        const headerIcon = resolveIconForLabel(containerType.headerQuery);
-        if (headerIcon) {
-          const fid = uploadIcon(headerIcon);
+        let headerResolved: ResolvedIcon | null = null;
+        if (containerType.headerIcon) {
+          // Explicit group icon path
+          const iconsDir = path.resolve(process.cwd(), 'icons');
+          const fullPath = path.resolve(iconsDir, containerType.headerIcon);
+          if (fs.existsSync(fullPath)) {
+            headerResolved = { fileId: `file-hdr-${safeId}`, absolutePath: fullPath };
+          }
+        }
+        if (!headerResolved) {
+          // Fallback to search (e.g., Step Functions)
+          headerResolved = resolveIconForLabel(shape.label);
+        }
+        if (headerResolved) {
+          const fid = uploadIcon(headerResolved);
           elements.push({
             id: `img-${safeId}-hdr`,
             type: 'image',
