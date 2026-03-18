@@ -491,15 +491,18 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
   const fileUploads: Array<{ id: string; dataURL: string; mimeType: string }> = [];
   const iconsMissing: string[] = [];
   const validationIssues: string[] = [];
-  const uploadedPaths = new Set<string>();
+  const uploadedPaths = new Map<string, string>(); // absolutePath → fileId
 
   let containerCount = 0;
   let nodeCount = 0;
   let arrowCount = 0;
   let badgeCount = 0;
 
-  // Helper: upload icon SVG and return fileId
+  // Helper: upload icon SVG and return fileId (reuses fileId for same file)
   const uploadIcon = (resolved: ResolvedIcon): string => {
+    if (uploadedPaths.has(resolved.absolutePath)) {
+      return uploadedPaths.get(resolved.absolutePath)!;
+    }
     if (!uploadedPaths.has(resolved.absolutePath)) {
       try {
         const data = fs.readFileSync(resolved.absolutePath);
@@ -509,7 +512,7 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
           dataURL: `data:image/svg+xml;base64,${b64}`,
           mimeType: 'image/svg+xml',
         });
-        uploadedPaths.add(resolved.absolutePath);
+        uploadedPaths.set(resolved.absolutePath, resolved.fileId);
       } catch (err) {
         logger.warn(`Failed to read icon: ${resolved.absolutePath}`);
       }
@@ -927,35 +930,32 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       else if (bShape === 'rounded') { bgType = 'rectangle'; bgRoundness = { type: 3, value: Math.round(bSize * 0.3) }; }
       else if (bShape === 'diamond') { bgType = 'diamond'; }
 
-      const bgId = `${conn.id}-bg`;
-      const txId = `${conn.id}-tx`;
-
       const bgProps: any = {
-        id: bgId,
+        id: `${conn.id}-bg`,
         type: bgType,
         x: badgeCx - bSize / 2, y: badgeCy - bSize / 2,
         width: bSize, height: bSize,
         backgroundColor: bBg, strokeColor: 'transparent',
         strokeWidth: 0, fillStyle: 'solid', roughness: 0,
         groupIds: [badgeGroupId],
-        // Bind text inside this shape for persistent centering
-        boundElements: [{ type: 'text', id: txId }],
       };
       if (bgRoundness) bgProps.roundness = bgRoundness;
       elements.push(bgProps);
 
+      // Text centered in badge — x=cx with textAlign:center (Excalidraw centers AT x)
+      // Vertical: cy - lineHeight/2 + small correction for glyph baseline
+      const { height: bth } = measureText(conn.label, FONT_SIZE);
+      const finalTh = bth > 0 ? bth : FONT_SIZE * 1.25;
       elements.push({
-        id: txId,
+        id: `${conn.id}-tx`,
         type: 'text',
-        x: badgeCx, y: badgeCy - FONT_SIZE * 0.625,
+        x: badgeCx, y: badgeCy - finalTh / 2 + FONT_SIZE * 0.05,
         text: conn.label,
         fontSize: FONT_SIZE, fontFamily: 2,
         textAlign: 'center',
-        verticalAlign: 'middle',
         strokeColor: bColor,
         roughness: 0,
         groupIds: [badgeGroupId],
-        containerId: bgId,
       });
     } else if (conn.label) {
       // Non-numeric label — text annotation near midpoint
