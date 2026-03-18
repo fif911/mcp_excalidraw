@@ -84,6 +84,10 @@ interface D2Connection {
   style: Record<string, string>;
   waypoints?: number[][];
   badgePos?: number[];
+  badgeBg?: string;
+  badgeColor?: string;
+  badgeSize?: number;
+  badgeShape?: string;
 }
 
 interface D2Graph {
@@ -192,6 +196,16 @@ export function parseD2(source: string): D2Graph {
           const bpMatch = blockLine.match(/^badge_pos:\s*(.+)$/);
           if (wpMatch) conn.waypoints = parsePointList(wpMatch[1]!);
           else if (bpMatch) conn.badgePos = parsePoint(bpMatch[1]!);
+          else {
+            const kvMatch = blockLine.match(/^(badge_bg|badge_color|badge_size|badge_shape):\s*(.+)$/);
+            if (kvMatch) {
+              const val = (kvMatch[2] ?? '').trim().replace(/^["']|["']$/g, '');
+              if (kvMatch[1] === 'badge_bg') conn.badgeBg = val;
+              else if (kvMatch[1] === 'badge_color') conn.badgeColor = val;
+              else if (kvMatch[1] === 'badge_size') conn.badgeSize = parseFloat(val);
+              else if (kvMatch[1] === 'badge_shape') conn.badgeShape = val;
+            }
+          }
           i++;
         }
       }
@@ -671,9 +685,11 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
 
   // ── Arrow helpers (ported from components.py) ──────────────────────────
 
+  // Badge defaults (can be overridden per-connection via badge_bg, badge_color, badge_size, badge_shape)
   const BADGE_SIZE = 38;
   const BADGE_BG = '#232F3E';
   const BADGE_COLOR = '#ffffff';
+  const BADGE_SHAPE = 'circle'; // circle, square, rounded, diamond
 
   function pathMidpoint(pts: number[][]): { mx: number; my: number; dx: number; dy: number } {
     let totalLen = 0;
@@ -899,29 +915,47 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
         badgeCy = Math.round(mid.my + off.offY);
       }
       const badgeGroupId = `g-${conn.id}-badge`;
+      const bSize = conn.badgeSize ?? BADGE_SIZE;
+      const bBg = conn.badgeBg ?? BADGE_BG;
+      const bColor = conn.badgeColor ?? BADGE_COLOR;
+      const bShape = conn.badgeShape ?? BADGE_SHAPE;
 
-      elements.push({
-        id: `${conn.id}-bg`,
-        type: 'ellipse',
-        x: badgeCx - BADGE_SIZE / 2, y: badgeCy - BADGE_SIZE / 2,
-        width: BADGE_SIZE, height: BADGE_SIZE,
-        backgroundColor: BADGE_BG, strokeColor: 'transparent',
+      // Determine element type from shape
+      let bgType = 'ellipse';
+      let bgRoundness: any = null;
+      if (bShape === 'square') { bgType = 'rectangle'; }
+      else if (bShape === 'rounded') { bgType = 'rectangle'; bgRoundness = { type: 3, value: Math.round(bSize * 0.3) }; }
+      else if (bShape === 'diamond') { bgType = 'diamond'; }
+
+      const bgId = `${conn.id}-bg`;
+      const txId = `${conn.id}-tx`;
+
+      const bgProps: any = {
+        id: bgId,
+        type: bgType,
+        x: badgeCx - bSize / 2, y: badgeCy - bSize / 2,
+        width: bSize, height: bSize,
+        backgroundColor: bBg, strokeColor: 'transparent',
         strokeWidth: 0, fillStyle: 'solid', roughness: 0,
         groupIds: [badgeGroupId],
-      });
+        // Bind text inside this shape for persistent centering
+        boundElements: [{ type: 'text', id: txId }],
+      };
+      if (bgRoundness) bgProps.roundness = bgRoundness;
+      elements.push(bgProps);
 
-      const { height: bth } = measureText(conn.label, FONT_SIZE);
-      const finalTh = bth > 0 ? bth : FONT_SIZE * 1.25;
       elements.push({
-        id: `${conn.id}-tx`,
+        id: txId,
         type: 'text',
-        x: badgeCx, y: badgeCy - finalTh / 2 + FONT_SIZE * 0.05,
+        x: badgeCx, y: badgeCy - FONT_SIZE * 0.625,
         text: conn.label,
         fontSize: FONT_SIZE, fontFamily: 2,
         textAlign: 'center',
-        strokeColor: BADGE_COLOR,
+        verticalAlign: 'middle',
+        strokeColor: bColor,
         roughness: 0,
         groupIds: [badgeGroupId],
+        containerId: bgId,
       });
     } else if (conn.label) {
       // Non-numeric label — text annotation near midpoint
