@@ -293,8 +293,8 @@ function resolveIconForLabel(label: string): ResolvedIcon | null {
 const ICONS_BASE = 'aws-icons-official/Architecture-Group-Icons_01302026';
 const AWS_CONTAINER_PATTERNS: Array<{ pattern: RegExp; headerIcon: string; strokeColor: string }> = [
   { pattern: /aws\s+cloud/i, headerIcon: `${ICONS_BASE}/AWS-Cloud-logo_32.svg`, strokeColor: '#232F3E' },
-  { pattern: /account/i, headerIcon: `${ICONS_BASE}/AWS-Cloud_32.svg`, strokeColor: '#545B64' },
-  { pattern: /region/i, headerIcon: `${ICONS_BASE}/Region_32.svg`, strokeColor: '#007FAA' },
+  { pattern: /account/i, headerIcon: `${ICONS_BASE}/AWS-Cloud_32.svg`, strokeColor: '#232F3E' },
+  { pattern: /region/i, headerIcon: `${ICONS_BASE}/Region_32.svg`, strokeColor: '#147EBA' },
   { pattern: /vpc/i, headerIcon: `${ICONS_BASE}/Virtual-private-cloud-VPC_32.svg`, strokeColor: '#248814' },
   { pattern: /step\s*functions/i, headerIcon: '', strokeColor: '#E7157B' }, // resolved via search
 ];
@@ -544,7 +544,7 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
         type: 'rectangle',
         x: pos.x, y: pos.y,
         width: pos.w, height: pos.h,
-        strokeColor: containerType?.strokeColor ?? strokeColor,
+        strokeColor: shape.style['stroke'] ?? containerType?.strokeColor ?? strokeColor,
         backgroundColor: 'transparent',
         strokeWidth: 2,
         strokeStyle: isDashed ? 'dashed' : 'solid',
