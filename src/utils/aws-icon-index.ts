@@ -83,7 +83,7 @@ const AWS_CATEGORY_COLORS: Record<string, string> = {
 };
 
 // Named colors recognized in custom icon filenames (e.g., _Orange.svg)
-export const NAMED_COLORS: Record<string, string> = {
+const NAMED_COLORS: Record<string, string> = {
   'orange':  '#ED7100',
   'green':   '#7AA116',
   'purple':  '#8C4FFF',
@@ -508,20 +508,6 @@ function getIndex(): IconEntry[] {
     iconIndex = buildIndex(iconsBaseDir);
   }
   return iconIndex;
-}
-
-/** Force re-scan of icon directories on next searchIcons() call. */
-export function invalidateIndex(): void {
-  iconIndex = null;
-  iconsBaseDir = null;
-}
-
-/** Get the resolved icons base directory path. */
-export function getIconsBaseDir(): string {
-  if (!iconsBaseDir) {
-    iconsBaseDir = resolveIconsBase();
-  }
-  return iconsBaseDir;
 }
 
 // ── Suggested file_id ──────────────────────────────────────────────────
