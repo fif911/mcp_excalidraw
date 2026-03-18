@@ -633,13 +633,13 @@ const tools: Tool[] = [
   },
   {
     name: 'create_from_d2',
-    description: 'Converts a D2 diagram definition into Excalidraw elements on the canvas. Supports shapes, containers, connections, labels, and basic styles.',
+    description: 'Build a complete Excalidraw diagram from D2 syntax. Clears canvas, resolves AWS icons from labels, creates containers with headers, places service nodes with icons, draws arrows with numbered badges, and validates. Returns stats and any issues.',
     inputSchema: {
       type: 'object',
       properties: {
         d2Diagram: {
           type: 'string',
-          description: 'D2 diagram syntax. Supports nodes, containers (nested {}), connections (->, <-, <->), labels, and style attributes.'
+          description: 'Standard D2 diagram syntax. Containers use nested {}, connections use -> with optional numeric labels for badges (e.g., ": 2"). The tool auto-resolves icons from node labels and applies AWS styling.'
         },
         layout: {
           type: 'string',
@@ -709,6 +709,14 @@ const tools: Tool[] = [
   {
     name: 'clear_canvas',
     description: 'Clear all elements from the canvas',
+    inputSchema: {
+      type: 'object',
+      properties: {}
+    }
+  },
+  {
+    name: 'validate_diagram',
+    description: 'Run comprehensive overlap and layout checks on the current canvas. Detects: container crossings, icon overlaps, label overlaps, arrow-label conflicts, badge border crossings, arrow-icon penetration, and header crossings.',
     inputSchema: {
       type: 'object',
       properties: {}
@@ -1509,10 +1517,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
 
           const result = await response.json() as any;
 
+          let summary = `D2 diagram built!\n\nContainers: ${result.containers ?? 0}\nNodes: ${result.nodes ?? 0}\nArrows: ${result.arrows ?? 0}\nBadges: ${result.badges ?? 0}\nTotal elements: ${result.elementCount}`;
+          if (result.iconsMissing?.length) {
+            summary += `\n\nIcons not found (shown as rectangles):\n${result.iconsMissing.join('\n')}`;
+          }
+          if (result.validationIssues?.length) {
+            summary += `\n\nValidation issues:\n${result.validationIssues.join('\n')}`;
+          }
+          if (result.overlapReport) {
+            summary += `\n\n${result.overlapReport.summary}`;
+          }
+
           return {
             content: [{
               type: 'text',
-              text: `D2 diagram converted successfully!\n\nElements created: ${result.elementCount}\n\n${JSON.stringify(result, null, 2)}`
+              text: summary
             }]
           };
         } catch (error) {
@@ -1612,6 +1631,27 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
           content: [{
             type: 'text',
             text: `Canvas cleared.\n\n${JSON.stringify(data, null, 2)}`
+          }]
+        };
+      }
+
+      case 'validate_diagram': {
+        logger.info('Running overlap checks via MCP');
+
+        const response = await fetch(`${EXPRESS_SERVER_URL}/api/elements`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch elements: ${response.status}`);
+        }
+        const data = await response.json() as any;
+        const elems = data.elements || Object.values(data);
+
+        const { runAllOverlapChecks: runChecks } = await import('./utils/overlapChecks.js');
+        const report = runChecks(Array.isArray(elems) ? elems : []);
+
+        return {
+          content: [{
+            type: 'text',
+            text: report.summary
           }]
         };
       }

@@ -31,6 +31,7 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import { convertD2ToExcalidraw } from './utils/d2Converter.js';
+import { runAllOverlapChecks } from './utils/overlapChecks.js';
 
 // Load environment variables
 dotenv.config();
@@ -773,21 +774,54 @@ app.post('/api/elements/from-d2', async (req: Request, res: Response) => {
       }
     }
 
-    // Convert D2 syntax → Excalidraw elements
-    const d2Elements = convertD2ToExcalidraw(d2Diagram);
+    // Convert D2 syntax → Excalidraw elements + icons
+    const result = convertD2ToExcalidraw(d2Diagram);
+
+    // Upload icon files to server storage
+    for (const f of result.files) {
+      files.set(f.id, { id: f.id, dataURL: f.dataURL, mimeType: f.mimeType, created: Date.now() });
+    }
+
+    // Clear canvas (broadcast to frontend) and add new elements
+    elements.clear();
+    broadcast({
+      type: 'canvas_cleared',
+      timestamp: new Date().toISOString()
+    });
+    for (const el of result.elements) {
+      elements.set(el.id, {
+        ...el,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        version: 1,
+      });
+    }
 
     // Broadcast to all WebSocket clients
+    if (result.files.length > 0) {
+      broadcast({ type: 'files_added', files: result.files } as any);
+    }
     broadcast({
       type: 'd2_convert',
-      elements: d2Elements,
+      elements: result.elements,
       timestamp: new Date().toISOString()
     } as any);
 
+    // Run overlap checks on built elements
+    const overlapReport = runAllOverlapChecks(result.elements);
+
     res.json({
       success: true,
-      elementCount: d2Elements.length,
-      elements: d2Elements,
-      message: 'D2 diagram converted and sent to canvas.'
+      elementCount: result.elements.length,
+      ...result.stats,
+      iconsMissing: result.iconsMissing,
+      validationIssues: result.validationIssues,
+      overlapReport: {
+        errors: overlapReport.totalErrors,
+        warnings: overlapReport.totalWarnings,
+        summary: overlapReport.summary,
+      },
+      message: `D2 diagram built: ${result.stats.containers} containers, ${result.stats.nodes} nodes, ${result.stats.arrows} arrows, ${result.stats.badges} badges.`
     });
   } catch (error) {
     logger.error('Error processing D2 diagram:', error);

@@ -1,0 +1,113 @@
+aws_cloud: AWS Cloud {
+  pos: "20,20,1920,1000"
+
+  customer_account: Customer's AWS Account {
+    pos: "200,100,980,860"
+
+    auth: Authentication {
+      pos: "225,230,310,175"
+      style.stroke-dash: 5
+      cognito: Amazon\nCognito {
+        pos: "320,330"
+      }
+      openid: OpenID\nConnect {
+        pos: "460,330"
+        icon: "custom/icons8-openid.svg"
+      }
+    }
+
+    step_functions: AWS Step Functions\nworkflow {
+      pos: "830,165,330,480"
+      style.stroke: "#E7157B"
+      lambda_sf: AWS Lambda {
+        pos: "990,330"
+      }
+      cloudformation: AWS CloudFormation {
+        pos: "990,510"
+      }
+    }
+
+    dynamodb: Amazon DynamoDB {
+      pos: "710,230"
+    }
+    appsync: AWS AppSync {
+      pos: "550,510"
+    }
+    lambda: AWS Lambda {
+      pos: "730,510"
+    }
+    cloudfront: Amazon CloudFront {
+      pos: "550,790"
+    }
+    s3: Amazon S3 {
+      pos: "730,790"
+    }
+    fargate: AWS Fargate {
+      pos: "990,790"
+    }
+  }
+
+  managed_account: AWS Managed Account {
+    pos: "1230,100,680,860"
+
+    s3_repl: S3 replication\ncomponent template {
+      pos: "1380,280"
+      icon: "custom/Res_AWS-CloudFormation_Template_48_Orange.svg"
+    }
+    dynamodb_repl: DynamoDB\nreplication\ncomponent template {
+      pos: "1680,280"
+      icon: "custom/Res_AWS-CloudFormation_Template_48_Orange.svg"
+    }
+    s3_managed: Amazon S3 {
+      pos: "1380,510"
+    }
+    ecr_repl: ECR replication\ncomponent template {
+      pos: "1680,510"
+      icon: "custom/Res_AWS-CloudFormation_Template_48_Orange.svg"
+    }
+    ecr: Amazon ECR {
+      pos: "1380,790"
+    }
+    ecr_docker: ECR replication\nDocker image {
+      pos: "1680,790"
+    }
+  }
+}
+
+# External actors
+user: User {
+  pos: "110,870"
+}
+# standalone: true
+
+dth_ui: Data Transfer\nHub UI {
+  pos: "110,640"
+}
+
+# Connections
+dth_ui -> aws_cloud.customer_account.cloudfront: 1 {
+  waypoints: (350,640),(350,790)
+  badge_pos: (374,700)
+}
+dth_ui -> aws_cloud.customer_account.appsync: 2 {
+  waypoints: (300,640),(300,510)
+  badge_pos: (340,462)
+}
+dth_ui -> aws_cloud.customer_account.auth: 3 {
+  waypoints: (110,314),(225,314)
+  badge_pos: (138,469)
+}
+aws_cloud.customer_account.appsync -> aws_cloud.customer_account.lambda: 4
+aws_cloud.customer_account.lambda -> aws_cloud.customer_account.step_functions.cloudformation: 5
+aws_cloud.managed_account.s3_managed -> aws_cloud.customer_account.step_functions.cloudformation: 6 {
+  badge_pos: (1205,462)
+}
+aws_cloud.managed_account.ecr -> aws_cloud.customer_account.fargate: 7 {
+  badge_pos: (1205,742)
+}
+aws_cloud.customer_account.appsync -> aws_cloud.customer_account.dynamodb: 8 {
+  waypoints: (550,230)
+  badge_pos: (578,185)
+}
+aws_cloud.customer_account.cloudfront -> aws_cloud.customer_account.s3
+aws_cloud.customer_account.step_functions -> aws_cloud.customer_account.fargate
