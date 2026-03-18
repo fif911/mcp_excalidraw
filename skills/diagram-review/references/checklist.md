@@ -13,11 +13,11 @@ Before any visual checks, verify the canvas matches `diagram.d2`:
 - [ ] Every container in `diagram.d2` has a corresponding rectangle on canvas
 - [ ] Every connection in `diagram.d2` has a corresponding arrow on canvas
 - [ ] No extra elements on canvas not present in `diagram.d2`
-- [ ] Every arrow in `icons_graph_structure.md` is present — correct source, target, direction, and badge number
-- [ ] No arrows on canvas that are NOT in `icons_graph_structure.md`
-- [ ] **Standalone elements have zero arrows** — elements in the "Standalone Elements" section of `icons_graph_structure.md` must not be the source or target of any arrow on canvas
+- [ ] Every arrow in `diagram.d2` is present — correct source, target, direction, and badge number
+- [ ] No arrows on canvas that are NOT in `diagram.d2`
+- [ ] **Standalone elements have zero arrows** — elements in the "Standalone Elements" section of `diagram.d2` must not be the source or target of any arrow on canvas
 - [ ] Every leaf node in `diagram.d2` accounted for in exactly one of: numbered arrows, unlabeled arrows, or standalone elements
-- [ ] Every connection in `icons_graph_structure.md` verified against reference image before build (Phase 0)
+- [ ] Every connection in `diagram.d2` verified against reference image before build (Phase 0)
 - [ ] No external arrows — every arrow start/end point is on a real element, never in empty canvas space or at the diagram edge
 - [ ] No internal stub arrows — no arrows drawn purely inside a container going to its own border (these are ghost stubs; cross-container exits start FROM the border)
 
@@ -70,7 +70,7 @@ Before any visual checks, verify the canvas matches `diagram.d2`:
 
 ### Element Hygiene
 - [ ] Consistent `fontFamily` across all text (one font, not mixed)
-- [ ] `FONT_SIZE = 22` for ALL text — no exceptions (grep for `font_size=`, `label_font_size=`)
+- [ ] `FONT_SIZE = 24` for ALL text — no exceptions
 - [ ] `ICON_SIZE = 65` for ALL icons — no exceptions (grep for `icon_size=`, `icon_header_size=`)
 - [ ] No overlapping bounding boxes between siblings
 - [ ] No orphan text elements unassociated with any group
@@ -79,12 +79,8 @@ Before any visual checks, verify the canvas matches `diagram.d2`:
 - [ ] No explicit size parameters passed to component functions (all ignored anyway)
 
 ### Programmatic Checks
-```python
-issues = validate_arrow_paths()
-issues += validate_diagram()
-report = run_all_overlap_checks()
-assert len(issues) == 0, f"Validation failed: {issues}"
-```
+
+The `create_from_enhanced_d2` tool runs validation automatically. Review its `validationIssues` output.
 
 ---
 
@@ -109,7 +105,7 @@ assert len(issues) == 0, f"Validation failed: {issues}"
 
 ### Numbered Badges
 - [ ] All badges use the same style: color, shape (`circle` vs `square`), size
-- [ ] Badge shape matches `components_styling.txt` (dark circle vs blue square)
+- [ ] Badge shape matches `diagram.d2` (dark circle vs blue square)
 - [ ] Numbers are centered and readable inside badges
 - [ ] Badges do not touch or overlap arrow lines (offset ≥ `CIRCLE_R + 5` px)
 - [ ] Badges are on the arrow body — not at endpoints
@@ -161,7 +157,7 @@ assert len(issues) == 0, f"Validation failed: {issues}"
 | Failure | Layer | Detection method |
 |---------|-------|-----------------|
 | Node in `diagram.d2` missing from canvas | L0 | D2 compliance check |
-| Arrow in `icons_graph_structure.md` missing | L0 | D2 compliance check |
+| Arrow in `diagram.d2` missing | L0 | D2 compliance check |
 | Cross-container arrow pierces container interior | L1+L2 | Arrow endpoint check + visual crop |
 | External actor uses architecture (colored) icon | L1+L2 | Icon type check |
 | External actor position wrong (inside vs outside) | L1+L2 | Reference image comparison |
@@ -176,7 +172,7 @@ assert len(issues) == 0, f"Validation failed: {issues}"
 | Mixed badge styles (circle + square) | L2 | Visual crop of all badges |
 | Small arrowhead (short final segment) | L2 | Visual crop of all arrowheads |
 | Wide single-line grid label overflow | L1+L2 | Label width vs cell width |
-| Font size not 22px | L1 | Grep for `font_size=` in build script |
+| Font size not 24px | L1 | Visual inspection or element JSON check |
 | Icon size not 65px | L1 | Grep for `icon_size=` in build script |
 | Dashed AWS Cloud boundary | L2 | Visual inspection of outermost border |
 | Too detailed for proposal | L2 | >20 components or 4+ nesting levels (non-VPC) |

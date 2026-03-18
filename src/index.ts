@@ -655,6 +655,24 @@ const tools: Tool[] = [
     }
   },
   {
+    name: 'create_from_enhanced_d2',
+    description: 'Build a complete Excalidraw diagram from an enhanced D2 spec. Resolves icons, creates containers, places service nodes, draws arrows with badges, and validates — all from a single D2 file. No build.py needed.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        d2Diagram: {
+          type: 'string',
+          description: 'Enhanced D2 diagram with pos, icon, stroke, and arrow_style attributes. See CLAUDE.md for full syntax spec.'
+        },
+        export: {
+          type: 'boolean',
+          description: 'Export PNG after building. Defaults to true.'
+        }
+      },
+      required: ['d2Diagram']
+    }
+  },
+  {
     name: 'batch_create_elements',
     description: 'Create multiple Excalidraw elements at once. For arrows, use startElementId/endElementId to bind arrows to shapes — Excalidraw auto-routes to element edges. Assign custom id to shapes so arrows can reference them.',
     inputSchema: {
@@ -1517,6 +1535,50 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
           };
         } catch (error) {
           throw new Error(`Failed to process D2 diagram: ${(error as Error).message}`);
+        }
+      }
+
+      case 'create_from_enhanced_d2': {
+        const params = z.object({
+          d2Diagram: z.string(),
+          export: z.boolean().optional().default(true),
+        }).parse(args);
+
+        logger.info('Building diagram from enhanced D2 via MCP', {
+          diagramLength: params.d2Diagram.length,
+          export: params.export,
+        });
+
+        try {
+          const response = await fetch(`${EXPRESS_SERVER_URL}/api/elements/from-enhanced-d2`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              d2Diagram: params.d2Diagram,
+              export: params.export,
+            }),
+          });
+
+          if (!response.ok) {
+            const err = await response.json() as any;
+            return {
+              content: [{
+                type: 'text',
+                text: `Enhanced D2 build failed: ${err.error ?? response.statusText}`
+              }]
+            };
+          }
+
+          const result = await response.json() as any;
+
+          return {
+            content: [{
+              type: 'text',
+              text: `Enhanced D2 diagram built successfully!\n\nContainers: ${result.containers}\nNodes: ${result.nodes}\nArrows: ${result.arrows}\nTotal elements: ${result.elementCount}\nBadges centered: ${result.badgesCentered}\n${result.iconsMissing?.length ? `\nMissing icons: ${result.iconsMissing.join(', ')}` : ''}\n${result.validationIssues?.length ? `\nValidation issues:\n${result.validationIssues.join('\n')}` : '\nNo validation issues.'}`
+            }]
+          };
+        } catch (error) {
+          throw new Error(`Failed to build enhanced D2 diagram: ${(error as Error).message}`);
         }
       }
 
