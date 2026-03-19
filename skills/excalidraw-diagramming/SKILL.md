@@ -73,14 +73,19 @@ step_functions: AWS Step Functions workflow {
 
 ### External actors
 
-```d2
-aws_cloud: AWS Cloud {
-  # ... services inside
-}
+Check the reference for each actor's position — they may be outside all containers, inside the outer AWS Cloud but outside inner accounts, or somewhere else. **Do NOT assume external actors go outside AWS Cloud.** Place them at the correct nesting level in D2:
 
-# External actors outside aws_cloud
+```d2
+# Actor OUTSIDE AWS Cloud (at root level)
 user: User
-dth_ui: Data Transfer Hub UI
+
+# Actor INSIDE AWS Cloud but OUTSIDE account containers
+aws_cloud: AWS Cloud {
+  dth_ui: Data Transfer\nHub UI
+  customer_account: Customer's AWS Account {
+    # ... services inside
+  }
+}
 
 dth_ui -> aws_cloud.customer_account.cloudfront: 1
 ```
