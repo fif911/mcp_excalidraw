@@ -161,6 +161,26 @@ ecr_docker: ECR Docker image {
 | Generic concept (Git repo, Tools, Database) | Resource | `icon_type: resource` |
 | External actors (User, Mobile client) | Resource + Light | `icon_type: resource` + `icon_variant: Light` |
 
+### Icon color must match reference
+
+The same icon shape can exist in multiple color variants (e.g., CloudFormation Template in pink `#E7157B` vs orange `#ED7100`). Always compare the reference image color and use `icon_hint` to find the correct variant:
+
+```d2
+# Standard pink template — auto-resolves correctly
+cloudformation: AWS CloudFormation
+
+# Orange variant — use icon_hint to find custom recolored version
+s3_repl: S3 replication template {
+  icon_hint: "CloudFormation Template Orange"
+}
+```
+
+Custom recolored variants live in `icons/custom/` with color suffixes like `_Orange.svg`, `_Green.svg`. If no custom variant exists for the color in the reference, note it as a validation issue.
+
+| Icon | Standard color | Common reference color | Custom variant |
+|---|---|---|---|
+| CloudFormation Template | Pink #E7157B | Orange #ED7100 | `custom/Res_AWS-CloudFormation_Template_48_Orange.svg` |
+
 **Container header icon mapping (auto-detected):**
 
 | Container label pattern | Header icon | Border color |
