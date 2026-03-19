@@ -2627,21 +2627,37 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   return { tools };
 });
 
-// Start Express server if not already running
+// Kill any existing Express server and start fresh with latest code
 async function ensureExpressServer(): Promise<void> {
+  // Always kill existing server to load fresh compiled code
   try {
     const resp = await fetch(`${EXPRESS_SERVER_URL}/api/elements`, { signal: AbortSignal.timeout(2000) });
     if (resp.ok) {
-      logger.info('Express server already running');
-      return;
+      logger.info('Killing existing Express server to reload fresh code...');
+      // Find and kill process on the port
+      try {
+        const { execSync: execSyncLocal } = await import('child_process');
+        if (process.platform === 'win32') {
+          const output = execSyncLocal('netstat -ano | findstr :3000 | findstr LISTENING', { encoding: 'utf-8', timeout: 3000 }).trim();
+          const pids = new Set(output.split('\n').map(line => line.trim().split(/\s+/).pop()).filter(Boolean));
+          for (const pid of pids) {
+            try { execSyncLocal(`taskkill /PID ${pid} /F`, { timeout: 3000 }); } catch { /* ignore */ }
+          }
+        } else {
+          try { execSyncLocal('fuser -k 3000/tcp', { timeout: 3000 }); } catch { /* ignore */ }
+        }
+        // Wait for port to be released
+        await new Promise(r => setTimeout(r, 1000));
+      } catch { /* ignore kill errors */ }
     }
   } catch {
-    // Not running — start it
+    // Not running — proceed to start
   }
 
   logger.info('Starting Express server...');
   const serverPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'server.js');
-  const child = (await import('child_process')).spawn('node', [serverPath], {
+  const { spawn: spawnChild } = await import('child_process');
+  const child = spawnChild('node', [serverPath], {
     stdio: 'ignore',
     detached: true,
     env: { ...process.env },
@@ -2654,7 +2670,7 @@ async function ensureExpressServer(): Promise<void> {
     try {
       const resp = await fetch(`${EXPRESS_SERVER_URL}/api/elements`, { signal: AbortSignal.timeout(1000) });
       if (resp.ok) {
-        logger.info('Express server started successfully');
+        logger.info('Express server started successfully with fresh code');
         return;
       }
     } catch { /* retry */ }
