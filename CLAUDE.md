@@ -48,8 +48,7 @@ Spawn with the Agent tool. Include in the prompt:
 ### Planner instructions (include in agent prompt)
 
 - Read `skills/excalidraw-diagramming/SKILL.md` — Phase 1 (Planner) section only
-- Look at reference diagrams in `skills/diagram-review/references/` for layout patterns. These are examples of good diagram structure — the layout is mostly correct, but some may have errors (e.g., AWS Cloud with dashed border instead of solid). Reason about what you see, don't copy blindly.
-- Do NOT read `skills/diagram-review/` skill files (SKILL.md, checklist.md) — those are for the Critic only
+- Do NOT read `skills/diagram-review/` files — those are for the Critic only
 - NEVER read files from `diagram_building/` other than the current version
 - Do NOT add `pos:`, `waypoints:`, or `badge_pos:` — Main handles positioning
 - Version format: `v{N}` (e.g., `v1`, `v2`, `v3`)
