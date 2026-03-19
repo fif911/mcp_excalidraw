@@ -27,7 +27,7 @@ Quick reference: containers have `pos: "x,y,w,h"` + `stroke` + optional `header_
 
 - **Read `skills/excalidraw-diagramming/SKILL.md`** — D2 patterns and hard rules
 - Do NOT read `skills/diagram-review/` files — those are for the Critic only
-- Do **not** read or reuse previous diagram files — start from scratch
+- Do **not** read or reuse previous diagram files — start from scratch. NEVER read files from `diagram_building/` other than the current version being built. Previous versions, build logs, and diagram.d2 files are irrelevant and will mislead you.
 - If feedback comes from the Critic, fix `diagram.d2` and increment version
 - **Version numbering:** Check `diagram_building/` for existing versions. Format is `v{N}` (e.g., `v1`, `v2`, `v3`) — no underscore.
 
