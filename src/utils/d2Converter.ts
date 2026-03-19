@@ -6,15 +6,15 @@ import logger from './logger.js';
 
 // ─── Constants (matching components.py) ─────────────────────────────────
 
-const ICON_SIZE = 65;
+const ICON_SIZE = 98;
 const FONT_SIZE = 24;
-const HEADER_HEIGHT = 75;
-const NODE_W = 140;
-const NODE_H = 110; // icon (65) + gap (8) + label (~30)
+const HEADER_HEIGHT = 108;
+const NODE_W = 160;
+const NODE_H = 136; // icon (98) + gap (8) + label (~30)
 const H_GAP = 60;
 const V_GAP = 60;
 const CONTAINER_PAD = 40;
-const R = 33; // Arrow endpoint offset from icon center (half icon + gap)
+const R = 52; // Arrow endpoint offset from icon center (half icon + gap)
 
 // ─── Helvetica text measurement ─────────────────────────────────────────
 
@@ -94,9 +94,19 @@ interface D2Connection {
   badgeShape?: string;
 }
 
+interface D2ArrowStyle {
+  strokeColor: string;
+  strokeWidth: number;
+  badgeBg: string;
+  badgeColor: string;
+  badgeSize: number;
+  badgeShape: string;
+}
+
 interface D2Graph {
   shapes: Record<string, D2Shape>;
   connections: D2Connection[];
+  arrowStyle: D2ArrowStyle;
 }
 
 // ─── D2 Syntax Parser ───────────────────────────────────────────────────
@@ -104,6 +114,14 @@ interface D2Graph {
 export function parseD2(source: string): D2Graph {
   const shapes: Record<string, D2Shape> = {};
   const connections: D2Connection[] = [];
+  const arrowStyle: D2ArrowStyle = {
+    strokeColor: '#545B64',
+    strokeWidth: 2,
+    badgeBg: '#232F3E',
+    badgeColor: '#ffffff',
+    badgeSize: 38,
+    badgeShape: 'circle',
+  };
 
   const lines = source
     .split('\n')
@@ -166,6 +184,27 @@ export function parseD2(source: string): D2Graph {
   let i = 0;
   while (i < lines.length) {
     const line = lines[i]!;
+
+    // Parse arrow_style { } block — global arrow/badge configuration
+    if (line === 'arrow_style {' || line === 'arrow_style{') {
+      i++;
+      while (i < lines.length && lines[i] !== '}') {
+        const asLine = lines[i]!;
+        const asMatch = asLine.match(/^(stroke_color|stroke_width|badge_bg|badge_color|badge_size|badge_shape):\s*(.+)$/);
+        if (asMatch) {
+          const val = (asMatch[2] ?? '').trim().replace(/^["']|["']$/g, '');
+          if (asMatch[1] === 'stroke_color') arrowStyle.strokeColor = val;
+          else if (asMatch[1] === 'stroke_width') arrowStyle.strokeWidth = parseFloat(val);
+          else if (asMatch[1] === 'badge_bg') arrowStyle.badgeBg = val;
+          else if (asMatch[1] === 'badge_color') arrowStyle.badgeColor = val;
+          else if (asMatch[1] === 'badge_size') arrowStyle.badgeSize = parseFloat(val);
+          else if (asMatch[1] === 'badge_shape') arrowStyle.badgeShape = val;
+        }
+        i++;
+      }
+      i++; // skip closing }
+      continue;
+    }
 
     const blockMatch = line.match(/^([\w\s.'-]+?)(?::\s*(.+?))?\s*\{$/);
     if (blockMatch) {
@@ -281,7 +320,7 @@ export function parseD2(source: string): D2Graph {
     i++;
   }
 
-  return { shapes, connections };
+  return { shapes, connections, arrowStyle };
 }
 
 // ─── Icon Resolution ────────────────────────────────────────────────────
@@ -813,8 +852,44 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
         groupIds: [groupId],
       });
 
+    } else if (shape.shape === 'text_box') {
+      // ── Text box (bordered rectangle with centered text, no icon) ──
+      nodeCount++;
+      const groupId = `g-${safeId}`;
+      const cx = pos.x + pos.w / 2;
+      const cy = pos.y + pos.h / 2;
+      const { width: tbTextW, height: tbTextH } = measureText(shape.label, FONT_SIZE);
+      const tbW = Math.max(pos.w, tbTextW + 40);
+      const tbH = Math.max(pos.h, tbTextH + 20);
+
+      elements.push({
+        id: safeId,
+        type: 'rectangle',
+        x: cx - tbW / 2, y: cy - tbH / 2,
+        width: tbW, height: tbH,
+        strokeColor: shape.style['stroke'] ?? '#1a1a1a',
+        backgroundColor: 'transparent',
+        strokeWidth: 1,
+        strokeStyle: 'solid',
+        roughness: 0,
+        roundness: null,
+        groupIds: [groupId],
+      });
+
+      elements.push({
+        id: `${safeId}-lbl`,
+        type: 'text',
+        x: cx - tbTextW / 2, y: cy - tbTextH / 2,
+        text: shape.label,
+        fontSize: FONT_SIZE, fontFamily: 2,
+        textAlign: 'center',
+        strokeColor: '#1a1a1a',
+        roughness: 0,
+        groupIds: [groupId],
+      });
+
     } else {
-      // ── Leaf node ──
+      // ── Leaf node (icon + label) ──
       nodeCount++;
       const groupId = `g-${safeId}`;
       const cx = pos.x + pos.w / 2;
@@ -917,10 +992,13 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
   // ── Arrow helpers (ported from components.py) ──────────────────────────
 
   // Badge defaults (can be overridden per-connection via badge_bg, badge_color, badge_size, badge_shape)
-  const BADGE_SIZE = 38;
-  const BADGE_BG = '#232F3E';
-  const BADGE_COLOR = '#ffffff';
-  const BADGE_SHAPE = 'circle'; // circle, square, rounded, diamond
+  // Use global arrow style from D2 (or defaults)
+  const BADGE_SIZE = graph.arrowStyle.badgeSize;
+  const BADGE_BG = graph.arrowStyle.badgeBg;
+  const BADGE_COLOR = graph.arrowStyle.badgeColor;
+  const BADGE_SHAPE = graph.arrowStyle.badgeShape;
+  const ARROW_STROKE = graph.arrowStyle.strokeColor;
+  const ARROW_WIDTH = graph.arrowStyle.strokeWidth;
 
   function pathMidpoint(pts: number[][]): { mx: number; my: number; dx: number; dy: number } {
     const segs: Array<{ x1: number; y1: number; x2: number; y2: number; len: number }> = [];
@@ -1034,38 +1112,29 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
     let allPts: number[][];
 
     if (conn.waypoints && conn.waypoints.length > 0) {
-      // Agent-specified waypoints — use them exactly
       allPts = [[cx1, cy1], ...conn.waypoints, [cx2, cy2]];
     } else {
-      // No waypoints — draw a straight line from source to target.
-      // The edge-aware snapping will handle endpoint placement.
-      // L-shapes only happen when the agent explicitly adds waypoints.
+      // No waypoints — straight line. Edge snapping handles endpoints.
       allPts = [[cx1, cy1], [cx2, cy2]];
     }
 
-    // Only snap to orthogonal when no explicit waypoints were provided.
-    // When the agent specifies waypoints, trust them as-is.
-    if (!conn.waypoints || conn.waypoints.length === 0) {
-      // Snap auto-generated waypoints to orthogonal
-      for (let k = 1; k < allPts.length - 1; k++) {
-        const prev = allPts[k - 1]!;
-        const cur = allPts[k]!;
-        if (Math.abs(cur[0]! - prev[0]!) < Math.abs(cur[1]! - prev[1]!)) {
-          cur[0] = prev[0]!;
-        } else {
-          cur[1] = prev[1]!;
-        }
+    // Enforce orthogonal segments: fix any diagonal by inserting an L-shape bend.
+    // Works for both agent-provided and auto-generated paths.
+    // Instead of mutating waypoints (which distorts the route), insert extra
+    // points to make each diagonal into two orthogonal segments.
+    const ortho: number[][] = [allPts[0]!];
+    for (let k = 1; k < allPts.length; k++) {
+      const prev = ortho[ortho.length - 1]!;
+      const cur = allPts[k]!;
+      const adx = Math.abs(cur[0]! - prev[0]!);
+      const ady = Math.abs(cur[1]! - prev[1]!);
+      if (adx > 1 && ady > 1) {
+        // Diagonal segment — split into L-shape (horizontal first, then vertical)
+        ortho.push([cur[0]!, prev[1]!]);
       }
-      if (allPts.length >= 3) {
-        const lastWp = allPts[allPts.length - 2]!;
-        const end = allPts[allPts.length - 1]!;
-        if (Math.abs(lastWp[0]! - end[0]!) < Math.abs(lastWp[1]! - end[1]!)) {
-          lastWp[0] = end[0]!;
-        } else {
-          lastWp[1] = end[1]!;
-        }
-      }
+      ortho.push(cur);
     }
+    allPts = ortho;
 
     // ── Edge-aware endpoint snapping ──
     // Arrows stop at the icon edge (or container border), centered on the
@@ -1157,8 +1226,8 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       width: Math.abs(cx2 - cx1),
       height: Math.abs(cy2 - cy1),
       points: relPts,
-      strokeColor: '#545B64',
-      strokeWidth: 2,
+      strokeColor: ARROW_STROKE,
+      strokeWidth: ARROW_WIDTH,
       strokeStyle: 'solid',
       roughness: 0,
       startArrowhead: conn.bidirectional ? 'arrow' : null,
@@ -1221,14 +1290,19 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
         groupIds: [badgeGroupId],
       });
     } else if (conn.label) {
-      // Non-numeric label — text annotation near midpoint
+      // Non-numeric label — italic text annotation above/below arrow midpoint
       const mid = pathMidpoint(allPts);
+      const { width: labelW } = measureText(conn.label, FONT_SIZE);
+      // Position label above horizontal segments, to the side of vertical segments
+      const isHorizontal = Math.abs(mid.dx) >= Math.abs(mid.dy);
+      const labelX = isHorizontal ? mid.mx - labelW / 2 : mid.mx + 10;
+      const labelY = isHorizontal ? mid.my - FONT_SIZE * 1.5 : mid.my - FONT_SIZE * 0.6;
       elements.push({
         id: `${conn.id}-label`,
         type: 'text',
-        x: mid.mx, y: mid.my - 20,
+        x: Math.round(labelX), y: Math.round(labelY),
         text: conn.label,
-        fontSize: 16, fontFamily: 2,
+        fontSize: FONT_SIZE, fontFamily: 2,
         textAlign: 'center',
         strokeColor: '#1a1a1a',
         roughness: 0,
