@@ -184,13 +184,14 @@ Main reads `plan.md` and the reference image, writes `diagram.d2` with full D2 s
 ### Positioning rules — what gets `pos:` and what doesn't
 
 **Always add `pos: "x,y,w,h"` to:**
-- All containers (AWS Cloud, Customer Account, Managed Account, Auth, Step Functions, etc.)
-- Elements with special placement that don't follow a grid (DTH UI, User, DynamoDB — anything placed in a unique spot in the reference)
+- All containers — every container needs explicit bounds to match the reference layout
+- Elements that have a specific position in the reference that can't be derived from a grid pattern — look at the reference and ask: "would auto-layout put this in the right place?" If no, add `pos:`.
 
 **Use `layout:` instead of `pos:` for:**
-- Containers where children form a regular grid (e.g., Managed Account with 6 items → `layout: "2x3"`)
-- Containers where children are in a simple row (e.g., Auth with Cognito + OpenID → `layout: row`)
-- Containers where children stack vertically (e.g., Step Functions with Lambda above CloudFormation → `layout: col`)
+- Containers where all children form a regular repeating pattern (grid, row, or column)
+- If children are evenly spaced in a grid → `layout: "NxM"`
+- If children sit side by side → `layout: row`
+- If children stack top to bottom → `layout: col`
 
 **Leaf nodes inside a `layout:` container need no `pos:`** — the tool auto-places them.
 
