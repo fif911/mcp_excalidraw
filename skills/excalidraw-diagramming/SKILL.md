@@ -167,8 +167,8 @@ Main reads `plan.md` and the reference image, writes `diagram.d2` with full D2 s
 
 **Pass 1: Initial build**
 1. Write `diagram.d2` from `plan.md` — translate the text plan into D2 syntax
-2. Add `pos: "x,y,w,h"` to **top-level containers only** (canvas frame)
-3. Add `layout:` hints to containers with multiple children
+2. Add `pos:` where needed (see positioning rules below)
+3. Add `layout:` hints to containers with grid-like children
 4. Call `create_from_d2` — the tool builds AND returns exact positions of all elements
 
 **Pass 2: Refine arrows using exact positions**
@@ -181,9 +181,20 @@ Main reads `plan.md` and the reference image, writes `diagram.d2` with full D2 s
 9. Verify visually with `get_canvas_screenshot`
 10. Export using `export_to_image`
 
-**Do NOT add `pos:` to leaf nodes.** The tool auto-places them via layout hints.
+### Positioning rules — what gets `pos:` and what doesn't
 
-**Do NOT guess coordinates.** After Pass 1, the tool gives you exact positions. Use them.
+**Always add `pos: "x,y,w,h"` to:**
+- All containers (AWS Cloud, Customer Account, Managed Account, Auth, Step Functions, etc.)
+- Elements with special placement that don't follow a grid (DTH UI, User, DynamoDB — anything placed in a unique spot in the reference)
+
+**Use `layout:` instead of `pos:` for:**
+- Containers where children form a regular grid (e.g., Managed Account with 6 items → `layout: "2x3"`)
+- Containers where children are in a simple row (e.g., Auth with Cognito + OpenID → `layout: row`)
+- Containers where children stack vertically (e.g., Step Functions with Lambda above CloudFormation → `layout: col`)
+
+**Leaf nodes inside a `layout:` container need no `pos:`** — the tool auto-places them.
+
+**Do NOT guess coordinates.** After Pass 1, the tool gives you exact positions. Use them for Pass 2.
 
 ### What the tool handles automatically (don't override unless Critic flags issues)
 
