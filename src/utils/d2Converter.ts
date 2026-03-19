@@ -845,11 +845,17 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       const dx = Math.abs(cx2 - cx1);
       const dy = Math.abs(cy2 - cy1);
 
-      if (dx < 5) {
+      // Rule 9: Prefer straight arrows when source and target share same Y or X
+      if (dx < 15) {
+        // Nearly same X → straight vertical
         allPts = [[cx1, cy1], [cx2, cy2]];
-      } else if (dy < 5) {
+      } else if (dy < 15) {
+        // Nearly same Y → straight horizontal
         allPts = [[cx1, cy1], [cx2, cy2]];
       } else {
+        // Rule 10: Never approach icon from below (label is below icon).
+        // Use horizontal-first L-shape: go horizontal to target X, then vertical.
+        // This enters the target from the side (left/right), not from below.
         allPts = [[cx1, cy1], [cx2, cy1], [cx2, cy2]];
       }
     }
@@ -877,8 +883,10 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
     }
 
     // Offset endpoints: R for leaf nodes (icon edge), small gap for containers (border)
-    const startR = fromIsLeaf ? R : 5;
-    const endR = toIsLeaf ? R : 5;
+    // R for leaf nodes (offset from icon center to icon edge)
+    // 12px for containers (visible gap from border — not too close, not too far)
+    const startR = fromIsLeaf ? R : 12;
+    const endR = toIsLeaf ? R : 12;
 
     if (allPts.length >= 2) {
       const [s0x, s0y] = allPts[0]!;
@@ -1016,6 +1024,18 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
   for (const shape of Object.values(graph.shapes)) {
     if (shape.children.length === 0 && !layout[shape.id]) {
       validationIssues.push(`Node "${shape.label}" (${shape.id}) has no layout position`);
+    }
+  }
+
+  // Check orphan nodes: leaf nodes with no connections and no # standalone annotation
+  const connectedNodes = new Set<string>();
+  for (const conn of graph.connections) {
+    connectedNodes.add(conn.from);
+    connectedNodes.add(conn.to);
+  }
+  for (const shape of Object.values(graph.shapes)) {
+    if (shape.children.length === 0 && !connectedNodes.has(shape.id)) {
+      validationIssues.push(`ORPHAN: node "${shape.label}" (${shape.id}) has no connections — mark with "# standalone: true" or add a connection`);
     }
   }
 

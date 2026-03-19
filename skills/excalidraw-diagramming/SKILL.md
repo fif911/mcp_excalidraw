@@ -105,8 +105,22 @@ step_functions: AWS Step Functions workflow {
 5. **AWS Cloud boundary is always present** as the outermost container
 6. **All short D2 IDs must be unique** across the diagram
 7. **Wide labels split with `\n`** — any label wider than ~120px MUST use `\n` to wrap. E.g., `s3_repl: S3 replication\ncomponent template`, `dth_ui: Data Transfer\nHub UI`. The tool renders each line as a separate centered element.
-8. **Cross-container arrows stop at container border** — use waypoints at the border coordinate. E.g., arrow entering Step Functions (left border x=830): `waypoints: (830,491)`. Arrow exiting Step Functions (bottom border y=645): `waypoints: (990,645)`
-9. **Arrow #3-style border entry** — arrows targeting a node inside a sub-boundary (e.g., Auth box) must end at the sub-boundary border, not the node inside. Use waypoints to route to the border edge.
+8. **All arrows must be orthogonal** — every segment purely horizontal or vertical. No diagonal arrows. The tool auto-creates L-shapes when source and target differ in both X and Y, but verify the result.
+9. **Arrow endpoint decision matrix** — before writing each arrow, check the reference:
+   ```
+   Default behavior:
+   1. Same container (or both outside)  → icon-to-icon
+   2. Source outside, target inside      → end at container border
+   3. Source inside, target outside      → start at container border
+   4. Different containers               → both ends at respective borders
+
+   BUT: if the reference clearly shows an arrow crossing a container
+   border to reach an icon inside, connect icon-to-icon directly.
+   The reference overrides the default matrix.
+   ```
+10. **No stub arrows** — when a flow exits a container, draw ONE arrow from the container border to the target. Do NOT draw an icon-to-border stub inside the container — the icon's connection to the border is implicit by being inside it.
+11. **Track border arrows** — in `diagram.d2`, if an arrow starts or ends at a container border (not an icon), the connection source/target is the container ID, not the icon inside. Use waypoints at the border coordinate for entry/exit. E.g., `waypoints: (830,491)` for Step Functions left border.
+12. **Arrow #3-style border entry** — arrows targeting a node inside a sub-boundary (e.g., Auth box) must end at the sub-boundary border, not the node inside. Use waypoints to route to the border edge.
 
 ## Icon Resolution
 
@@ -170,6 +184,8 @@ aws_cloud.customer_account.appsync -> aws_cloud.customer_account.dynamodb: 8 {
 - Do NOT write Python build scripts — tool builds directly
 - Do NOT create `components_styling.txt` or `icons_graph_structure.md`
 - Do NOT use `header_bg_color` — the tool never applies it
+- Do NOT invent connections to "fix" orphaned nodes — if the reference shows no arrows, mark as `# standalone: true`
+- Do NOT draw stub arrows (icon → own container border) — one arrow from border to target
 
 ---
 
@@ -185,3 +201,7 @@ aws_cloud.customer_account.appsync -> aws_cloud.customer_account.dynamodb: 8 {
 - [ ] Every container header icon matches the reference (including dashed sub-boundaries)
 - [ ] Every cross-container arrow has explicit `waypoints` for L-shape routing
 - [ ] Every cross-container arrow has explicit `badge_pos` to avoid border overlap
+- [ ] Arrow endpoint decision matrix applied — border-stop vs icon-to-icon matches reference
+- [ ] No stub arrows (icon → own container border)
+- [ ] No orphan nodes — every node is in a connection or marked `# standalone: true`
+- [ ] No diagonal arrows — all segments orthogonal (tool enforces, but verify)
