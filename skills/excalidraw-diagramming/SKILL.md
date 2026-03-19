@@ -290,6 +290,7 @@ Nodes with explicit `pos:` inside a layout container keep their position — onl
 3. **Every cross-container arrow badge needs explicit `badge_pos`** — auto-positioned badges land on or inside container borders.
 4. **Container sizing must fit all children** — at least 15px padding from children to container edges, plus header height.
 5. **Border arrows use container coordinates** — arrows to/from containers use waypoints at the border coordinate. E.g., `waypoints: (830,491)` for a container's left border at x=830.
+6. **Arrows stop at icon edges** — the tool automatically snaps arrow endpoints to the icon edge on the approached side (left/right/top/bottom), centered on that edge. If entering from below, the endpoint accounts for label text height. You don't need to calculate icon-edge offsets manually — just route the arrow toward the icon center and the tool snaps it.
 
 ### Waypoints syntax
 

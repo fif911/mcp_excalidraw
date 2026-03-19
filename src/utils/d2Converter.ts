@@ -977,31 +977,58 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       }
     }
 
-    // Offset endpoints: R for leaf nodes (icon center → icon edge), 3px for containers (just off border)
-    const startR = fromIsLeaf ? R : 3;
-    const endR = toIsLeaf ? R : 3;
+    // ── Edge-aware endpoint snapping ──
+    // Arrows stop at the icon edge (or container border), centered on the
+    // approached side. For bottom approach on leaf nodes, the endpoint
+    // accounts for label text height so the arrow doesn't cross the label.
+    const ICON_HALF = ICON_SIZE / 2;
+    const EDGE_GAP = 5; // gap between arrowhead and icon/container edge
 
-    if (allPts.length >= 2) {
-      const [s0x, s0y] = allPts[0]!;
-      const [n1x, n1y] = allPts[1]!;
-      const fdx = n1x! - s0x!;
-      const fdy = n1y! - s0y!;
-      const flen = Math.sqrt(fdx * fdx + fdy * fdy);
-      if (flen > startR) {
-        allPts[0] = [s0x! + (fdx / flen) * startR, s0y! + (fdy / flen) * startR];
+    function snapEndpoint(
+      ptIdx: number, neighborIdx: number, isLeaf: boolean,
+      centerX: number, centerY: number, textH: number
+    ) {
+      const pt = allPts[ptIdx]!;
+      const neighbor = allPts[neighborIdx]!;
+      const dx = neighbor[0]! - pt[0]!;
+      const dy = neighbor[1]! - pt[1]!;
+
+      if (!isLeaf) {
+        // Container: just offset 3px from center toward neighbor
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len > 3) {
+          allPts[ptIdx] = [pt[0]! + (dx / len) * 3, pt[1]! + (dy / len) * 3];
+        }
+        return;
+      }
+
+      // Leaf node: determine approach side from segment direction
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+
+      if (absDx >= absDy) {
+        // Horizontal approach → stop at left or right icon edge, centered vertically
+        const sign = dx > 0 ? 1 : -1;
+        allPts[ptIdx] = [centerX + sign * (ICON_HALF + EDGE_GAP), centerY];
+      } else if (dy > 0) {
+        // Approaching FROM ABOVE (arrow goes downward toward icon top)
+        allPts[ptIdx] = [centerX, centerY - ICON_HALF - EDGE_GAP];
+      } else {
+        // Approaching FROM BELOW (arrow goes upward toward icon bottom)
+        // Stop below the label text so arrow doesn't cross it
+        allPts[ptIdx] = [centerX, centerY + ICON_HALF + gap + textH + EDGE_GAP];
       }
     }
 
+    // Snap start endpoint (arrow leaves this element)
+    if (allPts.length >= 2) {
+      snapEndpoint(0, 1, !!fromIsLeaf, cx1, cy1, fromTextH);
+    }
+
+    // Snap end endpoint (arrow arrives at this element)
     if (allPts.length >= 2) {
       const last = allPts.length - 1;
-      const [e0x, e0y] = allPts[last]!;
-      const [p1x, p1y] = allPts[last - 1]!;
-      const ldx = p1x! - e0x!;
-      const ldy = p1y! - e0y!;
-      const llen = Math.sqrt(ldx * ldx + ldy * ldy);
-      if (llen > endR) {
-        allPts[last] = [e0x! + (ldx / llen) * endR, e0y! + (ldy / llen) * endR];
-      }
+      snapEndpoint(last, last - 1, !!toIsLeaf, cx2, cy2, toTextH);
     }
 
     // Collapse degenerate segments (< 3px)
