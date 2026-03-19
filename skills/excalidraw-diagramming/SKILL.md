@@ -325,4 +325,6 @@ aws_cloud.customer_account.appsync -> aws_cloud.customer_account.dynamodb: 8 {
 ### Main does NOT do
 
 - Do NOT change the structural D2 (adding/removing nodes or connections) — route to Planner
+- Do NOT create any files other than editing `diagram.d2` — no Python scripts, no build files
+- Do NOT call `search_aws_icons` — icon resolution is handled automatically by `create_from_d2`
 - Do NOT use `header_bg_color`
