@@ -103,7 +103,25 @@ export function parseD2(source: string): D2Graph {
 
   const lines = source
     .split('\n')
-    .map(l => l.replace(/#.*/g, '').trim())
+    .map(l => {
+      // Strip comments: # at start of line (after whitespace) or # preceded by whitespace
+      // but NOT # inside quoted strings (hex colors like "#E7157B")
+      let inQuote: string | null = null;
+      let commentStart = -1;
+      for (let j = 0; j < l.length; j++) {
+        const ch = l[j]!;
+        if (inQuote) {
+          if (ch === inQuote) inQuote = null;
+        } else if (ch === '"' || ch === "'") {
+          inQuote = ch;
+        } else if (ch === '#' && (j === 0 || /\s/.test(l[j - 1]!))) {
+          commentStart = j;
+          break;
+        }
+      }
+      if (commentStart >= 0) l = l.slice(0, commentStart);
+      return l.trim();
+    })
     .filter(Boolean);
 
   const contextStack: string[] = [];

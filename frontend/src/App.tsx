@@ -160,6 +160,13 @@ const restoreBindings = (
       patched.containerId = orig.containerId;
     }
 
+    // Restore visual properties that convertToExcalidrawElements may reset
+    for (const prop of ['strokeColor', 'backgroundColor', 'strokeWidth', 'strokeStyle', 'roughness', 'fillStyle', 'opacity'] as const) {
+      if (orig[prop] !== undefined && orig[prop] !== '' && el[prop] !== orig[prop]) {
+        patched[prop] = orig[prop];
+      }
+    }
+
     return patched;
   });
 };
@@ -733,7 +740,9 @@ function App(): JSX.Element {
               })
 
               console.log('D2 diagram rendered:', data.elements.length, 'elements')
-              await syncToBackend()
+              // Don't syncToBackend — server already has correct elements from create_from_d2.
+              // Syncing back would overwrite server data with Excalidraw-normalized values
+              // (e.g., strokeColor gets reset to "" by convertToExcalidrawElements).
             } catch (error) {
               console.error('Error rendering D2 diagram from WebSocket:', error)
             }

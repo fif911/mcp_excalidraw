@@ -1,83 +1,176 @@
-# Data Transfer Hub - AWS Architecture Diagram
-# Outer boundary: AWS Cloud (solid gray border, AWS logo top-left)
+arrow_style: {
+  stroke: "#545B64"
+  stroke_width: "2"
+  badge_bg: "#232F3E"
+  badge_color: "#ffffff"
+  badge_size: "38"
+  badge_shape: "circle"
+}
 
 aws_cloud: AWS Cloud {
-  # Customer's AWS Account (solid border, cloud icon top-left)
+  pos: "20, 15, 1570, 830"
+  stroke: "#545B64"
+  header_icon: "aws cloud logo"
+
   customer_account: Customer's AWS Account {
+    pos: "165, 90, 830, 720"
+    stroke: "#545B64"
+    header_icon: "aws account"
 
-    # Authentication sub-boundary (DASHED border)
     auth: Authentication {
-      style.stroke-dash: 5
-      cognito: Amazon Cognito
-      openid: OpenID Connect
+      pos: "200, 175, 285, 195"
+      stroke: "#545B64"
+      stroke_style: "dashed"
+
+      cognito: Amazon Cognito {
+        pos: "280, 295"
+        icon: "cognito"
+      }
+
+      openid: OpenID\nConnect {
+        pos: "410, 295"
+        icon: "iam identity center"
+      }
     }
 
-    # DynamoDB - standalone, top area right of Auth
-    dynamodb: Amazon DynamoDB
-
-    # Step Functions workflow container (PINK/RED solid border)
-    step_functions: AWS Step Functions workflow {
-      style.stroke: "#E7157B"
-      lambda_sf: AWS Lambda
-      cloudformation: AWS CloudFormation
+    dynamodb: Amazon DynamoDB {
+      pos: "590, 295"
+      icon: "dynamodb"
     }
 
-    # Standalone services
-    appsync: AWS AppSync
-    lambda: AWS Lambda
-    cloudfront: Amazon CloudFront
-    s3: Amazon S3
-    fargate: AWS Fargate
-    data_transfer_hub: Data Transfer Hub UI
+    step_functions: AWS Step Functions\nworkflow {
+      pos: "665, 175, 310, 400"
+      stroke: "#E7157B"
+      header_icon: "step functions"
+
+      lambda_sf: AWS Lambda {
+        pos: "820, 320"
+        icon: "lambda"
+      }
+
+      cf: AWS CloudFormation {
+        pos: "820, 470"
+        icon: "cloudformation"
+      }
+    }
+
+    appsync: AWS AppSync {
+      pos: "380, 460"
+      icon: "appsync"
+    }
+
+    lambda: AWS Lambda {
+      pos: "560, 460"
+      icon: "lambda"
+    }
+
+    cloudfront: Amazon CloudFront {
+      pos: "380, 670"
+      icon: "cloudfront"
+    }
+
+    s3_customer: Amazon S3 {
+      pos: "590, 670"
+      icon: "s3"
+    }
+
+    fargate: AWS Fargate {
+      pos: "820, 670"
+      icon: "fargate"
+    }
   }
 
-  # AWS Managed Account (solid border, cloud icon top-left)
   managed_account: AWS Managed Account {
-    s3_replication_template: S3 replication component template
-    dynamodb_replication_template: DynamoDB replication component template
-    s3: Amazon S3
-    ecr_replication_template: ECR replication component template
-    ecr: Amazon ECR
-    ecr_docker_image: ECR replication Docker image
+    pos: "1060, 90, 510, 720"
+    stroke: "#545B64"
+    header_icon: "aws account"
+
+    s3_repl: S3 replication\ncomponent template {
+      pos: "1180, 250"
+      icon: "cloudformation template"
+      icon_color: "Orange"
+    }
+
+    ddb_repl: DynamoDB\nreplication\ncomponent template {
+      pos: "1420, 250"
+      icon: "cloudformation template"
+      icon_color: "Orange"
+    }
+
+    s3_managed: Amazon S3 {
+      pos: "1180, 460"
+      icon: "s3"
+    }
+
+    ecr_repl: ECR replication\ncomponent template {
+      pos: "1420, 460"
+      icon: "cloudformation template"
+      icon_color: "Orange"
+    }
+
+    ecr: Amazon ECR {
+      pos: "1180, 670"
+      icon: "ecr"
+    }
+
+    ecr_docker: ECR replication\nDocker image {
+      pos: "1420, 670"
+      icon: "ecr"
+      icon_color: "Orange"
+    }
+  }
+
+  dth_ui: Data Transfer\nHub UI {
+    pos: "90, 560"
+    icon: "client"
+    icon_variant: "Light"
   }
 }
 
-# User - outside AWS Cloud, bottom-left
-user: User
+user: User {
+  pos: "90, 910"
+  icon: "user"
+  icon_variant: "Light"
+  external: "true"
+}
 
-# === NUMBERED ARROWS ===
+# Unlabeled connections
+openid -> cognito
+cloudfront -> s3_customer
+cf -> fargate
+user -> dth_ui
 
-# 1: Data Transfer Hub UI -> Amazon CloudFront (horizontal right, bottom row)
-customer_account.data_transfer_hub -> customer_account.cloudfront: 1
+# Numbered flow
+dth_ui -> cloudfront: 1 {
+  waypoints: "90, 670"
+  badge_pos: "250, 670"
+}
 
-# 2: Authentication/Cognito -> AWS AppSync (horizontal right, mid-level)
-customer_account.auth.cognito -> customer_account.appsync: 2
+dth_ui -> appsync: 2 {
+  waypoints: "90, 460"
+  badge_pos: "270, 460"
+}
 
-# 3: User -> Data Transfer Hub UI (vertical up, enters Customer Account)
-user -> customer_account.data_transfer_hub: 3
+dth_ui -> cognito: 3 {
+  waypoints: "90, 295"
+  badge_pos: "90, 430"
+}
 
-# 4: AWS AppSync -> AWS Lambda (horizontal right, middle row)
-customer_account.appsync -> customer_account.lambda: 4
+appsync -> lambda: 4
 
-# 5: AWS Lambda -> Step Functions workflow (horizontal right, enters pink box)
-customer_account.lambda -> customer_account.step_functions: 5
+lambda -> step_functions: 5 {
+  border_stop: "step_functions.left"
+  badge_pos: "630, 460"
+}
 
-# 6: Amazon S3 (Managed) -> AWS CloudFormation (horizontal left, cross-container)
-managed_account.s3 -> customer_account.step_functions.cloudformation: 6
+s3_managed -> cf: 6 {
+  badge_pos: "1030, 460"
+}
 
-# 7: Amazon ECR -> AWS Fargate (horizontal left, cross-container, bottom row)
-managed_account.ecr -> customer_account.fargate: 7
+ecr -> fargate: 7 {
+  badge_pos: "1030, 670"
+}
 
-# 8: AWS AppSync -> Amazon DynamoDB (vertical up)
-customer_account.appsync -> customer_account.dynamodb: 8
-
-# === UNLABELED ARROWS ===
-
-# External authentication input -> Cognito (from left edge)
-# (represented as arrow entering from outside the diagram)
-
-# CloudFront -> S3 (horizontal right, bottom row, static content)
-customer_account.cloudfront -> customer_account.s3
-
-# CloudFormation -> Fargate (vertical down, deployment)
-customer_account.step_functions.cloudformation -> customer_account.fargate
+cognito -> dynamodb: 8 {
+  badge_pos: "470, 260"
+}
