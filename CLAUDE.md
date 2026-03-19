@@ -21,11 +21,11 @@ Quick reference: containers have `pos: "x,y,w,h"` + `stroke` + optional `header_
 
 ## Agent 1: Planner
 
-**Goal:** Write a single `diagram.d2` file that fully specifies the diagram.
+**Goal:** Write the structural `diagram.d2` — containers, nodes, connections, labels, styling. No positions.
 
 ### Before starting
 
-- **Read `skills/excalidraw-diagramming/SKILL.md`** — D2 patterns and hard rules
+- **Read `skills/excalidraw-diagramming/SKILL.md`** — Phase 1 (Planner) section
 - Do NOT read `skills/diagram-review/` files — those are for the Critic only
 - Do **not** read or reuse previous diagram files — start from scratch. NEVER read files from `diagram_building/` other than the current version being built. Previous versions, build logs, and diagram.d2 files are irrelevant and will mislead you.
 - If feedback comes from the Critic, fix `diagram.d2` and increment version
@@ -33,7 +33,7 @@ Quick reference: containers have `pos: "x,y,w,h"` + `stroke` + optional `header_
 
 ### Input handling
 
-- **Reference image:** Save to `diagram_building/v{N}/reference.png`. Trace every element, container, sub-boundary, connection, and numbered badge.
+- **Reference image:** Trace every element, container, sub-boundary, connection, and numbered badge.
 - **Text description:** Interpret to define all elements, containers, connections, and layout.
 
 ### Output
@@ -44,21 +44,28 @@ Create `diagram_building/v{N}/diagram.d2` with:
 - All connections with `->`, `<->` and numbered labels (`: 1`, `: 2`)
 - D2 style attributes for dashed borders, stroke colors
 - `# standalone: true` annotation on nodes with no connections
+- `icon:` overrides where auto-resolution would pick the wrong type
 
-The tool handles icon resolution, positioning, and styling automatically from node labels.
+**Do NOT add `pos:`, `waypoints:`, or `badge_pos:`** — Main handles all positioning.
 
 ---
 
 ## Agent 2: Main
 
-**Goal:** Call `create_from_d2` with `diagram.d2` contents. The tool resolves icons, builds containers, places nodes, draws arrows, and validates.
+**Goal:** Add positions to `diagram.d2`, build with `create_from_d2`, and iterate on validation issues.
 
-1. Run `npm run canvas` to start the Express server
-2. Read `diagram.d2` → call `create_from_d2` MCP tool
-3. Check output for validation issues
-4. If issues → fix `diagram.d2` and re-call (tool clears canvas each time)
-5. Verify visually with `get_canvas_screenshot`
-6. Export using `export_to_image` MCP tool
+- **Read `skills/excalidraw-diagramming/SKILL.md`** — Phase 2 (Main) section
+- Add `pos:` to every container and node
+- Add `waypoints:` and `badge_pos:` to arrows that need them
+- Call `create_from_d2` and check validation output
+- Fix positioning issues and rebuild (tool clears canvas each time)
+- Verify visually with `get_canvas_screenshot`
+- Export using `export_to_image` MCP tool
+
+### Receives Critic feedback on
+
+- Positional issues: overlaps, badge on border, arrow crosses text, container overflow, diagonal segments → Main fixes positions/waypoints
+- Structural issues: missing node, wrong connection, wrong icon type → route to Planner
 
 ---
 
@@ -69,7 +76,8 @@ The tool handles icon resolution, positioning, and styling automatically from no
 - Read `skills/diagram-review/SKILL.md` and `skills/diagram-review/references/checklist.md`
 - Pre-build: verify every connection in `diagram.d2` against reference before Main builds
 - Post-build: visual inspection with canvas screenshots
-- All fixes route to **Planner** (fix `diagram.d2`) since all styling is in the D2 file
+- Structural issues → **Planner** (fix connections, nodes, labels in `diagram.d2`)
+- Positional issues → **Main** (fix positions, waypoints, badge_pos in `diagram.d2`)
 
 ---
 

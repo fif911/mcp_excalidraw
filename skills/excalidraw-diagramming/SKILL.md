@@ -8,12 +8,11 @@ description: >
 
 # Excalidraw Diagramming Skill
 
-Write standard D2 syntax. The `create_from_d2` tool handles icon resolution,
-layout, container headers, arrow routing, and validation internally.
+Two-phase workflow: **Planner** writes the structural D2 spec, **Main** adds positions and builds.
 
 ---
 
-## D2 Structure Patterns
+## D2 Syntax Reference (both agents)
 
 ### Containers (nested braces)
 
@@ -31,9 +30,6 @@ aws_cloud: AWS Cloud {
 }
 ```
 
-The tool detects AWS container types from labels and applies correct header icons,
-stroke colors, and styling automatically.
-
 ### Dashed sub-boundaries
 
 ```d2
@@ -50,7 +46,6 @@ auth: Authentication {
 # Number after colon = badge number
 cognito -> appsync: 2
 appsync -> lambda: 4
-lambda -> step_functions: 5
 
 # Bidirectional
 appsync <-> lambda: 3
@@ -61,16 +56,22 @@ cloudfront -> s3
 
 ### Standalone elements (no connections)
 
-Mark with a comment. Never invent connections for these:
-
 ```d2
 user: User
 # standalone: true
 ```
 
-### External actors
+### Colored containers
 
-Place outside all containers. The tool validates positioning:
+```d2
+step_functions: AWS Step Functions workflow {
+  style.stroke: "#E7157B"
+  lambda_sf: AWS Lambda
+  cloudformation: AWS CloudFormation
+}
+```
+
+### External actors
 
 ```d2
 aws_cloud: AWS Cloud {
@@ -84,29 +85,32 @@ dth_ui: Data Transfer Hub UI
 dth_ui -> aws_cloud.customer_account.cloudfront: 1
 ```
 
-### Colored containers (Step Functions style)
-
-```d2
-step_functions: AWS Step Functions workflow {
-  style.stroke: "#E7157B"
-  lambda_sf: AWS Lambda
-  cloudformation: AWS CloudFormation
-}
-```
-
 ---
 
-## Hard Rules
+## Phase 1: Planner (structure & reference interpretation)
+
+The Planner reads the reference image and writes `diagram.d2` with all structural elements — containers, nodes, connections, labels, and styling. **No positions or waypoints** — those are Main's job.
+
+### Planner output
+
+The Planner writes `diagram.d2` with:
+- All containers with nested `{}` braces
+- All nodes as leaf elements inside containers
+- All connections with `->`, `<->` and numbered labels (`: 1`, `: 2`)
+- D2 style attributes for dashed borders, stroke colors
+- `# standalone: true` annotation on nodes with no connections
+- `icon:` overrides where auto-resolution would pick the wrong icon type
+
+### Planner hard rules
 
 1. **Every element from the reference must be in `diagram.d2`** — containers, nodes, and connections
-2. **Never invent connections** for standalone elements — if the reference shows no arrows, don't add any
+2. **Never invent connections** for standalone elements — if the reference shows no arrows, don't add any. Whether an element is standalone depends on the reference, not the element type.
 3. **Connection labels = badge numbers** — `: 2` maps to badge number 2
-4. **Dashed boundaries use `style.stroke-dash: 5`** — the tool converts this to dashed stroke
+4. **Dashed boundaries use `style.stroke-dash: 5`**
 5. **AWS Cloud boundary is always present** as the outermost container
 6. **All short D2 IDs must be unique** across the diagram
-7. **Wide labels split with `\n`** — any label wider than ~120px MUST use `\n` to wrap. E.g., `s3_repl: S3 replication\ncomponent template`, `dth_ui: Data Transfer\nHub UI`. The tool renders each line as a separate centered element.
-8. **All arrows must be orthogonal** — every segment purely horizontal or vertical. No diagonal arrows. The tool auto-creates L-shapes when source and target differ in both X and Y, but verify the result.
-9. **Arrow endpoint decision matrix** — before writing each arrow, check the reference:
+7. **Wide labels split with `\n`** — any label wider than ~120px MUST use `\n` to wrap
+8. **Arrow endpoint decision matrix** — before writing each arrow, check the reference:
    ```
    Default behavior:
    1. Same container (or both outside)  → icon-to-icon
@@ -118,27 +122,22 @@ step_functions: AWS Step Functions workflow {
    border to reach an icon inside, connect icon-to-icon directly.
    The reference overrides the default matrix.
    ```
-10. **No stub arrows** — when a flow exits a container, draw ONE arrow from the container border to the target. Do NOT draw an icon-to-border stub inside the container — the icon's connection to the border is implicit by being inside it.
-11. **Track border arrows** — in `diagram.d2`, if an arrow starts or ends at a container border (not an icon), the connection source/target is the container ID, not the icon inside. Use waypoints at the border coordinate for entry/exit. E.g., `waypoints: (830,491)` for Step Functions left border.
-12. **Arrow #3-style border entry** — arrows targeting a node inside a sub-boundary (e.g., Auth box) must end at the sub-boundary border, not the node inside. Use waypoints to route to the border edge.
+9. **No stub arrows** — when a flow exits a container, draw ONE arrow from the container border to the target. Do NOT draw an icon-to-border stub inside the container.
+10. **Track border arrows** — if an arrow starts or ends at a container border (not an icon), the connection source/target is the container ID, not the icon inside.
 
-## Icon Resolution
+### Icon resolution (Planner decides, tool executes)
 
-The tool resolves icons automatically from node labels. Override with `icon:` only when auto-resolution picks the wrong icon.
+The tool resolves icons automatically from node labels. The Planner overrides with `icon:` only when auto-resolution would pick the wrong type.
 
-### Icon type decision tree
+**Icon type decision tree:**
 
 | Label type | Icon type | Example |
 |---|---|---|
 | Named AWS service (Amazon S3, AWS Lambda, Amazon Cognito) | Architecture icon (`Arch_*`) — colored branded square | `cognito: Amazon Cognito` |
 | Generic concept or role (User, Git repo, Tools, Database, IDE) | Resource icon (`Res_*`) — dark outline | `user: User` |
-| External actors (User, Mobile client, Data Transfer Hub UI) | Resource icon with Light variant (`Res_48_Light`) | `user: User { icon: "aws-icons-official/.../Res_User_48_Light.svg" }` |
+| External actors (User, Mobile client, Data Transfer Hub UI) | Resource icon with Light variant (`Res_48_Light`) | `user: User { icon: ".../Res_User_48_Light.svg" }` |
 
-When auto-resolution returns the wrong type (e.g., architecture icon for "User"), add an explicit `icon:` path in the D2 node.
-
-### Container header icons
-
-The tool auto-detects container type from labels and applies header icons. Mapping:
+**Container header icon mapping (auto-detected):**
 
 | Container label pattern | Header icon | Border color |
 |---|---|---|
@@ -149,13 +148,56 @@ The tool auto-detects container type from labels and applies header icons. Mappi
 | Contains `Step Functions` | Step Functions icon (search) | `#E7157B` |
 | Dashed sub-boundary | Check reference — may or may not have header icon | inherited |
 
-**Every container's header icon must match the reference image.** Dashed sub-boundaries sometimes have icons and sometimes don't — always verify against the reference.
+### Planner checklist
 
-## Waypoints & Badge Position
+- [ ] Every element from reference has a node in `diagram.d2`
+- [ ] Every connection from reference has an arrow with correct label number
+- [ ] Standalone elements annotated with `# standalone: true`
+- [ ] No orphan nodes — every node is in a connection or marked standalone
+- [ ] Dashed boundaries use `style.stroke-dash: 5`
+- [ ] Wide labels split with `\n`
+- [ ] All D2 IDs are unique
+- [ ] External actors and generic concepts use `Res_*` icon paths (not `Arch_*`)
+- [ ] Every container header icon matches the reference (including dashed sub-boundaries)
+- [ ] Arrow endpoint decision matrix applied — border-stop vs icon-to-icon matches reference
+- [ ] No stub arrows (icon → own container border)
+- [ ] No invented connections for standalone elements
 
-### When waypoints are needed
+### Planner does NOT do
 
-Any arrow that crosses a container boundary or needs an L-shape route requires explicit waypoints. Without them, arrows render as straight diagonals.
+- Do NOT add `pos:`, `waypoints:`, or `badge_pos:` — Main handles positioning
+- Do NOT read previous diagram versions from `diagram_building/`
+- Do NOT read `skills/diagram-review/` files — those are for the Critic only
+- Do NOT invent connections to "fix" orphaned nodes
+- Do NOT write Python build scripts
+- Do NOT create `components_styling.txt` or `icons_graph_structure.md`
+
+---
+
+## Phase 2: Main (positioning, building, iterating)
+
+Main receives the structural `diagram.d2` from the Planner and adds all positioning — `pos:` for containers and nodes, `waypoints:` for arrow routing, `badge_pos:` for numbered badges. Then builds with `create_from_d2` and iterates on validation issues.
+
+### Main responsibilities
+
+1. Add `pos: "x,y,w,h"` to every container
+2. Add `pos: "cx,cy"` to every leaf node
+3. Add `waypoints:` to arrows that need L-shape routing
+4. Add `badge_pos:` to cross-container and L-shape arrow badges
+5. Call `create_from_d2` and check validation output
+6. Fix positioning issues and rebuild (tool clears canvas each time)
+7. Verify visually with `get_canvas_screenshot`
+8. Export using `export_to_image`
+
+### Main hard rules
+
+1. **All arrows must be orthogonal** — every segment purely horizontal or vertical. The tool auto-creates L-shapes but verify the result.
+2. **Every cross-container arrow needs explicit `waypoints`** — without them, arrows render as straight diagonals crossing containers.
+3. **Every cross-container arrow badge needs explicit `badge_pos`** — auto-positioned badges land on or inside container borders.
+4. **Container sizing must fit all children** — at least 15px padding from children to container edges, plus header height.
+5. **Border arrows use container coordinates** — arrows to/from containers use waypoints at the border coordinate. E.g., `waypoints: (830,491)` for a container's left border at x=830.
+
+### Waypoints syntax
 
 ```d2
 # L-shape: vertical then horizontal
@@ -177,31 +219,16 @@ aws_cloud.customer_account.appsync -> aws_cloud.customer_account.dynamodb: 8 {
 - **L-shape arrows:** Always. Auto-position puts the badge at the midpoint which may overlap icons/labels.
 - **Simple same-container arrows:** Usually safe to omit — auto-position works.
 
-## What NOT to Do
+### Main receives Critic feedback on
 
-- Do NOT specify positions — the tool handles layout
-- Do NOT specify icon file paths or queries unless auto-resolution picks the wrong icon
-- Do NOT write Python build scripts — tool builds directly
-- Do NOT create `components_styling.txt` or `icons_graph_structure.md`
-- Do NOT use `header_bg_color` — the tool never applies it
-- Do NOT invent connections to "fix" orphaned nodes — if the reference shows no arrows, mark as `# standalone: true`
-- Do NOT draw stub arrows (icon → own container border) — one arrow from border to target
+- Overlapping elements — fix positions
+- Badge on container border — fix `badge_pos`
+- Arrow crosses text — fix `waypoints`
+- Container too small / children overflow — fix `pos` dimensions
+- Diagonal arrow segment — add `waypoints`
+- Icons too close — adjust `pos`
 
----
+### Main does NOT do
 
-## Checklist
-
-- [ ] Every element from reference has a node in `diagram.d2`
-- [ ] Every connection from reference has an arrow with correct label number
-- [ ] Standalone elements annotated with `# standalone: true`
-- [ ] Dashed boundaries use `style.stroke-dash: 5`
-- [ ] Wide labels split with `\n`
-- [ ] All D2 IDs are unique
-- [ ] External actors and generic concepts use `Res_*` icon paths (not `Arch_*`)
-- [ ] Every container header icon matches the reference (including dashed sub-boundaries)
-- [ ] Every cross-container arrow has explicit `waypoints` for L-shape routing
-- [ ] Every cross-container arrow has explicit `badge_pos` to avoid border overlap
-- [ ] Arrow endpoint decision matrix applied — border-stop vs icon-to-icon matches reference
-- [ ] No stub arrows (icon → own container border)
-- [ ] No orphan nodes — every node is in a connection or marked `# standalone: true`
-- [ ] No diagonal arrows — all segments orthogonal (tool enforces, but verify)
+- Do NOT change the structural D2 (adding/removing nodes or connections) — route to Planner
+- Do NOT use `header_bg_color`
