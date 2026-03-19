@@ -977,11 +977,9 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       }
     }
 
-    // Offset endpoints: R for leaf nodes (icon edge), small gap for containers (border)
-    // R for leaf nodes (offset from icon center to icon edge)
-    // 12px for containers (visible gap from border — not too close, not too far)
-    const startR = fromIsLeaf ? R : 12;
-    const endR = toIsLeaf ? R : 12;
+    // Offset endpoints: R for leaf nodes (icon center → icon edge), 3px for containers (just off border)
+    const startR = fromIsLeaf ? R : 3;
+    const endR = toIsLeaf ? R : 3;
 
     if (allPts.length >= 2) {
       const [s0x, s0y] = allPts[0]!;
@@ -1017,6 +1015,20 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
     }
     if (cleaned.length < 2) allPts = [[cx1, cy1], [cx2, cy2]];
     else allPts = cleaned;
+
+    // Ensure final segment ≥ 30px (prevents small arrowheads in Excalidraw)
+    if (allPts.length >= 2) {
+      const last = allPts.length - 1;
+      const prev = allPts[last - 1]!;
+      const end = allPts[last]!;
+      const fdx = end[0]! - prev[0]!;
+      const fdy = end[1]! - prev[1]!;
+      const flen = Math.sqrt(fdx * fdx + fdy * fdy);
+      if (flen > 0 && flen < 30 && allPts.length >= 3) {
+        // Merge the short final segment into the previous one by removing the second-to-last point
+        allPts.splice(last - 1, 1);
+      }
+    }
 
     // Convert to relative points
     const relPts = allPts.map(p => [p[0]! - allPts[0]![0]!, p[1]! - allPts[0]![1]!]);
