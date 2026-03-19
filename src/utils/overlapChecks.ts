@@ -24,6 +24,7 @@ export interface OverlapIssue {
   type: string;
   severity: 'error' | 'warning';
   message: string;
+  fix?: string;
 }
 
 export interface OverlapReport {
@@ -306,10 +307,13 @@ function checkSectionCrossings(elements: Elem[], margin = 3): OverlapIssue[] {
       if (rectContains(bb1, bb2) || rectContains(bb2, bb1)) continue;
       // Partial overlap is an error
       const pct = overlapPct(bb1, bb2);
+      const overlapX = Math.min(bb1[2], bb2[2]) - Math.max(bb1[0], bb2[0]);
+      const overlapY = Math.min(bb1[3], bb2[3]) - Math.max(bb1[1], bb2[1]);
       issues.push({
         type: 'SECTION_CROSSING',
         severity: 'error',
         message: `Section '${c1.id}' and '${c2.id}' partially overlap (${pct.toFixed(0)}% of smaller section).`,
+        fix: `Increase gap between containers — reduce width by ${Math.ceil(overlapX)}px or increase vertical spacing by ${Math.ceil(overlapY)}px.`,
       });
     }
   }
@@ -341,6 +345,7 @@ function checkIconOverlaps(elements: Elem[], margin = 5): OverlapIssue[] {
           type: 'ICON_OVERLAP',
           severity: 'error',
           message: `Icon '${ic1.id}' overlaps icon '${ic2.id}' by ${oa.toFixed(0)}px\u00b2 area.`,
+          fix: `Increase container width or change layout hint to add more columns (e.g., layout: "3x2" instead of "2x3").`,
         });
       } else {
         // Within margin but not truly overlapping — too close
@@ -351,6 +356,7 @@ function checkIconOverlaps(elements: Elem[], margin = 5): OverlapIssue[] {
           type: 'ICON_TOO_CLOSE',
           severity: 'warning',
           message: `Icon '${ic1.id}' is only ${gap.toFixed(0)}px from icon '${ic2.id}' (min recommended: ${margin}px).`,
+          fix: `Widen container or adjust layout hint to spread elements further apart.`,
         });
       }
     }
@@ -379,10 +385,14 @@ function checkIconLabelOverlaps(elements: Elem[], margin = 3): OverlapIssue[] {
       const text1 = (t1.text ?? '').slice(0, 40);
       const text2 = (t2.text ?? '').slice(0, 40);
       const oa = overlapArea(bb1, bb2);
+      const labelIsSingleLine1 = !(t1.text ?? '').includes('\n') && (t1.text ?? '').length > 15;
       issues.push({
         type: 'LABEL_OVERLAP',
         severity: 'error',
         message: `Label '${text1}' (${t1.id}) overlaps label '${text2}' (${t2.id}) by ${oa.toFixed(0)}px\u00b2.`,
+        fix: labelIsSingleLine1
+          ? `Split long label "${text1}" with \\n to reduce width, or widen container.`
+          : `Widen container or adjust layout to increase spacing between elements.`,
       });
     }
   }
@@ -415,6 +425,7 @@ function checkLabelArrowOverlaps(elements: Elem[], margin = 8): OverlapIssue[] {
             type: 'LABEL_ARROW_OVERLAP',
             severity: 'error',
             message: `Label '${textPreview}' (${t.id}) overlaps arrow '${a.id}'.`,
+            fix: `Add waypoint to arrow '${a.id}' to route around label '${textPreview}'.`,
           });
           break; // one hit per arrow is enough
         }
@@ -484,6 +495,7 @@ function checkNumberedCircleOverlaps(
         type: 'CIRCLE_BORDER_OVERLAP',
         severity: 'error',
         message: `Step circle '${circLabel}' (${ellipse.id}) crosses border of section '${c.id}'.`,
+        fix: `Add explicit badge_pos to move badge '${circLabel}' away from container '${c.id}' border.`,
       });
     }
 
@@ -503,6 +515,7 @@ function checkNumberedCircleOverlaps(
             type: 'CIRCLE_ARROW_OVERLAP',
             severity: 'warning',
             message: `Step circle '${circLabel}' (${ellipse.id}) overlaps arrow '${a.id}' (not its parent arrow).`,
+            fix: `Move badge_pos for badge '${circLabel}' perpendicular to arrow to avoid overlap.`,
           });
           break;
         }
@@ -538,6 +551,7 @@ function checkCircleIconOverlaps(elements: Elem[], margin = 3): OverlapIssue[] {
           type: 'CIRCLE_ICON_OVERLAP',
           severity: 'error',
           message: `Step circle '${circLabel}' (${ellipse.id}) overlaps icon '${ic.id}' by ${oa.toFixed(0)}px\u00b2.`,
+          fix: `Move badge_pos for badge '${circLabel}' away from icon '${ic.id}'.`,
         });
       } else {
         // Within margin but not overlapping — too close
@@ -548,6 +562,7 @@ function checkCircleIconOverlaps(elements: Elem[], margin = 3): OverlapIssue[] {
           type: 'CIRCLE_ICON_TOO_CLOSE',
           severity: 'warning',
           message: `Step circle '${circLabel}' (${ellipse.id}) is only ${gap.toFixed(0)}px from icon '${ic.id}' (min: ${margin}px).`,
+          fix: `Adjust badge_pos to increase distance from icon.`,
         });
       }
     }
@@ -598,12 +613,14 @@ function checkArrowIconPenetration(elements: Elem[], penetrationThreshold = 5): 
               type: 'ARROW_PENETRATES_ICON',
               severity: 'error',
               message: `Arrow '${a.id}' ${epName} point penetrates ${penetration.toFixed(0)}px into icon '${ic.id}'.`,
+              fix: `Tool should auto-snap arrow endpoint to icon edge. If this persists, adjust waypoints.`,
             });
           } else if (penetration > 0) {
             issues.push({
               type: 'ARROW_PENETRATES_ICON',
               severity: 'warning',
               message: `Arrow '${a.id}' ${epName} point slightly penetrates (${penetration.toFixed(0)}px) into icon '${ic.id}'.`,
+              fix: `Minor penetration — may resolve with waypoint adjustment.`,
             });
           }
         }
@@ -641,6 +658,7 @@ function checkIconBorderCrossings(elements: Elem[], margin = 2): OverlapIssue[] 
           type: 'ICON_BORDER_CROSSING',
           severity: 'error',
           message: `Icon '${ic.id}' crosses border of container '${c.id}' (${oa.toFixed(0)}px\u00b2 inside, ${(icArea - oa).toFixed(0)}px\u00b2 outside).`,
+          fix: `Expand container '${c.id}' or adjust layout to keep element fully inside.`,
         });
       }
     }
@@ -658,10 +676,14 @@ function checkIconBorderCrossings(elements: Elem[], margin = 2): OverlapIssue[] 
       const oa = overlapArea(tBb, cBb);
       const tArea = rectArea(tBb);
       if (oa > 0 && oa < tArea) {
+        const labelIsSingleLine = !(t.text ?? '').includes('\n') && (t.text ?? '').length > 15;
         issues.push({
           type: 'LABEL_BORDER_CROSSING',
           severity: 'error',
           message: `Label '${textPreview}' (${t.id}) crosses border of container '${c.id}'.`,
+          fix: labelIsSingleLine
+            ? `Split label "${textPreview}" with \\n to reduce width, or expand container '${c.id}'.`
+            : `Expand container '${c.id}' to fit label, or adjust layout.`,
         });
       }
     }
@@ -700,6 +722,7 @@ function checkCircleLabelOverlaps(elements: Elem[], margin = 3): OverlapIssue[] 
           type: 'CIRCLE_LABEL_OVERLAP',
           severity: 'error',
           message: `Step circle '${circLabel}' (${ellipse.id}) overlaps label '${lblText}' (${lbl.id}) by ${oa.toFixed(0)}px\u00b2.`,
+          fix: `Adjust badge_pos for badge '${circLabel}' to clear label '${lblText}'.`,
         });
       } else {
         const dx = Math.max(0, Math.max(lblBb[0] - circBb[2], circBb[0] - lblBb[2]));
@@ -709,6 +732,7 @@ function checkCircleLabelOverlaps(elements: Elem[], margin = 3): OverlapIssue[] 
           type: 'CIRCLE_LABEL_TOO_CLOSE',
           severity: 'warning',
           message: `Step circle '${circLabel}' (${ellipse.id}) is only ${gap.toFixed(0)}px from label '${lblText}' (${lbl.id}) (min: ${margin}px).`,
+          fix: `Adjust badge_pos to increase distance from label.`,
         });
       }
     }
@@ -774,6 +798,7 @@ function checkArrowHeaderOverlaps(elements: Elem[], margin = 4): OverlapIssue[] 
             type: 'ARROW_HEADER_OVERLAP',
             severity: 'error',
             message: `Arrow '${a.id}' crosses ${elType} '${elLabel}' (${headerEl.id}) of container '${containerId}'.`,
+            fix: `Add waypoint to arrow to route above or below header of container '${containerId}'.`,
           });
           break; // one hit per arrow per header element
         }
@@ -803,6 +828,7 @@ function checkDiagonalArrows(elements: Elem[]): OverlapIssue[] {
           type: 'DIAGONAL_SEGMENT',
           severity: 'warning',
           message: `Arrow '${a.id}' segment ${i} is diagonal: (${seg[0].toFixed(0)},${seg[1].toFixed(0)})→(${seg[2].toFixed(0)},${seg[3].toFixed(0)}).`,
+          fix: `Remove unnecessary waypoints from arrow, or fix waypoint coordinates to share X or Y with neighbors.`,
         });
       }
     }
@@ -852,10 +878,14 @@ function checkContainerOverflow(elements: Elem[], padding = 15): OverlapIssue[] 
         if (eBb[0] < cBb[0] + padding || eBb[2] > cBb[2] - padding ||
             eBb[1] < cBb[1] + padding || eBb[3] > cBb[3] - padding) {
           const label = e.type === 'text' ? (e.text ?? '').slice(0, 30) : e.id;
+          const isWideText = e.type === 'text' && !(e.text ?? '').includes('\n') && (e.text ?? '').length > 15;
           issues.push({
             type: 'CONTAINER_OVERFLOW',
             severity: 'warning',
             message: `Element '${label}' (${e.id}) overflows container '${c.id}' bounds (needs ≥${padding}px padding).`,
+            fix: isWideText
+              ? `Split label "${label}" with \\n to reduce width.`
+              : `Expand container '${c.id}' pos width/height, or adjust layout hint.`,
           });
         }
       }
@@ -912,6 +942,7 @@ export function runAllOverlapChecks(elements: any[]): OverlapReport {
     for (const issue of issues) {
       const prefix = issue.severity === 'error' ? '  ERROR' : '  WARN';
       lines.push(`  ${prefix}: ${issue.message}`);
+      if (issue.fix) lines.push(`    FIX: ${issue.fix}`);
     }
   }
 

@@ -230,7 +230,7 @@ If the tool can't find the right color variant, note it as a validation issue.
 
 ## Phase 2: Main (positioning, building, iterating)
 
-Main receives the structural `diagram.d2` from the Planner and adds all positioning — `pos:` for containers and nodes, `waypoints:` for arrow routing, `badge_pos:` for numbered badges. Then builds with `create_from_d2` and iterates on validation issues.
+Main receives `diagram.d2` from the Planner **plus a list of fix suggestions** from the initial auto-layout build (the orchestrator calls `create_from_d2` right after the Planner). Fix these specific issues — don't redesign the layout from scratch. The auto-layout handles most positioning; Main only adjusts what the fix suggestions flag.
 
 ### Main responsibilities
 

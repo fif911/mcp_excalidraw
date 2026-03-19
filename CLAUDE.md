@@ -8,19 +8,23 @@ When asked to build a diagram, you do NOT do the work yourself. You **spawn agen
 
 ```
 1. Spawn Planner agent → writes diagram.d2 (structure only, no positions)
-2. Spawn Main agent → adds positions, builds with create_from_d2, iterates
-3. Spawn Critic agent → reviews output, returns issues
-4. Route feedback:
+2. Orchestrator calls create_from_d2 directly (auto-layout, no positions needed)
+3. Collect overlap report with fix suggestions
+4. Spawn Main agent with diagram.d2 path + fix suggestions list
+   Main adds pos: to top-level containers, layout hints, waypoints — fixes issues
+5. Spawn Critic agent → reviews output, returns issues
+6. Route feedback:
    - Structural issues (missing node, wrong connection) → spawn Planner again
    - Positional issues (overlap, arrow routing) → spawn Main again
-5. Repeat 2-4 until Critic reports no issues
-6. Export final diagram
+7. Repeat 4-6 until Critic reports no issues
+8. Export final diagram
 ```
 
 ### What the orchestrator does directly
 
 - Determine version number: check `diagram_building/` for existing versions
 - Copy reference image to `diagram_building/v{N}/reference.png` if needed
+- **Call `create_from_d2` after Planner** to get the initial auto-layout and fix suggestions
 - Route Critic feedback to the correct agent
 - Decide when the diagram is done
 - Write the build log after export
