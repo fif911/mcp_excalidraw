@@ -109,7 +109,7 @@ The Planner writes `diagram.d2` with:
 ### Planner hard rules
 
 1. **Every element from the reference must be in `diagram.d2`** — containers, nodes, and connections
-2. **Never invent connections** for standalone elements — if the reference shows no arrows, don't add any. Whether an element is standalone depends on the reference, not the element type.
+2. **Never invent connections** for standalone elements — if the reference shows no arrows, don't add any. Whether an element is standalone depends entirely on the specific reference image — not the element type. A "User" icon may be standalone in one diagram and have arrows in another. **Common mistake:** The agent sees an unconnected icon and assumes it's an error, then invents a connection (e.g., User → DTH UI) to "fix" it. This creates a phantom arrow.
 3. **Connection labels = badge numbers** — `: 2` maps to badge number 2
 4. **Dashed boundaries use `style.stroke-dash: 5`**
 5. **AWS Cloud boundary is always present** as the outermost container
