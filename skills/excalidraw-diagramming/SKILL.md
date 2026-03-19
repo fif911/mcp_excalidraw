@@ -110,18 +110,63 @@ step_functions: AWS Step Functions workflow {
 
 ## Icon Resolution
 
-The tool resolves icons automatically from node labels:
-- "Amazon Cognito" → finds Cognito architecture icon
-- "AWS Lambda" → finds Lambda architecture icon
-- "User" → finds user resource icon (dark outline)
-- Container labels → finds appropriate header icons
+The tool resolves icons automatically from node labels. Override with `icon:` only when auto-resolution picks the wrong icon.
 
-No need to specify icon queries or file paths in D2.
+### Icon type decision tree
+
+| Label type | Icon type | Example |
+|---|---|---|
+| Named AWS service (Amazon S3, AWS Lambda, Amazon Cognito) | Architecture icon (`Arch_*`) — colored branded square | `cognito: Amazon Cognito` |
+| Generic concept or role (User, Git repo, Tools, Database, IDE) | Resource icon (`Res_*`) — dark outline | `user: User` |
+| External actors (User, Mobile client, Data Transfer Hub UI) | Resource icon with Light variant (`Res_48_Light`) | `user: User { icon: "aws-icons-official/.../Res_User_48_Light.svg" }` |
+
+When auto-resolution returns the wrong type (e.g., architecture icon for "User"), add an explicit `icon:` path in the D2 node.
+
+### Container header icons
+
+The tool auto-detects container type from labels and applies header icons. Mapping:
+
+| Container label pattern | Header icon | Border color |
+|---|---|---|
+| `AWS Cloud` | AWS Cloud logo (32px) | `#232F3E` |
+| Contains `Account` | AWS Cloud icon (32px) | `#232F3E` |
+| Contains `Region` | Region icon (32px) | `#147EBA` |
+| Contains `VPC` | VPC icon (32px) | `#248814` |
+| Contains `Step Functions` | Step Functions icon (search) | `#E7157B` |
+| Dashed sub-boundary | Check reference — may or may not have header icon | inherited |
+
+**Every container's header icon must match the reference image.** Dashed sub-boundaries sometimes have icons and sometimes don't — always verify against the reference.
+
+## Waypoints & Badge Position
+
+### When waypoints are needed
+
+Any arrow that crosses a container boundary or needs an L-shape route requires explicit waypoints. Without them, arrows render as straight diagonals.
+
+```d2
+# L-shape: vertical then horizontal
+dth_ui -> aws_cloud.customer_account.appsync: 2 {
+  waypoints: (300,640),(300,510)
+  badge_pos: (340,462)
+}
+
+# Single waypoint for right-angle turn
+aws_cloud.customer_account.appsync -> aws_cloud.customer_account.dynamodb: 8 {
+  waypoints: (550,230)
+  badge_pos: (578,185)
+}
+```
+
+### When badge_pos is needed
+
+- **Cross-container arrows:** Always. Auto-positioned badges land on or inside container borders.
+- **L-shape arrows:** Always. Auto-position puts the badge at the midpoint which may overlap icons/labels.
+- **Simple same-container arrows:** Usually safe to omit — auto-position works.
 
 ## What NOT to Do
 
 - Do NOT specify positions — the tool handles layout
-- Do NOT specify icon file paths or queries — tool resolves from labels
+- Do NOT specify icon file paths or queries unless auto-resolution picks the wrong icon
 - Do NOT write Python build scripts — tool builds directly
 - Do NOT create `components_styling.txt` or `icons_graph_structure.md`
 - Do NOT use `header_bg_color` — the tool never applies it
@@ -136,3 +181,7 @@ No need to specify icon queries or file paths in D2.
 - [ ] Dashed boundaries use `style.stroke-dash: 5`
 - [ ] Wide labels split with `\n`
 - [ ] All D2 IDs are unique
+- [ ] External actors and generic concepts use `Res_*` icon paths (not `Arch_*`)
+- [ ] Every container header icon matches the reference (including dashed sub-boundaries)
+- [ ] Every cross-container arrow has explicit `waypoints` for L-shape routing
+- [ ] Every cross-container arrow has explicit `badge_pos` to avoid border overlap

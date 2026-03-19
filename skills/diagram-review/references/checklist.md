@@ -43,6 +43,8 @@ Before any visual checks, verify the canvas matches `diagram.d2`:
 ### Cross-Container Arrow Rule
 - [ ] Arrows entering a nested container end at the container's BORDER — not inside it
 - [ ] No arrow pierces through a container to reach an internal service icon
+- [ ] Every cross-container arrow has explicit `waypoints` in `diagram.d2` for clean L-shape routing
+- [ ] Every cross-container arrow badge has explicit `badge_pos` in `diagram.d2` — no auto-positioning near borders
 
 ### Container Hierarchy
 - [ ] Nested containers reflect logical grouping from `diagram.d2`
@@ -127,16 +129,17 @@ assert len(issues) == 0, f"Validation failed: {issues}"
 - [ ] Multi-line text is properly centered
 
 ### Icon Rules
-- [ ] AWS service icons: colored branded appearance (Architecture icons)
-- [ ] Generic concepts (Git repo, Studio IDE, Tools, Database assets): dark outline (Resource icons)
-- [ ] External actors: dark outline silhouette (Resource icons) — no colored backgrounds
+- [ ] AWS service icons (Amazon S3, AWS Lambda, etc.): colored branded appearance (Architecture `Arch_*` icons)
+- [ ] Generic concepts (Git repo, Studio IDE, Tools, Database assets): dark outline (Resource `Res_*` icons)
+- [ ] External actors (User, Mobile client, DTH UI): dark outline with Light variant (`Res_48_Light`) — no colored backgrounds
+- [ ] When auto-resolution picked the wrong type, D2 has explicit `icon:` path override
 - [ ] No double backgrounds on AWS service icons
 - [ ] All icons consistent size within same hierarchy level
 - [ ] **Icon color matches reference image** — crop each icon and compare its color against the reference. The same icon shape can exist in multiple color variants (e.g., CloudFormation Template in pink vs orange). If colors differ, check `icons/custom/` for a recolored variant with a `_Orange`, `_Green`, etc. suffix
 
 ### Container Visual Rules
 - [ ] Solid-border containers have header icon + label
-- [ ] Dashed text-label-only sub-boundaries have NO header icon — label only (correct, not a bug)
+- [ ] Dashed sub-boundary header icons verified against reference — some have icons, some don't
 - [ ] AWS Cloud boundary is SOLID — never dashed
 - [ ] All corners are sharp 90-degree (no rounding)
 - [ ] Nested containers use color/dashed borders for depth distinction
@@ -183,3 +186,7 @@ assert len(issues) == 0, f"Validation failed: {issues}"
 | No external actors shown | L2 | Missing user/client elements on periphery |
 | Phantom arrow to standalone element | L0+L1 | Element in "Standalone Elements" list has arrow — delete arrow |
 | Icon color mismatch vs reference | L2 | Crop each icon, compare color against reference — check custom/ for recolored variants |
+| Wrong icon type (Arch_ vs Res_) | L2 | External actors or generic concepts showing colored branded square instead of dark outline |
+| Wrong container header icon | L2 | Header icon doesn't match reference — verify every container including dashed sub-boundaries |
+| Cross-container arrow missing waypoints | L2 | Diagonal arrow crossing container boundary — needs explicit waypoints for L-shape |
+| Cross-container badge on border | L2 | Badge overlaps container border — needs explicit badge_pos in gap between containers |

@@ -320,9 +320,9 @@ Text-box workflow steps ("extract text", "describe face", etc.) require:
 - Header icon is `ICON_SIZE` (65px) — same as service icons
 - Header label is `FONT_SIZE` (24px)
 - Header label doesn't overflow the container width
-- **Text-only containers** (dashed sub-boundaries like "Parallel processing",
-  "Storage", "Catalog") may have NO header icon — label only. This is correct,
-  not a bug.
+- **Dashed sub-boundaries** may or may not have header icons — always verify
+  against the reference image. Some (e.g., "Authentication") have icons, others
+  (e.g., "Parallel processing") are text-only. Neither case is a bug.
 
 ### Border and Nesting Rules
 
@@ -366,7 +366,7 @@ If an arrow is drawn over a badge, or a container covers an icon, the z-order is
 - Don't accept badges sitting directly on arrow lines
 - Don't accept arrows passing through unrelated containers
 - Don't accept text-only container headers for solid-border containers (needs icon)
-- Don't accept header icons for dashed text-label-only sub-boundaries (no icon needed)
+- Don't assume dashed sub-boundaries never have icons — always check the reference image
 - Don't accept mixed font sizes — all must be 24px
 - Don't accept mixed icon sizes — all must be 65px
 - Don't accept double backgrounds on AWS service icons
