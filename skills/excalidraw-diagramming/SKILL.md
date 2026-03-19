@@ -132,7 +132,7 @@ The Planner writes `diagram.d2` with:
 
 ### Icon resolution (Planner describes, tool resolves)
 
-The tool resolves icons automatically from node labels. Instead of specifying icon file paths, use hint attributes when auto-resolution picks the wrong type:
+The tool resolves icons automatically from node labels. **Never use `icon:` with file paths** — the Planner describes what icon is needed, the tool finds it. Use hint attributes when auto-resolution picks the wrong type:
 
 ```d2
 # Named AWS service — auto-resolves correctly, no hints needed
@@ -184,11 +184,11 @@ s3_repl: S3 replication template {
 }
 ```
 
-Custom recolored variants live in `icons/custom/` with color suffixes like `_Orange.svg`, `_Green.svg`. If no custom variant exists for the color in the reference, note it as a validation issue.
+If the tool can't find the right color variant, note it as a validation issue.
 
-| Icon | Standard color | Common reference color | Custom variant |
+| Icon | Standard color | Common reference color | icon_hint to use |
 |---|---|---|---|
-| CloudFormation Template | Pink #E7157B | Orange #ED7100 | `custom/Res_AWS-CloudFormation_Template_48_Orange.svg` |
+| CloudFormation Template | Pink #E7157B | Orange #ED7100 | `icon_hint: "CloudFormation Template Orange"` |
 
 **Container header icon mapping (auto-detected):**
 
@@ -219,6 +219,7 @@ Custom recolored variants live in `icons/custom/` with color suffixes like `_Ora
 ### Planner does NOT do
 
 - Do NOT add `pos:`, `waypoints:`, or `badge_pos:` — Main handles positioning
+- Do NOT use `icon:` with file paths — use `icon_hint`, `icon_type`, `icon_variant` to describe what you need
 - Do NOT read previous diagram versions from `diagram_building/`
 - Do NOT read `skills/diagram-review/` files — those are for the Critic only
 - Do NOT invent connections to "fix" orphaned nodes
