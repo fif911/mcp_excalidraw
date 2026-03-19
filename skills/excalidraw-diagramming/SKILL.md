@@ -283,6 +283,20 @@ sidebar: Sidebar {
 
 Nodes with explicit `pos:` inside a layout container keep their position — only unpositioned nodes get auto-placed.
 
+### What the tool handles automatically (don't override unless Critic flags issues)
+
+The tool auto-handles these — Main should NOT manually calculate them:
+
+- **Arrow endpoint snapping** — arrows stop at icon edges, centered on the approached side. Bottom approach accounts for label text height.
+- **Badge placement** — auto-placed on the longest arrow segment (most visible, least overlap)
+- **L-shape routing** — horizontal-first L-shapes when source/target differ in both X and Y. Straight arrows when same Y or X (within 15px).
+- **Container auto-sizing** — when no explicit `pos:` width/height, container grows to fit children with 40px padding and 75px header.
+- **Sibling container proportional split** — when parent has explicit width, unpositioned sibling containers split available space proportionally by leaf child count.
+- **External actor Y-alignment** — unpositioned root elements auto-align Y to match their connected target's icon center.
+- **Child gap spacing** — 60px horizontal and vertical gap between siblings inside containers.
+
+Only override these with explicit `pos:`, `waypoints:`, `badge_pos:` when the Critic flags a problem.
+
 ### Main hard rules
 
 1. **All arrows must be orthogonal** — every segment purely horizontal or vertical. The tool auto-creates L-shapes but verify the result.
@@ -290,7 +304,12 @@ Nodes with explicit `pos:` inside a layout container keep their position — onl
 3. **Every cross-container arrow badge needs explicit `badge_pos`** — auto-positioned badges land on or inside container borders.
 4. **Container sizing must fit all children** — at least 15px padding from children to container edges, plus header height.
 5. **Border arrows use container coordinates** — arrows to/from containers use waypoints at the border coordinate. E.g., `waypoints: (830,491)` for a container's left border at x=830.
-6. **Arrows stop at icon edges** — the tool automatically snaps arrow endpoints to the icon edge on the approached side (left/right/top/bottom), centered on that edge. If entering from below, the endpoint accounts for label text height. You don't need to calculate icon-edge offsets manually — just route the arrow toward the icon center and the tool snaps it.
+
+### Arrow routing guidance (Main decides)
+
+- **Horizontal lanes for 10+ arrows** — assign each major flow a Y lane to minimize arrow crossings
+- **Route vertical segments through gaps** — vertical arrow segments go through gaps between containers, never through container bodies
+- **Standalone badges in tight gaps** — when auto-positioned badge overlaps a border, use explicit `badge_pos` in the gap between containers
 
 ### Waypoints syntax
 

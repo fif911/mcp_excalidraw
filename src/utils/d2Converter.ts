@@ -11,8 +11,8 @@ const FONT_SIZE = 24;
 const HEADER_HEIGHT = 75;
 const NODE_W = 140;
 const NODE_H = 110; // icon (65) + gap (8) + label (~30)
-const H_GAP = 40;
-const V_GAP = 40;
+const H_GAP = 60;
+const V_GAP = 60;
 const CONTAINER_PAD = 40;
 const R = 33; // Arrow endpoint offset from icon center (half icon + gap)
 
@@ -422,7 +422,39 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
     let childY = containerY + headerH + CONTAINER_PAD;
     let rowMaxH = 0;
 
+    // Proportional width allocation for unpositioned sibling containers
+    // If parent has explicit width, split available space by leaf child count
+    const unpositionedContainerIds = containerIds.filter(cid => !graph.shapes[cid]?.pos);
+    if (explicitW && unpositionedContainerIds.length > 1) {
+      const availW = explicitW - CONTAINER_PAD * 2 - H_GAP * (unpositionedContainerIds.length - 1);
+      // Weight by number of leaf descendants
+      const leafCounts = unpositionedContainerIds.map(cid => {
+        const countLeaves = (id: string): number => {
+          const s = graph.shapes[id];
+          if (!s || s.children.length === 0) return 1;
+          return s.children.reduce((sum, c) => sum + countLeaves(c), 0);
+        };
+        return countLeaves(cid);
+      });
+      const totalLeaves = leafCounts.reduce((a, b) => a + b, 0);
+
+      for (let ci = 0; ci < unpositionedContainerIds.length; ci++) {
+        const cid = unpositionedContainerIds[ci]!;
+        const child = graph.shapes[cid];
+        if (!child) continue;
+        const proportion = totalLeaves > 0 ? leafCounts[ci]! / totalLeaves : 1 / unpositionedContainerIds.length;
+        const childW = Math.round(availW * proportion);
+        // Set a temporary pos so layoutShape uses this width
+        child.pos = `${childX},${childY},${childW}`;
+        const childNode = layoutShape(child, childX, childY);
+        childX = childNode.x + childNode.w + H_GAP;
+        rowMaxH = Math.max(rowMaxH, childNode.h);
+      }
+    }
+
+    // Layout positioned + remaining unpositioned containers
     for (const cid of containerIds) {
+      if (layout[cid]) continue; // already laid out above
       const child = graph.shapes[cid];
       if (!child) continue;
       const childNode = layoutShape(child, childX, childY);
@@ -563,16 +595,55 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
   }
 
   if (positionedRoots.length > 0 && unpositionedRoots.length > 0) {
-    // Place unpositioned roots (external actors) to the left, stacked vertically
+    // Place unpositioned roots (external actors) to the left of positioned content
     const minPosX = Math.min(...positionedRoots.map(r => {
       const p = r.pos!.split(',').map(s => parseFloat(s.trim()));
       return p[0]!;
     }));
-    let extX = Math.max(CONTAINER_PAD, minPosX - NODE_W - H_GAP * 2);
+    const extX = Math.max(CONTAINER_PAD, minPosX - NODE_W - H_GAP * 2);
+
+    // First pass: lay out at default positions
     let extY = CONTAINER_PAD;
     for (const root of unpositionedRoots) {
       const node = layoutShape(root, extX, extY);
       extY += node.h + V_GAP;
+    }
+
+    // Second pass: Y-align each external actor to its connected target's icon center
+    for (const root of unpositionedRoots) {
+      const rootNode = layout[root.id];
+      if (!rootNode) continue;
+
+      // Find all targets this root connects to
+      const targetYs: number[] = [];
+      for (const conn of graph.connections) {
+        let targetId: string | null = null;
+        if (conn.from === root.id) targetId = conn.to;
+        else if (conn.to === root.id) targetId = conn.from;
+        if (targetId) {
+          const tl = layout[targetId];
+          if (tl) {
+            const tShape = graph.shapes[targetId];
+            const tTextH = tShape ? measureText(tShape.label, FONT_SIZE).height : 0;
+            const isLeaf = tShape && tShape.children.length === 0;
+            // Use icon center Y (top of node, not label)
+            const iconCy = isLeaf
+              ? (tl.y + tl.h / 2) - (8 + tTextH) / 2
+              : tl.y + tl.h / 2;
+            targetYs.push(iconCy);
+          }
+        }
+      }
+
+      if (targetYs.length > 0) {
+        // Align to average target Y (centered on icon, not label)
+        const avgY = targetYs.reduce((a, b) => a + b, 0) / targetYs.length;
+        const rootTextH = measureText(root.label, FONT_SIZE).height;
+        const rootIconCy = avgY;
+        // Shift root so its icon center aligns with target average
+        rootNode.y = rootIconCy - rootNode.h / 2 + (8 + rootTextH) / 2;
+        layout[root.id] = rootNode;
+      }
     }
   } else {
     for (const root of unpositionedRoots) {
@@ -821,26 +892,23 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
   const BADGE_SHAPE = 'circle'; // circle, square, rounded, diamond
 
   function pathMidpoint(pts: number[][]): { mx: number; my: number; dx: number; dy: number } {
-    let totalLen = 0;
     const segs: Array<{ x1: number; y1: number; x2: number; y2: number; len: number }> = [];
     for (let i = 0; i < pts.length - 1; i++) {
       const [x1, y1] = pts[i]!;
       const [x2, y2] = pts[i + 1]!;
       const len = Math.sqrt((x2! - x1!) ** 2 + (y2! - y1!) ** 2);
       segs.push({ x1: x1!, y1: y1!, x2: x2!, y2: y2!, len });
-      totalLen += len;
     }
-    if (totalLen === 0) return { mx: pts[0]![0]!, my: pts[0]![1]!, dx: 1, dy: 0 };
-    const half = totalLen / 2;
-    let walked = 0;
+    if (segs.length === 0) return { mx: pts[0]![0]!, my: pts[0]![1]!, dx: 1, dy: 0 };
+
+    // Place badge at midpoint of the LONGEST segment (most visible, least likely to overlap)
+    let longest = segs[0]!;
     for (const s of segs) {
-      if (walked + s.len >= half) {
-        const t = s.len > 0 ? (half - walked) / s.len : 0.5;
-        return { mx: s.x1 + t * (s.x2 - s.x1), my: s.y1 + t * (s.y2 - s.y1), dx: s.x2 - s.x1, dy: s.y2 - s.y1 };
-      }
-      walked += s.len;
+      if (s.len > longest.len) longest = s;
     }
-    return { mx: pts[pts.length - 1]![0]!, my: pts[pts.length - 1]![1]!, dx: 0, dy: -1 };
+    const mx = (longest.x1 + longest.x2) / 2;
+    const my = (longest.y1 + longest.y2) / 2;
+    return { mx, my, dx: longest.x2 - longest.x1, dy: longest.y2 - longest.y1 };
   }
 
   function perpOffset(segDx: number, segDy: number, offset: number): { offX: number; offY: number } {
