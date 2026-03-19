@@ -166,6 +166,10 @@ ecr_docker: ECR Docker image {
 | Generic concept (Git repo, Tools, Database) | Resource | `icon_type: resource` |
 | External actors (User, Mobile client) | Resource + Light | `icon_type: resource` + `icon_variant: Light` |
 
+### Same service = same label
+
+If a service appears multiple times (e.g., two "Amazon S3" nodes), use the **exact same label text** for both. The tool resolves icons from labels — different labels may resolve to different icons. If one needs a different icon variant, use `icon_hint` on that specific node only.
+
 ### Icon color must match reference
 
 The same icon shape can exist in multiple color variants (e.g., CloudFormation Template in pink `#E7157B` vs orange `#ED7100`). Always compare the reference image color and use `icon_hint` to find the correct variant:
