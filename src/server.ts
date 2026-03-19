@@ -821,6 +821,7 @@ app.post('/api/elements/from-d2', async (req: Request, res: Response) => {
         warnings: overlapReport.totalWarnings,
         summary: overlapReport.summary,
       },
+      positions: result.positions,
       message: `D2 diagram built: ${result.stats.containers} containers, ${result.stats.nodes} nodes, ${result.stats.arrows} arrows, ${result.stats.badges} badges.`
     });
   } catch (error) {

@@ -1547,6 +1547,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
             summary += `\n\n${result.overlapReport.summary}`;
           }
 
+          // Position map for Main agent — use these for waypoints and badge_pos calculations
+          if (result.positions?.length) {
+            summary += '\n\n=== ELEMENT POSITIONS (use for waypoints/badge_pos) ===\n';
+            for (const p of result.positions) {
+              if (p.type === 'container') {
+                summary += `\n[CONTAINER] ${p.id} "${p.label}"\n`;
+                summary += `  bounds: x=${p.x} y=${p.y} w=${p.w} h=${p.h}\n`;
+                summary += `  borders: left=${p.borders.left} right=${p.borders.right} top=${p.borders.top} bottom=${p.borders.bottom}\n`;
+              } else {
+                summary += `[${p.type.toUpperCase()}] ${p.id} "${p.label}" icon_center=(${p.icon_cx}, ${p.icon_cy})\n`;
+              }
+            }
+          }
+
           return {
             content: [{
               type: 'text',

@@ -727,12 +727,31 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
 
 // ─── Element Builder ────────────────────────────────────────────────────
 
+export interface ElementPosition {
+  id: string;
+  type: 'container' | 'icon' | 'external';
+  label: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  icon_cx: number;  // icon center X (for arrows)
+  icon_cy: number;  // icon center Y (for arrows)
+  borders: {        // exact border coordinates (for container_border_point)
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+  };
+}
+
 export interface ConvertResult {
   elements: any[];
   files: Array<{ id: string; dataURL: string; mimeType: string }>;
   iconsMissing: string[];
   validationIssues: string[];
   stats: { containers: number; nodes: number; arrows: number; badges: number };
+  positions: ElementPosition[];
 }
 
 export function convertD2ToExcalidraw(source: string): ConvertResult {
@@ -1387,11 +1406,46 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
     }
   }
 
+  // ── Build positions map for Main agent ─────────────────────────────────
+  const positions: ElementPosition[] = [];
+  for (const shape of Object.values(graph.shapes)) {
+    const pos = layout[shape.id];
+    if (!pos) continue;
+    const isContainer = shape.children.length > 0;
+    const textH = measureText(shape.label, FONT_SIZE).height;
+    const gap = 8;
+
+    // Icon center: for leaf nodes, icon sits at top of node area
+    let iconCx = pos.x + pos.w / 2;
+    let iconCy = isContainer
+      ? pos.y + HEADER_HEIGHT / 2
+      : (pos.y + pos.h / 2) - (gap + textH) / 2;
+
+    positions.push({
+      id: shape.id,
+      type: isContainer ? 'container' : (shape.parent ? 'icon' : 'external'),
+      label: shape.label,
+      x: pos.x,
+      y: pos.y,
+      w: pos.w,
+      h: pos.h,
+      icon_cx: Math.round(iconCx),
+      icon_cy: Math.round(iconCy),
+      borders: {
+        left: pos.x,
+        right: pos.x + pos.w,
+        top: pos.y,
+        bottom: pos.y + pos.h,
+      },
+    });
+  }
+
   return {
     elements,
     files: fileUploads,
     iconsMissing,
     validationIssues,
     stats: { containers: containerCount, nodes: nodeCount, arrows: arrowCount, badges: badgeCount },
+    positions,
   };
 }

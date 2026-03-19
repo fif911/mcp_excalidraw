@@ -163,19 +163,27 @@ The Planner reads the reference image and writes `plan.md` — a **text descript
 
 Main reads `plan.md` and the reference image, writes `diagram.d2` with full D2 syntax including positions, layout hints, and waypoints. Then builds with `create_from_d2` and iterates. **Critic talks directly to Main** — no routing through Planner for visual/positional fixes.
 
-### Main responsibilities
+### Main responsibilities — two-pass build
 
+**Pass 1: Initial build**
 1. Write `diagram.d2` from `plan.md` — translate the text plan into D2 syntax
 2. Add `pos: "x,y,w,h"` to **top-level containers only** (canvas frame)
 3. Add `layout:` hints to containers with multiple children
-4. Add `waypoints:` to cross-container arrows
-5. Add `badge_pos:` only when validation flags border overlap
-6. Call `create_from_d2` and check validation output + fix suggestions
-7. Fix issues and rebuild (tool clears canvas each time)
-8. Verify visually with `get_canvas_screenshot`
-9. Export using `export_to_image`
+4. Call `create_from_d2` — the tool builds AND returns exact positions of all elements
+
+**Pass 2: Refine arrows using exact positions**
+5. Read the **ELEMENT POSITIONS** section from the build output
+6. Use exact `icon_center` coordinates and `borders` values to calculate:
+   - `waypoints:` for arrows that need L-shapes (use exact icon_cy values)
+   - `badge_pos:` for cross-container badges (use container border midpoints)
+7. Update `diagram.d2` with refined waypoints/badge_pos
+8. Rebuild with `create_from_d2`
+9. Verify visually with `get_canvas_screenshot`
+10. Export using `export_to_image`
 
 **Do NOT add `pos:` to leaf nodes.** The tool auto-places them via layout hints.
+
+**Do NOT guess coordinates.** After Pass 1, the tool gives you exact positions. Use them.
 
 ### What the tool handles automatically (don't override unless Critic flags issues)
 
