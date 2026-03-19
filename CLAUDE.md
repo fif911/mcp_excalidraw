@@ -7,33 +7,28 @@ When asked to build a diagram, you do NOT do the work yourself. You **spawn agen
 ### Orchestration loop
 
 ```
-1. Spawn Planner agent → writes diagram.d2 (structure only, no positions)
-2. Orchestrator calls create_from_d2 directly (auto-layout, no positions needed)
-3. Collect overlap report with fix suggestions
-4. Spawn Main agent with diagram.d2 path + fix suggestions list
-   Main adds pos: to top-level containers, layout hints, waypoints — fixes issues
-5. Spawn Critic agent → reviews output, returns issues
-6. Route feedback:
-   - Structural issues (missing node, wrong connection) → spawn Planner again
-   - Positional issues (overlap, arrow routing) → spawn Main again
-7. Repeat 4-6 until Critic reports no issues
-8. Export final diagram
+1. Spawn Planner agent → writes plan.md (text description of the diagram)
+2. Spawn Main agent with plan.md path
+   Main writes diagram.d2, calls create_from_d2, iterates on validation
+3. Spawn Critic agent → reviews output, sends fixes directly to Main
+4. Main fixes issues based on Critic feedback, rebuilds
+5. Repeat 3-4 until Critic reports no issues
+6. If Critic finds structural issues (missing elements, wrong connections)
+   → spawn Planner again to update plan.md, then Main rebuilds
+7. Export final diagram
 ```
 
 ### What the orchestrator does directly
 
 - Determine version number: check `diagram_building/` for existing versions
 - Copy reference image to `diagram_building/v{N}/reference.png` if needed
-- **Call `create_from_d2` after Planner** to get the initial auto-layout and fix suggestions
-- Route Critic feedback to the correct agent
 - Decide when the diagram is done
 - Write the build log after export
 
 ### What the orchestrator does NOT do
 
 - Do NOT read skill files — agents read their own
-- Do NOT write `diagram.d2` — Planner writes it
-- Do NOT calculate positions — Main does it
+- Do NOT write `plan.md` or `diagram.d2` — Planner and Main write them
 - Do NOT review the diagram — Critic does it
 
 ---
@@ -43,29 +38,31 @@ When asked to build a diagram, you do NOT do the work yourself. You **spawn agen
 Spawn with the Agent tool. Include in the prompt:
 
 - The reference image path (or text description)
-- The output path: `diagram_building/v{N}/diagram.d2`
+- The output path: `diagram_building/v{N}/plan.md`
 - "Read `skills/excalidraw-diagramming/SKILL.md` — Phase 1 (Planner) section"
-- If re-running after Critic feedback: include the issues list
+- If re-running after Critic structural feedback: include the issues list
 
-**Goal:** Write the structural `diagram.d2` — containers, nodes, connections, labels, styling. No positions.
+**Goal:** Write a text plan describing every element, container, connection, and styling in the diagram. No D2 code, no positions.
 
 ### Planner instructions (include in agent prompt)
 
 - Read `skills/excalidraw-diagramming/SKILL.md` — Phase 1 (Planner) section only
 - Do NOT read `skills/diagram-review/` files — those are for the Critic only
 - NEVER read files from `diagram_building/` other than the current version
-- Do NOT add `pos:`, `waypoints:`, or `badge_pos:` — Main handles positioning
+- Do NOT write D2 code — Main translates the plan into D2
 - Version format: `v{N}` (e.g., `v1`, `v2`, `v3`)
 
 ### Planner output
 
-`diagram_building/v{N}/diagram.d2` with:
-- All containers with nested `{}` braces
-- All nodes as leaf elements inside containers
-- All connections with `->`, `<->` and numbered labels
-- D2 style attributes for dashed borders, stroke colors
-- `# standalone: true` annotation on nodes with no connections
-- `icon_type:`, `icon_variant:`, `icon_hint:` where auto-resolution needs guidance
+`diagram_building/v{N}/plan.md` with:
+- List of all containers (nesting, which are dashed, colored borders)
+- List of all service nodes (which container they're inside, icon descriptions)
+- Arrow connection table (source, target, direction, badge number, badge style)
+- Unlabeled arrows table
+- Standalone elements (no connections)
+- External actor positions (inside/outside which containers)
+- Icon notes (which need resource vs architecture type, color variants)
+- Layout intent (e.g., "Managed Account has 2-column grid", "Auth is a horizontal row")
 
 ---
 
@@ -73,26 +70,26 @@ Spawn with the Agent tool. Include in the prompt:
 
 Spawn with the Agent tool. Include in the prompt:
 
-- The path to `diagram.d2`
+- The path to `plan.md`
+- The reference image path (Main needs it for positioning decisions)
 - "Read `skills/excalidraw-diagramming/SKILL.md` — Phase 2 (Main) section"
-- If re-running after Critic feedback: include the positional issues list
+- If re-running after Critic feedback: include the issues list
 
-**Goal:** Add positions to `diagram.d2`, build with `create_from_d2`, and iterate on validation issues.
+**Goal:** Translate `plan.md` into `diagram.d2`, build with `create_from_d2`, and iterate until clean.
 
 ### Main instructions (include in agent prompt)
 
 - Read `skills/excalidraw-diagramming/SKILL.md` — Phase 2 (Main) section only
-- Add `pos:` to every container and node
-- Use `layout:` hints on containers to auto-place children (e.g., `layout: "2x3"`)
-- Add `waypoints:` and `badge_pos:` to arrows that need them
-- Call `create_from_d2` and check validation output
-- Fix positioning issues and rebuild (tool clears canvas each time)
+- Write `diagram.d2` from the plan — full D2 syntax with positions, layout hints, waypoints
+- Call `create_from_d2` and check validation output + fix suggestions
+- Fix issues and rebuild (tool clears canvas each time)
 - Verify visually with `get_canvas_screenshot`
+- **Critic talks directly to you** — fix what the Critic flags without going back to Planner
 
 ### Main receives Critic feedback on
 
-- Positional issues: overlaps, badge on border, arrow crosses text, container overflow, diagonal segments
-- Structural issues: route back to orchestrator → Planner
+- All visual/positional issues: overlaps, badge problems, arrow routing, container sizing
+- Only structural issues (missing elements, wrong connections) route back to Planner via orchestrator
 
 ---
 
@@ -107,7 +104,7 @@ Spawn with the Agent tool. Include in the prompt:
 - "Use `crop_screenshot` with x/y/width/height to zoom into specific problem areas"
 - "Compare each crop against the corresponding region in the reference image"
 
-**Goal:** Compare output against reference and `diagram.d2`. Flag discrepancies.
+**Goal:** Compare output against reference and `plan.md`. Flag discrepancies.
 
 **Always use `crop_screenshot`** — never rely on full-image inspection alone. Issues invisible at full scale become obvious when zoomed in.
 
@@ -115,8 +112,8 @@ Spawn with the Agent tool. Include in the prompt:
 
 Return a structured list of issues:
 - Each issue: description, severity (structural/positional), recommended fix
-- Structural issues → orchestrator routes to Planner
-- Positional issues → orchestrator routes to Main
+- All issues go to **Main** — Main fixes them directly
+- Only if Critic finds missing elements or wrong connections → orchestrator routes to Planner
 
 ---
 
