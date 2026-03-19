@@ -234,19 +234,20 @@ Main receives the structural `diagram.d2` from the Planner and adds all position
 
 ### Main responsibilities
 
-1. Add `pos: "x,y,w,h"` to every container
-2. Add `layout:` hints to containers with multiple leaf children (saves calculating individual `pos:` for each)
-3. Add `pos: "cx,cy"` to leaf nodes that need specific placement (override auto-layout)
-4. Add `waypoints:` to arrows that need L-shape routing
-5. Add `badge_pos:` to cross-container and L-shape arrow badges
-6. Call `create_from_d2` and check validation output
-7. Fix positioning issues and rebuild (tool clears canvas each time)
-8. Verify visually with `get_canvas_screenshot`
-9. Export using `export_to_image`
+1. Add `pos: "x,y,w,h"` to **top-level containers only** (AWS Cloud, Account containers) — set the canvas frame
+2. Add `layout:` hints to containers with multiple children (`"2x3"`, `row`, `col`)
+3. Add `waypoints:` to cross-container arrows for L-shape routing
+4. Add `badge_pos:` only when validation flags border overlap
+5. Call `create_from_d2` and check validation output
+6. Fix issues and rebuild (tool clears canvas each time)
+7. Verify visually with `get_canvas_screenshot`
+8. Export using `export_to_image`
 
-### Layout hints (save time on leaf positioning)
+**Do NOT add `pos:` to leaf nodes.** The tool auto-places all leaf nodes inside their containers using `layout:` hints and auto-spacing. Only set `pos:` on the outermost containers that define the canvas frame.
 
-Instead of adding `pos:` to every leaf node, use `layout:` on the container:
+### Layout hints (primary positioning mechanism for leaf nodes)
+
+All leaf node positioning is done via `layout:` on the parent container. Never add `pos:` to leaf nodes:
 
 ```d2
 # 2-column, 3-row grid — tool places 6 children automatically
@@ -281,7 +282,7 @@ sidebar: Sidebar {
 
 **Layout values:** `"NxM"` (cols × rows), `row` (single row), `col` (single column).
 
-Nodes with explicit `pos:` inside a layout container keep their position — only unpositioned nodes get auto-placed.
+The tool auto-places all children inside the container using the layout hint. No individual `pos:` needed.
 
 ### What the tool handles automatically (don't override unless Critic flags issues)
 
@@ -344,6 +345,7 @@ aws_cloud.customer_account.appsync -> aws_cloud.customer_account.dynamodb: 8 {
 
 ### Main does NOT do
 
+- Do NOT add `pos:` to leaf nodes — tool auto-places them via `layout:` hints
 - Do NOT change the structural D2 (adding/removing nodes or connections) — route to Planner
 - Do NOT create any files other than editing `diagram.d2` — no Python scripts, no build files
 - Do NOT call `search_aws_icons` — icon resolution is handled automatically by `create_from_d2`
