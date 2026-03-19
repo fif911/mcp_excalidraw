@@ -2654,6 +2654,20 @@ async function ensureExpressServer(): Promise<void> {
     // Not running — proceed to start
   }
 
+  // Rebuild TypeScript to ensure latest code
+  logger.info('Rebuilding TypeScript...');
+  try {
+    const { execSync: rebuildSync } = await import('child_process');
+    rebuildSync('npx tsc --project tsconfig.json', {
+      cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'),
+      timeout: 30000,
+      stdio: 'ignore',
+    });
+    logger.info('TypeScript rebuild complete');
+  } catch (e) {
+    logger.warn('TypeScript rebuild failed — using existing compiled code');
+  }
+
   logger.info('Starting Express server...');
   const serverPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'server.js');
   const { spawn: spawnChild } = await import('child_process');
