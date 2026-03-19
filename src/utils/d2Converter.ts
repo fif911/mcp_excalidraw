@@ -1034,45 +1034,36 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
     let allPts: number[][];
 
     if (conn.waypoints && conn.waypoints.length > 0) {
+      // Agent-specified waypoints — use them exactly
       allPts = [[cx1, cy1], ...conn.waypoints, [cx2, cy2]];
     } else {
-      const dx = Math.abs(cx2 - cx1);
-      const dy = Math.abs(cy2 - cy1);
-
-      // Rule 9: Prefer straight arrows when source and target share same Y or X
-      if (dx < 15) {
-        // Nearly same X → straight vertical
-        allPts = [[cx1, cy1], [cx2, cy2]];
-      } else if (dy < 15) {
-        // Nearly same Y → straight horizontal
-        allPts = [[cx1, cy1], [cx2, cy2]];
-      } else {
-        // Rule 10: Never approach icon from below (label is below icon).
-        // Use horizontal-first L-shape: go horizontal to target X, then vertical.
-        // This enters the target from the side (left/right), not from below.
-        allPts = [[cx1, cy1], [cx2, cy1], [cx2, cy2]];
-      }
+      // No waypoints — draw a straight line from source to target.
+      // The edge-aware snapping will handle endpoint placement.
+      // L-shapes only happen when the agent explicitly adds waypoints.
+      allPts = [[cx1, cy1], [cx2, cy2]];
     }
 
-    // Snap waypoints to orthogonal: each segment must be horizontal or vertical
-    // Forward pass: align each waypoint with its predecessor
-    for (let k = 1; k < allPts.length - 1; k++) {
-      const prev = allPts[k - 1]!;
-      const cur = allPts[k]!;
-      if (Math.abs(cur[0]! - prev[0]!) < Math.abs(cur[1]! - prev[1]!)) {
-        cur[0] = prev[0]!; // snap X to make vertical
-      } else {
-        cur[1] = prev[1]!; // snap Y to make horizontal
+    // Only snap to orthogonal when no explicit waypoints were provided.
+    // When the agent specifies waypoints, trust them as-is.
+    if (!conn.waypoints || conn.waypoints.length === 0) {
+      // Snap auto-generated waypoints to orthogonal
+      for (let k = 1; k < allPts.length - 1; k++) {
+        const prev = allPts[k - 1]!;
+        const cur = allPts[k]!;
+        if (Math.abs(cur[0]! - prev[0]!) < Math.abs(cur[1]! - prev[1]!)) {
+          cur[0] = prev[0]!;
+        } else {
+          cur[1] = prev[1]!;
+        }
       }
-    }
-    // Backward pass: align last waypoint with end point
-    if (allPts.length >= 3) {
-      const lastWp = allPts[allPts.length - 2]!;
-      const end = allPts[allPts.length - 1]!;
-      if (Math.abs(lastWp[0]! - end[0]!) < Math.abs(lastWp[1]! - end[1]!)) {
-        lastWp[0] = end[0]!; // snap X to make vertical
-      } else {
-        lastWp[1] = end[1]!; // snap Y to make horizontal
+      if (allPts.length >= 3) {
+        const lastWp = allPts[allPts.length - 2]!;
+        const end = allPts[allPts.length - 1]!;
+        if (Math.abs(lastWp[0]! - end[0]!) < Math.abs(lastWp[1]! - end[1]!)) {
+          lastWp[0] = end[0]!;
+        } else {
+          lastWp[1] = end[1]!;
+        }
       }
     }
 
