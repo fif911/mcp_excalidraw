@@ -12,6 +12,8 @@
  * 8. Icons/labels crossing container borders
  * 9. Numbered circles overlapping icon labels
  * 10. Arrows crossing container header text/icons
+ * 11. Diagonal (non-orthogonal) arrow segments
+ * 12. Container children overflowing container bounds
  */
 
 // ──────────────────────────────────────────────────────────────────────
@@ -783,6 +785,87 @@ function checkArrowHeaderOverlaps(elements: Elem[], margin = 4): OverlapIssue[] 
 }
 
 // ──────────────────────────────────────────────────────────────────────
+//  Check 11: Diagonal arrow segments (non-orthogonal)
+// ──────────────────────────────────────────────────────────────────────
+
+function checkDiagonalArrows(elements: Elem[]): OverlapIssue[] {
+  const info = classifyElements(elements);
+  const issues: OverlapIssue[] = [];
+
+  for (const a of info.arrows) {
+    const segs = arrowSegments(a);
+    for (let i = 0; i < segs.length; i++) {
+      const seg = segs[i]!;
+      const dx = Math.abs(seg[2] - seg[0]);
+      const dy = Math.abs(seg[3] - seg[1]);
+      if (dx > 1 && dy > 1) {
+        issues.push({
+          type: 'DIAGONAL_SEGMENT',
+          severity: 'warning',
+          message: `Arrow '${a.id}' segment ${i} is diagonal: (${seg[0].toFixed(0)},${seg[1].toFixed(0)})→(${seg[2].toFixed(0)},${seg[3].toFixed(0)}).`,
+        });
+      }
+    }
+  }
+
+  return issues;
+}
+
+// ──────────────────────────────────────────────────────────────────────
+//  Check 12: Container children overflow (fit_container validation)
+// ──────────────────────────────────────────────────────────────────────
+
+function checkContainerOverflow(elements: Elem[], padding = 15): OverlapIssue[] {
+  const info = classifyElements(elements);
+  const containers = info.containers;
+  const issues: OverlapIssue[] = [];
+
+  // Build set of container IDs for quick lookup
+  const containerIds = new Set(containers.map(c => c.id));
+
+  // Build container group membership: elements in each container's group
+  const containerGroupMembers: Record<string, Set<string>> = {};
+  for (const c of containers) {
+    const groupId = `g-${c.id}`;
+    containerGroupMembers[c.id] = info.groups[groupId] ?? new Set();
+  }
+
+  // For each container, find leaf children geometrically inside it
+  for (const c of containers) {
+    const cBb = bbox(c);
+    const ownGroupMembers = containerGroupMembers[c.id]!;
+
+    for (const e of elements) {
+      // Skip the container itself and its header group members
+      if (e.id === c.id || ownGroupMembers.has(e.id)) continue;
+      // Skip arrows and other containers
+      if (e.type === 'arrow') continue;
+      if (e.type === 'rectangle' && containerIds.has(e.id)) continue;
+
+      const eBb = bbox(e);
+      const eCx = (eBb[0] + eBb[2]) / 2;
+      const eCy = (eBb[1] + eBb[3]) / 2;
+
+      // Check if element center is inside this container
+      if (eCx > cBb[0] && eCx < cBb[2] && eCy > cBb[1] && eCy < cBb[3]) {
+        // Check if it overflows the container bounds (with padding)
+        if (eBb[0] < cBb[0] + padding || eBb[2] > cBb[2] - padding ||
+            eBb[1] < cBb[1] + padding || eBb[3] > cBb[3] - padding) {
+          const label = e.type === 'text' ? (e.text ?? '').slice(0, 30) : e.id;
+          issues.push({
+            type: 'CONTAINER_OVERFLOW',
+            severity: 'warning',
+            message: `Element '${label}' (${e.id}) overflows container '${c.id}' bounds (needs ≥${padding}px padding).`,
+          });
+        }
+      }
+    }
+  }
+
+  return issues;
+}
+
+// ──────────────────────────────────────────────────────────────────────
 //  Main: run all checks and produce report
 // ──────────────────────────────────────────────────────────────────────
 
@@ -800,6 +883,8 @@ export function runAllOverlapChecks(elements: any[]): OverlapReport {
     ['Icon/label border crossings', checkIconBorderCrossings(elems)],
     ['Circle-label overlaps', checkCircleLabelOverlaps(elems)],
     ['Arrow-header overlaps', checkArrowHeaderOverlaps(elems)],
+    ['Diagonal arrow segments', checkDiagonalArrows(elems)],
+    ['Container overflow', checkContainerOverflow(elems)],
   ];
 
   let totalErrors = 0;
