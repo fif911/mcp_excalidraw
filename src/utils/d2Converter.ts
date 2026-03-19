@@ -477,7 +477,10 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
     // Layout leaf nodes below sub-containers
     const leafStartY = subContainerBottom;
 
-    // Parse grid layout hint: "2x3" (cols x rows), "row", "col"
+    // Unpositioned leaves for grid/auto layout
+    const unpositionedLeaves = leafIds.filter(lid => !graph.shapes[lid]?.pos);
+
+    // Parse grid layout hint: "2x3" (cols x rows), "row", "col", or auto-detect
     const layoutHint = shape.layout;
     let gridCols = 0;
     let gridRows = 0;
@@ -487,19 +490,34 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
         gridCols = parseInt(gridMatch[1]!);
         gridRows = parseInt(gridMatch[2]!);
       } else if (layoutHint === 'row') {
-        gridCols = leafIds.length;
+        gridCols = unpositionedLeaves.length || 1;
         gridRows = 1;
       } else if (layoutHint === 'col') {
         gridCols = 1;
-        gridRows = leafIds.length;
+        gridRows = unpositionedLeaves.length || 1;
+      }
+    } else if (unpositionedLeaves.length >= 2) {
+      // Auto-detect grid: choose cols×rows based on count and container aspect ratio
+      const n = unpositionedLeaves.length;
+      if (n <= 3) {
+        // 1 row
+        gridCols = n;
+        gridRows = 1;
+      } else {
+        // Pick cols to make a roughly square grid, prefer wider than tall
+        const availWidth = explicitW ? explicitW - CONTAINER_PAD * 2 : 900;
+        const availHeight = explicitH ? explicitH - headerH - CONTAINER_PAD * 2 - (containerIds.length > 0 ? rowMaxH + V_GAP : 0) : 600;
+        const aspect = availWidth / Math.max(availHeight, 1);
+        // Try 2 cols first, then 3
+        if (n <= 4) { gridCols = 2; gridRows = Math.ceil(n / 2); }
+        else if (n <= 6) { gridCols = aspect > 1.5 ? 3 : 2; gridRows = Math.ceil(n / gridCols); }
+        else if (n <= 9) { gridCols = 3; gridRows = Math.ceil(n / 3); }
+        else { gridCols = Math.ceil(Math.sqrt(n * aspect)); gridRows = Math.ceil(n / gridCols); }
       }
     }
 
-    // Unpositioned leaves for grid layout
-    const unpositionedLeaves = leafIds.filter(lid => !graph.shapes[lid]?.pos);
-
     if (gridCols > 0 && gridRows > 0 && unpositionedLeaves.length > 0) {
-      // Grid layout: place unpositioned leaves in a cols x rows grid
+      // Grid layout with label-aware column widths
       // First lay out explicitly positioned leaves normally
       for (const lid of leafIds) {
         const leaf = graph.shapes[lid];
@@ -507,16 +525,30 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
         layoutShape(leaf, containerX + CONTAINER_PAD, leafStartY);
       }
 
-      // Compute cell dimensions from NODE_W/NODE_H + gaps
-      const cellW = NODE_W + H_GAP;
-      const cellH = NODE_H + V_GAP;
-      const gridW = gridCols * cellW - H_GAP;
-      const gridH = gridRows * cellH - V_GAP;
+      // Measure actual label widths per column to prevent overlap
+      const colWidths: number[] = new Array(gridCols).fill(NODE_W);
+      const rowHeights: number[] = new Array(gridRows).fill(NODE_H);
+      for (let idx = 0; idx < unpositionedLeaves.length && idx < gridCols * gridRows; idx++) {
+        const lid = unpositionedLeaves[idx]!;
+        const leaf = graph.shapes[lid];
+        if (!leaf) continue;
+        const labelW = measureText(leaf.label, FONT_SIZE).width;
+        const nodeW = Math.max(NODE_W, labelW + 20);
+        const col = idx % gridCols;
+        colWidths[col] = Math.max(colWidths[col]!, nodeW);
+      }
 
-      // Center grid in container (or use container width if explicit)
-      const gridStartX = containerX + CONTAINER_PAD;
-      const gridStartY = leafStartY;
+      // Compute column X positions from widths + gaps
+      const colX: number[] = [];
+      let cx = containerX + CONTAINER_PAD;
+      for (let c = 0; c < gridCols; c++) {
+        colX.push(cx);
+        cx += colWidths[c]! + H_GAP;
+      }
+      const gridW = cx - H_GAP - (containerX + CONTAINER_PAD);
+      const gridH = gridRows * (NODE_H + V_GAP) - V_GAP;
 
+      // Place each leaf at its grid cell center
       for (let idx = 0; idx < unpositionedLeaves.length && idx < gridCols * gridRows; idx++) {
         const lid = unpositionedLeaves[idx]!;
         const leaf = graph.shapes[lid];
@@ -524,13 +556,12 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
 
         const col = idx % gridCols;
         const row = Math.floor(idx / gridCols);
-        const cx = gridStartX + col * cellW + NODE_W / 2;
-        const cy = gridStartY + row * cellH + NODE_H / 2;
+        const cellCx = colX[col]! + colWidths[col]! / 2;
+        const cellCy = leafStartY + row * (NODE_H + V_GAP) + NODE_H / 2;
 
-        // Create layout node centered on (cx, cy)
         const labelW = measureText(leaf.label, FONT_SIZE).width;
         const w = Math.max(NODE_W, labelW + 20);
-        layout[lid] = { id: lid, x: cx - w / 2, y: cy - NODE_H / 2, w, h: NODE_H };
+        layout[lid] = { id: lid, x: cellCx - w / 2, y: cellCy - NODE_H / 2, w, h: NODE_H };
       }
 
       contentW = Math.max(contentW, gridW);
