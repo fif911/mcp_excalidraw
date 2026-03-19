@@ -72,6 +72,10 @@ interface D2Shape {
   parent?: string;
   icon?: string;
   pos?: string;
+  layout?: string;       // Grid layout hint: "2x3", "row", "col"
+  iconType?: string;     // "architecture", "resource"
+  iconVariant?: string;  // "Light", "Dark"
+  iconHint?: string;     // Free-text search hint: "ecr orange"
   children: string[];
 }
 
@@ -233,8 +237,8 @@ export function parseD2(source: string): D2Graph {
       continue;
     }
 
-    // Bare attribute for current context shape (style.*, pos, icon)
-    const bareAttrMatch = line.match(/^(style\.[\w-]+|pos|icon):\s*(.+)$/);
+    // Bare attribute for current context shape (style.*, pos, icon, layout, icon_type, icon_variant, icon_hint)
+    const bareAttrMatch = line.match(/^(style\.[\w-]+|pos|icon|layout|icon_type|icon_variant|icon_hint):\s*(.+)$/);
     if (bareAttrMatch && contextStack.length > 0) {
       const attr = bareAttrMatch[1]!;
       const value = (bareAttrMatch[2] ?? '').trim().replace(/^["']|["']$/g, '');
@@ -242,6 +246,10 @@ export function parseD2(source: string): D2Graph {
       const shape = ensureShape(currentId);
       if (attr === 'pos') shape.pos = value;
       else if (attr === 'icon') shape.icon = value;
+      else if (attr === 'layout') shape.layout = value;
+      else if (attr === 'icon_type') shape.iconType = value;
+      else if (attr === 'icon_variant') shape.iconVariant = value;
+      else if (attr === 'icon_hint') shape.iconHint = value;
       else if (attr.startsWith('style.')) shape.style[attr.replace('style.', '')] = value;
       i++;
       continue;
@@ -283,21 +291,41 @@ interface ResolvedIcon {
   absolutePath: string;
 }
 
-function resolveIconForLabel(label: string): ResolvedIcon | null {
-  // Try direct search
-  const results = searchIcons({ query: label, resolve: true, limit: 3 });
-  if (results.results.length > 0) {
-    const r = results.results[0]!;
-    if (r.absolute_path) {
-      return { fileId: r.suggested_file_id, absolutePath: r.absolute_path };
-    }
+interface IconHints {
+  iconType?: string;     // "architecture" or "resource"
+  iconVariant?: string;  // "Light" or "Dark"
+  iconHint?: string;     // free-text search override: "ecr orange"
+}
+
+function resolveIconForLabel(label: string, hints?: IconHints): ResolvedIcon | null {
+  // If icon_hint is set, use it as the search query instead of the label
+  const query = hints?.iconHint ?? label;
+
+  // Build search options from hints
+  const searchOpts: any = { query, resolve: true, limit: 5 };
+  if (hints?.iconType) searchOpts.icon_type = hints.iconType;
+
+  const results = searchIcons(searchOpts);
+
+  // Filter by variant if specified (e.g., "Light" for Res_48_Light icons)
+  let candidates = results.results.filter((r: any) => r.absolute_path);
+  if (hints?.iconVariant && candidates.length > 1) {
+    const variantFiltered = candidates.filter((r: any) =>
+      r.absolute_path?.includes(hints.iconVariant!)
+    );
+    if (variantFiltered.length > 0) candidates = variantFiltered;
+  }
+
+  if (candidates.length > 0) {
+    const r = candidates[0]!;
+    return { fileId: r.suggested_file_id, absolutePath: r.absolute_path! };
   }
 
   // Try with common prefixes removed
   const cleaned = label
     .replace(/^(Amazon|AWS|Amazon Web Services)\s+/i, '')
     .trim();
-  if (cleaned !== label) {
+  if (cleaned !== label && !hints?.iconHint) {
     const r2 = searchIcons({ query: cleaned, resolve: true, limit: 3 });
     if (r2.results.length > 0 && r2.results[0]!.absolute_path) {
       return { fileId: r2.results[0]!.suggested_file_id, absolutePath: r2.results[0]!.absolute_path };
@@ -414,43 +442,106 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
       if (cl) subContainerBottom = Math.max(subContainerBottom, cl.y + cl.h + V_GAP);
     }
 
-    // Layout leaf nodes in rows below sub-containers
+    // Layout leaf nodes below sub-containers
     const leafStartY = subContainerBottom;
-    let leafX = containerX + CONTAINER_PAD;
-    let leafRowMaxH = 0;
-    let leafRowW = 0;
-    const maxRowW = explicitW
-      ? explicitW - CONTAINER_PAD * 2
-      : Math.max(contentW, 600);
 
-    for (const lid of leafIds) {
-      const leaf = graph.shapes[lid];
-      if (!leaf) continue;
-      const leafNode = layoutShape(leaf, leafX, leafStartY);
+    // Parse grid layout hint: "2x3" (cols x rows), "row", "col"
+    const layoutHint = shape.layout;
+    let gridCols = 0;
+    let gridRows = 0;
+    if (layoutHint) {
+      const gridMatch = layoutHint.match(/^(\d+)x(\d+)$/);
+      if (gridMatch) {
+        gridCols = parseInt(gridMatch[1]!);
+        gridRows = parseInt(gridMatch[2]!);
+      } else if (layoutHint === 'row') {
+        gridCols = leafIds.length;
+        gridRows = 1;
+      } else if (layoutHint === 'col') {
+        gridCols = 1;
+        gridRows = leafIds.length;
+      }
+    }
 
-      // Skip row-wrapping for explicitly positioned nodes
-      if (leaf.pos) continue;
+    // Unpositioned leaves for grid layout
+    const unpositionedLeaves = leafIds.filter(lid => !graph.shapes[lid]?.pos);
 
-      // Wrap to next row if too wide
-      if (leafRowW > 0 && leafRowW + leafNode.w + H_GAP > maxRowW) {
-        leafX = containerX + CONTAINER_PAD;
-        leafNode.x = leafX;
-        leafNode.y = leafStartY + leafRowMaxH + V_GAP;
-        layout[lid] = leafNode;
-        contentH += leafRowMaxH + V_GAP;
-        leafRowW = 0;
-        leafRowMaxH = 0;
+    if (gridCols > 0 && gridRows > 0 && unpositionedLeaves.length > 0) {
+      // Grid layout: place unpositioned leaves in a cols x rows grid
+      // First lay out explicitly positioned leaves normally
+      for (const lid of leafIds) {
+        const leaf = graph.shapes[lid];
+        if (!leaf || !leaf.pos) continue;
+        layoutShape(leaf, containerX + CONTAINER_PAD, leafStartY);
       }
 
-      leafX += leafNode.w + H_GAP;
-      leafRowW += leafNode.w + H_GAP;
-      leafRowMaxH = Math.max(leafRowMaxH, leafNode.h);
-    }
-    if (leafIds.length > 0) {
-      contentH += leafRowMaxH;
+      // Compute cell dimensions from NODE_W/NODE_H + gaps
+      const cellW = NODE_W + H_GAP;
+      const cellH = NODE_H + V_GAP;
+      const gridW = gridCols * cellW - H_GAP;
+      const gridH = gridRows * cellH - V_GAP;
+
+      // Center grid in container (or use container width if explicit)
+      const gridStartX = containerX + CONTAINER_PAD;
+      const gridStartY = leafStartY;
+
+      for (let idx = 0; idx < unpositionedLeaves.length && idx < gridCols * gridRows; idx++) {
+        const lid = unpositionedLeaves[idx]!;
+        const leaf = graph.shapes[lid];
+        if (!leaf) continue;
+
+        const col = idx % gridCols;
+        const row = Math.floor(idx / gridCols);
+        const cx = gridStartX + col * cellW + NODE_W / 2;
+        const cy = gridStartY + row * cellH + NODE_H / 2;
+
+        // Create layout node centered on (cx, cy)
+        const labelW = measureText(leaf.label, FONT_SIZE).width;
+        const w = Math.max(NODE_W, labelW + 20);
+        layout[lid] = { id: lid, x: cx - w / 2, y: cy - NODE_H / 2, w, h: NODE_H };
+      }
+
+      contentW = Math.max(contentW, gridW);
+      contentH += gridH;
+    } else {
+      // Default row-based layout
+      let leafX = containerX + CONTAINER_PAD;
+      let leafRowMaxH = 0;
+      let leafRowW = 0;
+      const maxRowW = explicitW
+        ? explicitW - CONTAINER_PAD * 2
+        : Math.max(contentW, 600);
+
+      for (const lid of leafIds) {
+        const leaf = graph.shapes[lid];
+        if (!leaf) continue;
+        const leafNode = layoutShape(leaf, leafX, leafStartY);
+
+        // Skip row-wrapping for explicitly positioned nodes
+        if (leaf.pos) continue;
+
+        // Wrap to next row if too wide
+        if (leafRowW > 0 && leafRowW + leafNode.w + H_GAP > maxRowW) {
+          leafX = containerX + CONTAINER_PAD;
+          leafNode.x = leafX;
+          leafNode.y = leafStartY + leafRowMaxH + V_GAP;
+          layout[lid] = leafNode;
+          contentH += leafRowMaxH + V_GAP;
+          leafRowW = 0;
+          leafRowMaxH = 0;
+        }
+
+        leafX += leafNode.w + H_GAP;
+        leafRowW += leafNode.w + H_GAP;
+        leafRowMaxH = Math.max(leafRowMaxH, leafNode.h);
+      }
+      if (leafIds.length > 0) {
+        contentH += leafRowMaxH;
+      }
+      contentW = Math.max(contentW, leafRowW > 0 ? leafRowW - H_GAP : 0);
     }
 
-    contentW = Math.max(contentW, leafRowW > 0 ? leafRowW - H_GAP : 0);
+    // contentW already updated inside both grid and row branches
 
     // Auto-expand for header text
     const headerTextW = measureText(shape.label, FONT_SIZE).width + ICON_SIZE + 20;
@@ -643,7 +734,11 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
         }
       }
       if (!resolved) {
-        resolved = resolveIconForLabel(shape.label);
+        resolved = resolveIconForLabel(shape.label, {
+          iconType: shape.iconType,
+          iconVariant: shape.iconVariant,
+          iconHint: shape.iconHint,
+        });
       }
       const gap = 8;
 

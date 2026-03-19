@@ -125,17 +125,41 @@ The Planner writes `diagram.d2` with:
 9. **No stub arrows** — when a flow exits a container, draw ONE arrow from the container border to the target. Do NOT draw an icon-to-border stub inside the container.
 10. **Track border arrows** — if an arrow starts or ends at a container border (not an icon), the connection source/target is the container ID, not the icon inside.
 
-### Icon resolution (Planner decides, tool executes)
+### Icon resolution (Planner describes, tool resolves)
 
-The tool resolves icons automatically from node labels. The Planner overrides with `icon:` only when auto-resolution would pick the wrong type.
+The tool resolves icons automatically from node labels. Instead of specifying icon file paths, use hint attributes when auto-resolution picks the wrong type:
+
+```d2
+# Named AWS service — auto-resolves correctly, no hints needed
+cognito: Amazon Cognito
+
+# External actor — needs resource/Light variant
+user: User {
+  icon_type: resource
+  icon_variant: Light
+}
+
+# Custom search — override the search query entirely
+ecr_docker: ECR Docker image {
+  icon_hint: "elastic container registry"
+}
+```
+
+**Icon hint attributes:**
+
+| Attribute | Values | When to use |
+|---|---|---|
+| `icon_type` | `architecture`, `resource` | Auto-resolution picks wrong type (e.g., colored icon for User) |
+| `icon_variant` | `Light`, `Dark` | Need outline variant instead of filled |
+| `icon_hint` | any search string | Label doesn't match the icon name (e.g., "ECR Docker" → search "elastic container registry") |
 
 **Icon type decision tree:**
 
-| Label type | Icon type | Example |
+| Label type | Icon type | D2 hint |
 |---|---|---|
-| Named AWS service (Amazon S3, AWS Lambda, Amazon Cognito) | Architecture icon (`Arch_*`) — colored branded square | `cognito: Amazon Cognito` |
-| Generic concept or role (User, Git repo, Tools, Database, IDE) | Resource icon (`Res_*`) — dark outline | `user: User` |
-| External actors (User, Mobile client, Data Transfer Hub UI) | Resource icon with Light variant (`Res_48_Light`) | `user: User { icon: ".../Res_User_48_Light.svg" }` |
+| Named AWS service (Amazon S3, AWS Lambda) | Architecture (auto) | none needed |
+| Generic concept (Git repo, Tools, Database) | Resource | `icon_type: resource` |
+| External actors (User, Mobile client) | Resource + Light | `icon_type: resource` + `icon_variant: Light` |
 
 **Container header icon mapping (auto-detected):**
 
@@ -157,7 +181,7 @@ The tool resolves icons automatically from node labels. The Planner overrides wi
 - [ ] Dashed boundaries use `style.stroke-dash: 5`
 - [ ] Wide labels split with `\n`
 - [ ] All D2 IDs are unique
-- [ ] External actors and generic concepts use `Res_*` icon paths (not `Arch_*`)
+- [ ] External actors and generic concepts use `icon_type: resource` (not architecture)
 - [ ] Every container header icon matches the reference (including dashed sub-boundaries)
 - [ ] Arrow endpoint decision matrix applied — border-stop vs icon-to-icon matches reference
 - [ ] No stub arrows (icon → own container border)
@@ -181,13 +205,53 @@ Main receives the structural `diagram.d2` from the Planner and adds all position
 ### Main responsibilities
 
 1. Add `pos: "x,y,w,h"` to every container
-2. Add `pos: "cx,cy"` to every leaf node
-3. Add `waypoints:` to arrows that need L-shape routing
-4. Add `badge_pos:` to cross-container and L-shape arrow badges
-5. Call `create_from_d2` and check validation output
-6. Fix positioning issues and rebuild (tool clears canvas each time)
-7. Verify visually with `get_canvas_screenshot`
-8. Export using `export_to_image`
+2. Add `layout:` hints to containers with multiple leaf children (saves calculating individual `pos:` for each)
+3. Add `pos: "cx,cy"` to leaf nodes that need specific placement (override auto-layout)
+4. Add `waypoints:` to arrows that need L-shape routing
+5. Add `badge_pos:` to cross-container and L-shape arrow badges
+6. Call `create_from_d2` and check validation output
+7. Fix positioning issues and rebuild (tool clears canvas each time)
+8. Verify visually with `get_canvas_screenshot`
+9. Export using `export_to_image`
+
+### Layout hints (save time on leaf positioning)
+
+Instead of adding `pos:` to every leaf node, use `layout:` on the container:
+
+```d2
+# 2-column, 3-row grid — tool places 6 children automatically
+managed_account: AWS Managed Account {
+  pos: "1230,100,680,860"
+  layout: "2x3"
+  s3_repl: S3 replication template
+  dynamodb_repl: DynamoDB replication template
+  s3_managed: Amazon S3
+  ecr_repl: ECR replication template
+  ecr: Amazon ECR
+  ecr_docker: ECR Docker image
+}
+
+# Single horizontal row
+auth: Authentication {
+  pos: "225,230,310,175"
+  layout: row
+  cognito: Amazon Cognito
+  openid: OpenID Connect
+}
+
+# Single vertical column
+sidebar: Sidebar {
+  pos: "50,100,200,600"
+  layout: col
+  service_a: Service A
+  service_b: Service B
+  service_c: Service C
+}
+```
+
+**Layout values:** `"NxM"` (cols × rows), `row` (single row), `col` (single column).
+
+Nodes with explicit `pos:` inside a layout container keep their position — only unpositioned nodes get auto-placed.
 
 ### Main hard rules
 
