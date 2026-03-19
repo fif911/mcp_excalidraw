@@ -19,6 +19,8 @@ import { z } from 'zod';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
+import { execSync } from 'child_process';
 import logger from './utils/logger.js';
 import { searchIcons } from './utils/aws-icon-index.js';
 import {
@@ -843,6 +845,23 @@ const tools: Tool[] = [
         background: {
           type: 'boolean',
           description: 'Include background in screenshot (default: true)'
+        }
+      }
+    }
+  },
+  {
+    name: 'crop_screenshot',
+    description: 'Take a canvas screenshot and crop a specific region for detailed inspection. Use this to zoom into areas for quality review — icons, arrows, badges, container borders. Can also split into a grid for systematic review.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        x: { type: 'number', description: 'Left edge of crop region in pixels' },
+        y: { type: 'number', description: 'Top edge of crop region in pixels' },
+        width: { type: 'number', description: 'Width of crop region in pixels' },
+        height: { type: 'number', description: 'Height of crop region in pixels' },
+        grid: {
+          type: 'string',
+          description: 'Split into grid instead of single crop. Format: "3x3" (cols x rows). Returns all cells.'
         }
       }
     }
@@ -2072,6 +2091,125 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
             }
           ]
         };
+      }
+
+      case 'crop_screenshot': {
+        const params = z.object({
+          x: z.number().optional(),
+          y: z.number().optional(),
+          width: z.number().optional(),
+          height: z.number().optional(),
+          grid: z.string().optional(),
+        }).parse(args || {});
+
+        logger.info('Taking canvas screenshot for crop', params);
+
+        // Get full screenshot first
+        const cropResponse = await fetch(`${EXPRESS_SERVER_URL}/api/export/image`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ format: 'png', background: true })
+        });
+
+        if (!cropResponse.ok) {
+          const errorData = await cropResponse.json() as ApiResponse;
+          throw new Error(errorData.error || `Screenshot failed: ${cropResponse.status}`);
+        }
+
+        const cropResult = await cropResponse.json() as { success: boolean; data: string };
+        const fullImageB64 = cropResult.data;
+
+        // Use sharp or canvas to crop — but since we're in Node without image libs,
+        // shell out to python with PIL which we know is available
+        const tmpDir = os.tmpdir();
+        const fullPath = path.join(tmpDir, `excalidraw_full_${Date.now()}.png`);
+        fs.writeFileSync(fullPath, Buffer.from(fullImageB64, 'base64'));
+
+        if (params.grid) {
+          // Grid mode: split into NxM cells
+          const gridMatch = params.grid.match(/^(\d+)x(\d+)$/);
+          if (!gridMatch) throw new Error(`Invalid grid format "${params.grid}" — use "3x3"`);
+          const cols = parseInt(gridMatch[1]!);
+          const rows = parseInt(gridMatch[2]!);
+
+          const cropScript = `
+import sys
+from PIL import Image
+img = Image.open("${fullPath.replace(/\\/g, '/')}")
+w, h = img.size
+cw, ch = w // ${cols}, h // ${rows}
+results = []
+for r in range(${rows}):
+    for c in range(${cols}):
+        x1, y1 = c * cw, r * ch
+        crop = img.crop((x1, y1, x1 + cw, y1 + ch))
+        out = "${fullPath.replace(/\\/g, '/').replace('.png', '')}_r{}_c{}.png".format(r, c)
+        crop.save(out)
+        results.append(out)
+print("\\n".join(results))
+`;
+          const gridOutput = execSync(`python -c "${cropScript.replace(/"/g, '\\"').replace(/\n/g, '\\n')}"`, { encoding: 'utf-8' }).trim();
+          const cellPaths = gridOutput.split('\n').filter(Boolean);
+
+          const content: any[] = [];
+          for (let i = 0; i < cellPaths.length; i++) {
+            const cellPath = cellPaths[i]!.trim();
+            const r = Math.floor(i / cols);
+            const c = i % cols;
+            const cellData = fs.readFileSync(cellPath).toString('base64');
+            content.push({
+              type: 'image' as const,
+              data: cellData,
+              mimeType: 'image/png'
+            });
+            content.push({
+              type: 'text',
+              text: `Grid cell [row ${r}, col ${c}]`
+            });
+            // Clean up cell file
+            try { fs.unlinkSync(cellPath); } catch {}
+          }
+          // Clean up full image
+          try { fs.unlinkSync(fullPath); } catch {}
+
+          content.unshift({ type: 'text', text: `Canvas split into ${cols}x${rows} grid (${cellPaths.length} cells):` });
+          return { content };
+        } else {
+          // Single crop mode
+          const cx = params.x ?? 0;
+          const cy = params.y ?? 0;
+          const cw = params.width ?? 400;
+          const ch = params.height ?? 400;
+
+          const cropOutPath = fullPath.replace('.png', '_crop.png');
+          const cropScript = `
+import sys
+from PIL import Image
+img = Image.open("${fullPath.replace(/\\/g, '/')}")
+crop = img.crop((${cx}, ${cy}, ${cx + cw}, ${cy + ch}))
+crop.save("${cropOutPath.replace(/\\/g, '/')}")
+`;
+          execSync(`python -c "${cropScript.replace(/"/g, '\\"').replace(/\n/g, '\\n')}"`, { encoding: 'utf-8' });
+
+          const croppedData = fs.readFileSync(cropOutPath).toString('base64');
+          // Clean up
+          try { fs.unlinkSync(fullPath); } catch {}
+          try { fs.unlinkSync(cropOutPath); } catch {}
+
+          return {
+            content: [
+              {
+                type: 'image' as const,
+                data: croppedData,
+                mimeType: 'image/png'
+              },
+              {
+                type: 'text',
+                text: `Cropped region (${cx},${cy}) ${cw}x${ch}px from canvas screenshot.`
+              }
+            ]
+          };
+        }
       }
 
       case 'read_diagram_guide': {

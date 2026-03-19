@@ -100,9 +100,13 @@ Spawn with the Agent tool. Include in the prompt:
 - The reference image path
 - The path to `diagram.d2`
 - "Read `skills/diagram-review/SKILL.md` and `skills/diagram-review/references/checklist.md`"
-- "Take a canvas screenshot with `get_canvas_screenshot` and compare against reference"
+- "Use `crop_screenshot` with grid mode (e.g., `grid: "3x3"`) to systematically inspect every region"
+- "Use `crop_screenshot` with x/y/width/height to zoom into specific problem areas"
+- "Compare each crop against the corresponding region in the reference image"
 
 **Goal:** Compare output against reference and `diagram.d2`. Flag discrepancies.
+
+**Always use `crop_screenshot`** — never rely on full-image inspection alone. Issues invisible at full scale become obvious when zoomed in.
 
 ### Critic output format
 
