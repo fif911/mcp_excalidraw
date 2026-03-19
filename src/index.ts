@@ -2627,10 +2627,48 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   return { tools };
 });
 
+// Start Express server if not already running
+async function ensureExpressServer(): Promise<void> {
+  try {
+    const resp = await fetch(`${EXPRESS_SERVER_URL}/api/elements`, { signal: AbortSignal.timeout(2000) });
+    if (resp.ok) {
+      logger.info('Express server already running');
+      return;
+    }
+  } catch {
+    // Not running — start it
+  }
+
+  logger.info('Starting Express server...');
+  const serverPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'server.js');
+  const child = (await import('child_process')).spawn('node', [serverPath], {
+    stdio: 'ignore',
+    detached: true,
+    env: { ...process.env },
+  });
+  child.unref();
+
+  // Wait for it to be ready (up to 10 seconds)
+  for (let attempt = 0; attempt < 20; attempt++) {
+    await new Promise(r => setTimeout(r, 500));
+    try {
+      const resp = await fetch(`${EXPRESS_SERVER_URL}/api/elements`, { signal: AbortSignal.timeout(1000) });
+      if (resp.ok) {
+        logger.info('Express server started successfully');
+        return;
+      }
+    } catch { /* retry */ }
+  }
+  logger.warn('Express server may not have started — continuing anyway');
+}
+
 // Start server
 async function runServer(): Promise<void> {
   try {
     logger.info('Starting Excalidraw MCP server...');
+
+    // Auto-start Express server if not running
+    await ensureExpressServer();
 
     const transport = new StdioServerTransport();
     logger.debug('Connecting to stdio transport...');
