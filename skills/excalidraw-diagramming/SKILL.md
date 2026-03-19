@@ -308,7 +308,8 @@ Only override these with explicit `pos:`, `waypoints:`, `badge_pos:` when the Cr
 
 ### Arrow routing guidance (Main decides)
 
-- **Don't add waypoints when source and target are at the same Y (or X)** — the tool draws a straight line by default. Only add waypoints when the arrow actually needs to turn.
+- **Arrows to container borders need no waypoints** — the tool draws a straight line to the nearest border edge. Don't add waypoints for icon-to-container arrows.
+- **Icon-to-icon same Y/X: no waypoints** — if two icons share the same Y (or X), the tool draws a straight line. Only add waypoints when the arrow actually needs to turn.
 - **One waypoint per turn** — an L-shape needs exactly one waypoint at the bend. Two waypoints creating a tiny segment is wrong.
 - **Horizontal lanes for 10+ arrows** — assign each major flow a Y lane to minimize arrow crossings
 - **Route vertical segments through gaps** — vertical arrow segments go through gaps between containers, never through container bodies
