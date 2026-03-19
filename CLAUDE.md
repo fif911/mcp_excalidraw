@@ -1,83 +1,114 @@
 # Excalidraw Diagram Building Workflow
 
-## Overview
+## YOU ARE THE ORCHESTRATOR
 
-Three-agent loop: **Planner → Main → Critic**, iterating until the diagram matches the input.
+When asked to build a diagram, you do NOT do the work yourself. You **spawn agents** using the Agent tool and coordinate them. Do NOT read skill files yourself — each agent reads only what it needs.
 
-- **Reference image** → Planner traces all elements, connections, layout from it
-- **Text description** → Planner interprets to define structure and layout
+### Orchestration loop
 
-### Single-file workflow
+```
+1. Spawn Planner agent → writes diagram.d2 (structure only, no positions)
+2. Spawn Main agent → adds positions, builds with create_from_d2, iterates
+3. Spawn Critic agent → reviews output, returns issues
+4. Route feedback:
+   - Structural issues (missing node, wrong connection) → spawn Planner again
+   - Positional issues (overlap, arrow routing) → spawn Main again
+5. Repeat 2-4 until Critic reports no issues
+6. Export final diagram
+```
 
-Planner writes **one file**: `diagram.d2` in standard D2 syntax. Main calls **one tool**: `create_from_d2`. No `build.py`, no `components_styling.txt`, no `icons_graph_structure.md`.
+### What the orchestrator does directly
 
-### Enhanced D2 syntax
+- Determine version number: check `diagram_building/` for existing versions
+- Copy reference image to `diagram_building/v{N}/reference.png` if needed
+- Route Critic feedback to the correct agent
+- Decide when the diagram is done
+- Write the build log after export
 
-Full spec: `skills/excalidraw-diagramming/enhanced-d2-syntax.md`
+### What the orchestrator does NOT do
 
-Quick reference: containers have `pos: "x,y,w,h"` + `stroke` + optional `header_icon`. Nodes have `pos: "cx,cy"` + `icon`. Connections use `->` with optional `waypoints`, `badge_pos`, `border_stop`. Global `arrow_style` block is first.
+- Do NOT read skill files — agents read their own
+- Do NOT write `diagram.d2` — Planner writes it
+- Do NOT calculate positions — Main does it
+- Do NOT review the diagram — Critic does it
 
 ---
 
 ## Agent 1: Planner
 
+Spawn with the Agent tool. Include in the prompt:
+
+- The reference image path (or text description)
+- The output path: `diagram_building/v{N}/diagram.d2`
+- "Read `skills/excalidraw-diagramming/SKILL.md` — Phase 1 (Planner) section"
+- If re-running after Critic feedback: include the issues list
+
 **Goal:** Write the structural `diagram.d2` — containers, nodes, connections, labels, styling. No positions.
 
-### Before starting
+### Planner instructions (include in agent prompt)
 
-- **Read `skills/excalidraw-diagramming/SKILL.md`** — Phase 1 (Planner) section
-- Do NOT read `skills/diagram-review/` files — those are for the Critic only
-- Do **not** read or reuse previous diagram files — start from scratch. NEVER read files from `diagram_building/` other than the current version being built. Previous versions, build logs, and diagram.d2 files are irrelevant and will mislead you.
-- If feedback comes from the Critic, fix `diagram.d2` and increment version
-- **Version numbering:** Check `diagram_building/` for existing versions. Format is `v{N}` (e.g., `v1`, `v2`, `v3`) — no underscore.
+- Read `skills/excalidraw-diagramming/SKILL.md` — Phase 1 (Planner) section only
+- Do NOT read `skills/diagram-review/` files
+- NEVER read files from `diagram_building/` other than the current version
+- Do NOT add `pos:`, `waypoints:`, or `badge_pos:` — Main handles positioning
+- Version format: `v{N}` (e.g., `v1`, `v2`, `v3`)
 
-### Input handling
+### Planner output
 
-- **Reference image:** Trace every element, container, sub-boundary, connection, and numbered badge.
-- **Text description:** Interpret to define all elements, containers, connections, and layout.
-
-### Output
-
-Create `diagram_building/v{N}/diagram.d2` with:
+`diagram_building/v{N}/diagram.d2` with:
 - All containers with nested `{}` braces
 - All nodes as leaf elements inside containers
-- All connections with `->`, `<->` and numbered labels (`: 1`, `: 2`)
+- All connections with `->`, `<->` and numbered labels
 - D2 style attributes for dashed borders, stroke colors
 - `# standalone: true` annotation on nodes with no connections
-- `icon:` overrides where auto-resolution would pick the wrong type
-
-**Do NOT add `pos:`, `waypoints:`, or `badge_pos:`** — Main handles all positioning.
+- `icon_type:`, `icon_variant:`, `icon_hint:` where auto-resolution needs guidance
 
 ---
 
 ## Agent 2: Main
 
+Spawn with the Agent tool. Include in the prompt:
+
+- The path to `diagram.d2`
+- "Read `skills/excalidraw-diagramming/SKILL.md` — Phase 2 (Main) section"
+- If re-running after Critic feedback: include the positional issues list
+
 **Goal:** Add positions to `diagram.d2`, build with `create_from_d2`, and iterate on validation issues.
 
-- **Read `skills/excalidraw-diagramming/SKILL.md`** — Phase 2 (Main) section
+### Main instructions (include in agent prompt)
+
+- Read `skills/excalidraw-diagramming/SKILL.md` — Phase 2 (Main) section only
 - Add `pos:` to every container and node
+- Use `layout:` hints on containers to auto-place children (e.g., `layout: "2x3"`)
 - Add `waypoints:` and `badge_pos:` to arrows that need them
 - Call `create_from_d2` and check validation output
 - Fix positioning issues and rebuild (tool clears canvas each time)
 - Verify visually with `get_canvas_screenshot`
-- Export using `export_to_image` MCP tool
 
-### Receives Critic feedback on
+### Main receives Critic feedback on
 
-- Positional issues: overlaps, badge on border, arrow crosses text, container overflow, diagonal segments → Main fixes positions/waypoints
-- Structural issues: missing node, wrong connection, wrong icon type → route to Planner
+- Positional issues: overlaps, badge on border, arrow crosses text, container overflow, diagonal segments
+- Structural issues: route back to orchestrator → Planner
 
 ---
 
 ## Agent 3: Critic
 
+Spawn with the Agent tool. Include in the prompt:
+
+- The reference image path
+- The path to `diagram.d2`
+- "Read `skills/diagram-review/SKILL.md` and `skills/diagram-review/references/checklist.md`"
+- "Take a canvas screenshot with `get_canvas_screenshot` and compare against reference"
+
 **Goal:** Compare output against reference and `diagram.d2`. Flag discrepancies.
 
-- Read `skills/diagram-review/SKILL.md` and `skills/diagram-review/references/checklist.md`
-- Pre-build: verify every connection in `diagram.d2` against reference before Main builds
-- Post-build: visual inspection with canvas screenshots
-- Structural issues → **Planner** (fix connections, nodes, labels in `diagram.d2`)
-- Positional issues → **Main** (fix positions, waypoints, badge_pos in `diagram.d2`)
+### Critic output format
+
+Return a structured list of issues:
+- Each issue: description, severity (structural/positional), recommended fix
+- Structural issues → orchestrator routes to Planner
+- Positional issues → orchestrator routes to Main
 
 ---
 
