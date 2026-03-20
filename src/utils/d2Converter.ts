@@ -691,6 +691,7 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
       }
 
       // Compute column X positions from widths + gaps
+      const totalGridW = colWidths.reduce((s, w) => s + w!, 0) + H_GAP * (gridCols - 1);
       const colX: number[] = [];
       let cx = containerX + CONTAINER_PAD;
       for (let c = 0; c < gridCols; c++) {
@@ -767,6 +768,19 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
     const minH = headerH + CONTAINER_PAD + contentH + CONTAINER_PAD;
     let w = Math.max(explicitW ?? minW, Math.max(minW, headerTextW + CONTAINER_PAD * 2));
     let h = Math.max(explicitH ?? minH, minH);
+
+    // Center leaf items if container is wider than content (e.g., header text made it wider)
+    const finalContentW = w - CONTAINER_PAD * 2;
+    if (finalContentW > contentW && unpositionedLeaves.length > 0) {
+      const offsetX = (finalContentW - contentW) / 2;
+      for (const lid of unpositionedLeaves) {
+        const node = layout[lid];
+        if (node) {
+          node.x += offsetX;
+          layout[lid] = node;
+        }
+      }
+    }
 
     // Cap expansion to parent bounds — don't grow beyond parent's available space
     if (shape.parent) {
