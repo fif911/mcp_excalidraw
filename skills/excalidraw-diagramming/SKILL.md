@@ -246,10 +246,15 @@ Main reads `plan.md` and the reference image, writes `diagram.d2`, then does exa
 5. Call `create_from_d2` ONCE
 6. **STOP. Read the ELEMENT POSITIONS output.** Write down the icon_center and borders values you need.
 
-**Build 2: Arrow refinement using EXACT positions from Build 1**
-7. Calculate `waypoints:` using exact `icon_center` Y values from Build 1 output
-8. Calculate `badge_pos:` using exact `borders` values (e.g., gap midpoint = `(container1.right + container2.left) / 2`)
-9. Update `diagram.d2` with the calculated waypoints and badge_pos
+**Build 2: Fix ALL issues from Build 1 output**
+7. Read validation errors and fix suggestions — fix container overflows FIRST:
+   - If children overflow a container → expand the container `pos:` width/height
+   - If expanding pushes into a neighbor → shift the neighbor too
+   - If icons are outside their container → the container is too small, expand it
+8. Then calculate arrows using exact positions from Build 1:
+   - `waypoints:` using exact `icon_center` Y values
+   - `badge_pos:` using exact `borders` values (gap midpoint = `(container1.right + container2.left) / 2`)
+9. Update `diagram.d2` with ALL fixes
 10. Call `create_from_d2` ONCE more
 11. Verify visually with `get_canvas_screenshot`
 
