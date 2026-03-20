@@ -204,18 +204,22 @@ The plan must contain these sections in order:
 - Layout: col
 ```
 
-**2. Service nodes** — grouped by container, with approximate cx,cy positions. Space icons ~220px apart horizontally (160px icon + 60px gap):
+**2. Service nodes** — grouped by column (layer). Describe which elements go in which column, left to right. No pixel positions needed for elements inside layout containers:
 ```
-### Inside sub-container (row layout — tool auto-places)
-- Service A: (architecture, pink)
-- Service B: (custom icon)
+### Column 1 (leftmost): external actors
+- Actor A: (resource, Light)
 
-### Middle row (free-placed, all same Y for horizontal arrows)
-- Service C: cx~400, cy~550 (architecture, pink)
-- Service D: cx~620, cy~550 (architecture, orange)
+### Column 2: authentication area
+- Sub-container with row layout: Service B + Service C
+- Service D: (architecture, purple)
 
-### Bottom row (free-placed, all same Y)
-- Service E: cx~400, cy~800 (architecture, purple)
+### Column 3: middle services
+- Service E: (architecture, pink)
+- Service F: (architecture, purple)
+
+### Column 4: right side
+- Sub-container with col layout: Service G + Service H
+- Service I: (architecture, orange)
 ```
 
 **3. Arrow connection table** — one clean table. Source and target only — no direction symbols, no notes. The Main agent figures out routing. Targets can be icons or container borders (e.g., "SFN border (left)"):
@@ -280,11 +284,12 @@ Main reads `plan.md` and the reference image, writes `diagram.d2`, then does exa
 
 ### Main responsibilities — EXACTLY two builds, no more
 
-**Build 1: Structure + positions, NO arrows refinement**
+**Build 1: Structure + layout, NO arrows refinement**
 1. Write `diagram.d2` from `plan.md` — first line must be `# Diagram Name — v{N}` (e.g., `# Data Transfer Hub — v1`) so the tool saves `.excalidraw` to the correct version folder
-2. Add `pos:` to containers and special-placement elements
-3. Add `layout:` to grid containers
-4. Do NOT add `waypoints:` or `badge_pos:` yet — let the tool auto-route
+2. Use `layout: layers` for complex containers — describe which elements go in which column
+3. Use `layout: row`, `col`, `"NxM"` for sub-containers with regular patterns
+4. Add `pos:` ONLY to top-level containers (AWS Cloud, account containers) — everything inside uses layout
+5. Do NOT add `waypoints:` or `badge_pos:` yet — let the tool auto-route
 5. Call `create_from_d2` ONCE
 6. **STOP. Read the ELEMENT POSITIONS output.** Write down the icon_center and borders values you need.
 
@@ -311,21 +316,17 @@ Each icon+label takes ~160×136px. Header height is 108px. **Calculate container
 - Header text must also fit: label width + icon (98px) + 40px padding
 - The tool auto-expands if too small, but getting it right avoids cascading overlaps with neighbors
 
-### Positioning rules — what gets `pos:` and what doesn't
+### Positioning rules
 
-**Always add `pos: "x,y,w,h"` to:**
-- All containers — every container needs explicit bounds to match the reference layout
-- Elements that have a specific position in the reference that can't be derived from a grid pattern — look at the reference and ask: "would auto-layout put this in the right place?" If no, add `pos:`.
+**`pos:` ONLY on top-level containers** (AWS Cloud, account containers). Everything inside uses `layout:`.
 
-**Use `layout:` instead of `pos:` for:**
-- Containers where all children form a regular repeating pattern (grid, row, or column)
-- If children are evenly spaced in a grid → `layout: "NxM"`
-- If children sit side by side → `layout: row`
-- If children stack top to bottom → `layout: col`
+**Use `layout: layers`** for containers with multi-column arrangements. Each direct child is an invisible column. Elements within each column stack vertically. The tool handles all widths, heights, and positions.
 
-**Leaf nodes inside a `layout:` container need no `pos:`** — the tool auto-places them.
+**Use `layout: row`, `col`, `"NxM"`** for sub-containers with regular patterns (Auth row, SFN col, Managed Account 2x3).
 
-**For Build 1**, use Planner's approximate positions. **For Build 2**, use the exact positions returned by the tool — never guess.
+**Do NOT add `pos:` to any element inside a layout container.** The tool positions everything.
+
+**For Build 2**, use the exact positions returned by Build 1 for `waypoints:` and `badge_pos:` only.
 
 ### What the tool handles automatically (don't override unless Critic flags issues)
 
@@ -364,17 +365,19 @@ Elements connected by horizontal arrows must share the same Y position. Identify
 - **Icons must not overlap containers they don't belong to** — if Fargate is a child of Customer Account, it must not visually sit inside the Step Functions container. Position elements OUTSIDE any non-parent container's bounds.
 - **Align connected elements on the same axis** — elements connected by horizontal arrows share the same Y. Elements connected by vertical arrows share the same X. This makes arrows straight.
 
-### Icon resolution (Main translates Planner's descriptions)
+### Icon resolution
+
+The tool resolves ALL icons automatically from labels and hint attributes. Main NEVER searches for icons or sets file paths.
 
 | Planner says | D2 attribute |
 |---|---|
-| "architecture icon" (default for AWS services) | none needed — auto-resolves from label |
-| "resource icon" or "outline icon" | `icon_type: resource` |
+| "architecture icon" (default) | none needed — auto-resolves from label |
+| "resource icon" | `icon_type: resource` |
 | "Light/outline variant" | `icon_type: resource` + `icon_variant: Light` |
 | "orange CloudFormation Template" | `icon_hint: "CloudFormation Template Orange"` |
 | "custom OpenID icon" | `icon: "custom/icons8-openid.svg"` |
 
-**If the tool picks the wrong icon, make the description more specific.** Add `icon_type`, `icon_variant`, or refine `icon_hint` text. Only use `icon:` with file paths for truly custom icons (e.g., OpenID).
+**If the tool picks the wrong icon, make the description more specific** — refine `icon_hint` text, add `icon_type` or `icon_variant`. The only exception for `icon:` with a file path is truly custom icons that don't exist in the AWS icon library (e.g., OpenID).
 
 **Container header icon mapping (auto-detected):**
 
@@ -399,6 +402,9 @@ Only structural issues (missing elements, wrong connections) route back to Plann
 
 ### Main does NOT do
 
-- Do NOT add `pos:` to leaf nodes inside `layout:` containers — tool auto-places them
+- Do NOT call `search_aws_icons` — the tool resolves icons automatically inside `create_from_d2`
+- Do NOT set `icon:` with file paths — use `icon_type`, `icon_variant`, `icon_hint` to describe what you need. The ONLY exception is truly custom icons not in the AWS library.
+- Do NOT add `pos:` to any element inside a `layout:` container — tool positions everything
+- Do NOT add `pos:` to leaf nodes — only top-level containers get `pos:`
 - Do NOT create files other than `diagram.d2`
 - Do NOT use `header_bg_color`

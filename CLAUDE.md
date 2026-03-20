@@ -80,9 +80,11 @@ Spawn with the Agent tool. Include in the prompt:
 ### Main instructions (include in agent prompt)
 
 - Read `skills/excalidraw-diagramming/SKILL.md` — Phase 2 (Main) section only
-- Write `diagram.d2` from the plan — use Planner's approximate positions
-- **Build 1:** structure + positions, no waypoints/badge_pos. Read ELEMENT POSITIONS output.
-- **Build 2:** add waypoints/badge_pos using exact positions from Build 1. Verify with screenshot.
+- Write `diagram.d2` from the plan — use `layout: layers` for complex containers, `pos:` only on top-level containers
+- **Do NOT call `search_aws_icons`** — the tool resolves icons automatically
+- **Do NOT set `icon:` with file paths** — use `icon_type`, `icon_variant`, `icon_hint` only
+- **Build 1:** structure + layout, no waypoints/badge_pos. Read ELEMENT POSITIONS output.
+- **Build 2:** fix overflows first, then add waypoints/badge_pos using exact positions from Build 1. Verify with screenshot.
 - **Maximum 2 builds before Critic review** — do not iterate endlessly
 - **Critic talks directly to you** — fix what the Critic flags without going back to Planner
 
@@ -173,7 +175,6 @@ Non-obvious choices made during the build:
 - Icon mappings (which icon was chosen when multiple candidates existed)
 - Layout decisions (placement rationale, why X is inside/outside Y)
 - Arrow routing choices (L-shape direction, waypoint rationale)
-- Anything that differed from a previous version and why
 
 ## Key Lessons & Process Improvements
 Reusable lessons from problems encountered. Each lesson should explain:
