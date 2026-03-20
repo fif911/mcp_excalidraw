@@ -815,6 +815,7 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
     }
 
     // contentW already updated inside both grid and row branches
+    const leafContentW = contentW; // save before header expansion
 
     // Auto-expand for header text
     const headerTextW = measureText(shape.label, FONT_SIZE).width + ICON_SIZE + 20;
@@ -826,10 +827,10 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
     let w = Math.max(explicitW ?? minW, Math.max(minW, headerTextW + CONTAINER_PAD * 2));
     let h = Math.max(explicitH ?? minH, minH);
 
-    // Center leaf items if container is wider than content (e.g., header text made it wider)
+    // Center leaf items if container is wider than the actual leaf content
     const finalContentW = w - CONTAINER_PAD * 2;
-    if (finalContentW > contentW && unpositionedLeaves.length > 0) {
-      const offsetX = (finalContentW - contentW) / 2;
+    if (finalContentW > leafContentW && leafContentW > 0 && unpositionedLeaves.length > 0) {
+      const offsetX = (finalContentW - leafContentW) / 2;
       for (const lid of unpositionedLeaves) {
         const node = layout[lid];
         if (node) {
