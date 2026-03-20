@@ -810,6 +810,24 @@ app.post('/api/elements/from-d2', async (req: Request, res: Response) => {
     // Run overlap checks on built elements
     const overlapReport = runAllOverlapChecks(result.elements);
 
+    // Auto-save .excalidraw file after each build for debugging
+    try {
+      const excalidrawData = {
+        type: 'excalidraw',
+        version: 2,
+        source: 'mcp-excalidraw-server',
+        elements: result.elements,
+        files: Object.fromEntries(result.files.map(f => [f.id, { id: f.id, dataURL: f.dataURL, mimeType: f.mimeType }])),
+        appState: { viewBackgroundColor: '#ffffff' },
+      };
+      const savePath = path.resolve(process.cwd(), 'diagram_building', 'latest_build.excalidraw');
+      fs.mkdirSync(path.dirname(savePath), { recursive: true });
+      fs.writeFileSync(savePath, JSON.stringify(excalidrawData, null, 2));
+      logger.info(`Auto-saved .excalidraw to ${savePath}`);
+    } catch (saveErr) {
+      logger.warn('Failed to auto-save .excalidraw:', saveErr);
+    }
+
     res.json({
       success: true,
       elementCount: result.elements.length,

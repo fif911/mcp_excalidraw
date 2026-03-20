@@ -1205,12 +1205,15 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
 
     function snapEndpoint(
       ptIdx: number, neighborIdx: number, isLeaf: boolean,
-      centerX: number, centerY: number, textH: number
+      centerX: number, centerY: number, textH: number,
+      isStartPoint: boolean
     ) {
       const pt = allPts[ptIdx]!;
       const neighbor = allPts[neighborIdx]!;
-      const dx = neighbor[0]! - pt[0]!;
-      const dy = neighbor[1]! - pt[1]!;
+      // For start point: approach direction = toward neighbor (neighbor - pt)
+      // For end point: approach direction = from neighbor toward pt (pt - neighbor)
+      const dx = isStartPoint ? (neighbor[0]! - pt[0]!) : (pt[0]! - neighbor[0]!);
+      const dy = isStartPoint ? (neighbor[1]! - pt[1]!) : (pt[1]! - neighbor[1]!);
 
       if (!isLeaf) {
         // Container: just offset 3px from center toward neighbor
@@ -1241,13 +1244,13 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
 
     // Snap start endpoint (arrow leaves this element)
     if (allPts.length >= 2) {
-      snapEndpoint(0, 1, !!fromIsLeaf, cx1, cy1, fromTextH);
+      snapEndpoint(0, 1, !!fromIsLeaf, cx1, cy1, fromTextH, true);
     }
 
     // Snap end endpoint (arrow arrives at this element)
     if (allPts.length >= 2) {
       const last = allPts.length - 1;
-      snapEndpoint(last, last - 1, !!toIsLeaf, cx2, cy2, toTextH);
+      snapEndpoint(last, last - 1, !!toIsLeaf, cx2, cy2, toTextH, false);
     }
 
     // Collapse degenerate segments (< 3px)
