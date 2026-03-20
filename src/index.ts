@@ -2146,10 +2146,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
           const cols = parseInt(gridMatch[1]!);
           const rows = parseInt(gridMatch[2]!);
 
-          const cropScript = `
-import sys
+          const scriptPath = path.join(tmpDir, `crop_grid_${Date.now()}.py`);
+          const imgPathFwd = fullPath.replace(/\\/g, '/');
+          const outPrefix = fullPath.replace(/\\/g, '/').replace('.png', '');
+          fs.writeFileSync(scriptPath, `
 from PIL import Image
-img = Image.open("${fullPath.replace(/\\/g, '/')}")
+img = Image.open("${imgPathFwd}")
 w, h = img.size
 cw, ch = w // ${cols}, h // ${rows}
 results = []
@@ -2157,12 +2159,13 @@ for r in range(${rows}):
     for c in range(${cols}):
         x1, y1 = c * cw, r * ch
         crop = img.crop((x1, y1, x1 + cw, y1 + ch))
-        out = "${fullPath.replace(/\\/g, '/').replace('.png', '')}_r{}_c{}.png".format(r, c)
+        out = "${outPrefix}_r%d_c%d.png" % (r, c)
         crop.save(out)
         results.append(out)
 print("\\n".join(results))
-`;
-          const gridOutput = execSync(`python -c "${cropScript.replace(/"/g, '\\"').replace(/\n/g, '\\n')}"`, { encoding: 'utf-8' }).trim();
+`);
+          const gridOutput = execSync(`python "${scriptPath}"`, { encoding: 'utf-8' }).trim();
+          try { fs.unlinkSync(scriptPath); } catch {}
           const cellPaths = gridOutput.split('\n').filter(Boolean);
 
           const content: any[] = [];
@@ -2196,14 +2199,17 @@ print("\\n".join(results))
           const ch = params.height ?? 400;
 
           const cropOutPath = fullPath.replace('.png', '_crop.png');
-          const cropScript = `
-import sys
+          const scriptPath = path.join(tmpDir, `crop_single_${Date.now()}.py`);
+          const imgPathFwd = fullPath.replace(/\\/g, '/');
+          const outPathFwd = cropOutPath.replace(/\\/g, '/');
+          fs.writeFileSync(scriptPath, `
 from PIL import Image
-img = Image.open("${fullPath.replace(/\\/g, '/')}")
+img = Image.open("${imgPathFwd}")
 crop = img.crop((${cx}, ${cy}, ${cx + cw}, ${cy + ch}))
-crop.save("${cropOutPath.replace(/\\/g, '/')}")
-`;
-          execSync(`python -c "${cropScript.replace(/"/g, '\\"').replace(/\n/g, '\\n')}"`, { encoding: 'utf-8' });
+crop.save("${outPathFwd}")
+`);
+          execSync(`python "${scriptPath}"`, { encoding: 'utf-8' });
+          try { fs.unlinkSync(scriptPath); } catch {}
 
           const croppedData = fs.readFileSync(cropOutPath).toString('base64');
           // Clean up

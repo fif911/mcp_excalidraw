@@ -127,8 +127,8 @@ The Planner reads the reference image and writes `plan.md` — a **text descript
    | AWS Lambda (middle) | Step Functions border | → | 5 | dark circle |
 4. **Unlabeled arrows** — same format, no badge
 5. **Standalone elements** — nodes with no connections
-6. **External actors** — position relative to containers (inside/outside which ones)
-7. **Icon notes** — resource vs architecture type, color variants, custom icons
+6. **External actors** — position relative to containers. **Double-check every actor's nesting**: trace the container borders in the reference to determine if the actor is outside ALL containers, inside AWS Cloud but outside account containers, or inside an account container. Getting this wrong is the most common Planner error.
+7. **Icon notes** — resource vs architecture type, **specific color** (orange, pink, purple, green), custom icons. Always note the icon color — the same icon shape exists in multiple colors.
 8. **Layout intent** — "Managed Account: 2x3 grid", "Auth: horizontal row"
 
 ### Planner hard rules
