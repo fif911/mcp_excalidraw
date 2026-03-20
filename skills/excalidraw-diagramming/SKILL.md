@@ -309,9 +309,18 @@ Elements connected by horizontal arrows must share the same Y position. Identify
 
 ### Arrow routing guidance
 
+- **Prefer straight arrows** — if source and target share the same Y, draw horizontal. Same X, draw vertical. Only use L-shapes when both X and Y differ significantly.
+- **No diagonal arrows** — every arrow segment must be purely horizontal or vertical. The tool enforces this, but don't create situations that force diagonals (misaligned elements).
+- **L-shapes only when needed** — one waypoint per turn. Don't create L-shapes for arrows that could be straight with proper element alignment.
+- **Never approach from below** — arrows entering icons should come from left, right, or top. Bottom approach crosses the label text.
 - **Horizontal lanes for 10+ arrows** — assign each flow a Y lane
 - **Route vertical segments through gaps** — not through container bodies
 - **Standalone badges in tight gaps** — use `badge_pos` when auto-position overlaps
+
+### Element placement rules
+
+- **Icons must not overlap containers they don't belong to** — if Fargate is a child of Customer Account, it must not visually sit inside the Step Functions container. Position elements OUTSIDE any non-parent container's bounds.
+- **Align connected elements on the same axis** — elements connected by horizontal arrows share the same Y. Elements connected by vertical arrows share the same X. This makes arrows straight.
 
 ### Icon resolution (Main translates Planner's descriptions)
 

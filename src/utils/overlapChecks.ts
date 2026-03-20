@@ -896,6 +896,61 @@ function checkContainerOverflow(elements: Elem[], padding = 15): OverlapIssue[] 
 }
 
 // ──────────────────────────────────────────────────────────────────────
+//  Check 13: Icons inside wrong container (not their parent)
+// ──────────────────────────────────────────────────────────────────────
+
+function checkIconWrongContainer(elements: Elem[]): OverlapIssue[] {
+  const info = classifyElements(elements);
+  const containers = info.containers;
+  const icons = info.icons;
+  const issues: OverlapIssue[] = [];
+
+  for (const ic of icons) {
+    const icBb = bbox(ic);
+    const icCx = (icBb[0] + icBb[2]) / 2;
+    const icCy = (icBb[1] + icBb[3]) / 2;
+
+    // Find which container group this icon belongs to
+    const iconGroups = new Set(ic.groupIds ?? []);
+
+    for (const c of containers) {
+      const cBb = bbox(c);
+      // Check if icon center is inside this container
+      if (icCx > cBb[0] && icCx < cBb[2] && icCy > cBb[1] && icCy < cBb[3]) {
+        // Check if the icon belongs to this container (shares a group)
+        const containerGroup = `g-${c.id}`;
+        if (!iconGroups.has(containerGroup)) {
+          // Icon is inside container but doesn't belong to it — check if it belongs to a child container
+          let belongsToChild = false;
+          for (const childC of containers) {
+            if (childC.id === c.id) continue;
+            const childBb = bbox(childC);
+            if (rectContains(cBb, childBb)) {
+              // childC is inside c — check if icon belongs to childC
+              const childGroup = `g-${childC.id}`;
+              if (iconGroups.has(childGroup)) {
+                belongsToChild = true;
+                break;
+              }
+            }
+          }
+          if (!belongsToChild) {
+            issues.push({
+              type: 'ICON_WRONG_CONTAINER',
+              severity: 'error',
+              message: `Icon '${ic.id}' is visually inside container '${c.id}' but doesn't belong to it. Move the icon outside this container or fix its nesting.`,
+              fix: `Move icon outside container '${c.id}' bounds, or change the D2 nesting so the icon is a child of this container.`,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return issues;
+}
+
+// ──────────────────────────────────────────────────────────────────────
 //  Main: run all checks and produce report
 // ──────────────────────────────────────────────────────────────────────
 
@@ -915,6 +970,7 @@ export function runAllOverlapChecks(elements: any[]): OverlapReport {
     ['Arrow-header overlaps', checkArrowHeaderOverlaps(elems)],
     ['Diagonal arrow segments', checkDiagonalArrows(elems)],
     ['Container overflow', checkContainerOverflow(elems)],
+    ['Icons in wrong container', checkIconWrongContainer(elems)],
   ];
 
   let totalErrors = 0;
