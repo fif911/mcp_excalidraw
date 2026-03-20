@@ -147,7 +147,11 @@ The plan must contain these sections in order:
 
 **Nested container spacing: each container has a 108px header. A sub-container's top must be at least 120px below its parent container's top to avoid header overlap. For 3-level nesting (Cloud → Account → Auth), the innermost container starts ~240px below the outermost.**
 
-**1. Containers** — with approximate positions estimated from the reference. Remember: each icon takes ~160×136px, gaps are 60px, padding is 40px. A 2-icon row container needs ~460px wide. A 3-icon row needs ~640px wide. **If actors sit between two container borders, leave at least 200px gap between them for the actor icon.**
+**1. Containers** — with approximate positions estimated from the reference. **Calculate sizes bottom-up then verify top-down:**
+- Each icon: ~160×136px. Gaps: 60px. Padding: 40px per side.
+- 2-icon row: ~460px wide. 3-icon row: ~680px wide.
+- **If actors sit between two container borders, leave at least 200px gap.**
+- **Top-down check: outer container width = sum of all inner containers + gaps + actor space + padding.** If the sum exceeds your estimate, increase the outer container.
 ```
 ### Outer container
 - Approximate: x~30, y~20, w~1900, h~1100
