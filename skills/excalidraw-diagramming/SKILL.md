@@ -239,7 +239,7 @@ Main reads `plan.md` and the reference image, writes `diagram.d2`, then does exa
 ### Main responsibilities — EXACTLY two builds, no more
 
 **Build 1: Structure + positions, NO arrows refinement**
-1. Write `diagram.d2` from `plan.md` — all containers, nodes, connections
+1. Write `diagram.d2` from `plan.md` — first line must be `# Diagram Name — v{N}` (e.g., `# Data Transfer Hub — v1`) so the tool saves `.excalidraw` to the correct version folder
 2. Add `pos:` to containers and special-placement elements
 3. Add `layout:` to grid containers
 4. Do NOT add `waypoints:` or `badge_pos:` yet — let the tool auto-route
