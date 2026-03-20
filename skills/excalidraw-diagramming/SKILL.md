@@ -182,6 +182,17 @@ Main reads `plan.md` and the reference image, writes `diagram.d2` with full D2 s
 
 **HARD RULE: Maximum 2 builds before Critic review.** Do not iterate endlessly. Build 1 gets the structure right, Build 2 gets the arrows right. If there are still issues, the Critic will tell you what to fix specifically.
 
+### Canvas and container sizing
+
+Icons are **98px** (not the old 65px). Everything must be scaled accordingly:
+- **Minimum canvas:** 2800×1500 for a typical 2-account diagram
+- **Each icon+label takes ~160×136px** of space
+- **Containers need at least 60px gap** between children and **40px padding** from edges
+- **Header height is 108px** — don't place children within 108px of container top
+- A container with 2 icons in a row needs at least **420px wide** (2×160 + 60 gap + 2×40 padding)
+- A container with 2 icons stacked vertically needs at least **440px tall** (108 header + 2×136 + 60 gap)
+- **Side-by-side account containers:** split proportionally — if one has more children, give it more width
+
 ### Positioning rules — what gets `pos:` and what doesn't
 
 **Always add `pos: "x,y,w,h"` to:**
