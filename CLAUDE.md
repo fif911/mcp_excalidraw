@@ -43,7 +43,7 @@ Spawn with the Agent tool. Include in the prompt:
 - "Read `skills/excalidraw-diagramming/SKILL.md` — Phase 1 (Planner) section"
 - If re-running after Critic structural feedback: include the issues list
 
-**Goal:** Write a text plan describing every element, container, connection, and styling in the diagram, with approximate positions estimated from the reference. No D2 code.
+**Goal:** Write a text plan describing every element, container, connection, and styling in the diagram. Describe column structure for complex containers. No D2 code, no pixel positions.
 
 ### Planner instructions (include in agent prompt)
 
@@ -56,8 +56,8 @@ Spawn with the Agent tool. Include in the prompt:
 ### Planner output
 
 `diagrams/v{N}/plan.md` with:
-- All containers with approximate positions (x, y, w, h estimated from reference)
-- All service nodes grouped by container with approximate cx, cy positions
+- All containers with nesting, border styles, and layout types (no pixel positions)
+- All service nodes grouped by column (layer) — which elements go in which column
 - Arrow connection table with border annotations (e.g., "SFN border (left)")
 - Unlabeled arrows table
 - Standalone elements (no connections)

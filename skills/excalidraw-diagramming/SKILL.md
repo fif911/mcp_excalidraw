@@ -185,22 +185,16 @@ The plan must contain these sections in order:
 
 **Nested container spacing: each container has a 108px header. A sub-container's top must be at least 120px below its parent container's top to avoid header overlap. For 3-level nesting (Cloud → Account → Auth), the innermost container starts ~240px below the outermost.**
 
-**1. Containers** — with approximate positions estimated from the reference. **Calculate sizes bottom-up then verify top-down:**
-- Each icon: ~160×136px. Gaps: 60px. Padding: 40px per side.
-- 2-icon row: ~460px wide. 3-icon row: ~680px wide.
-- **If actors sit between two container borders, leave at least 200px gap.**
-- **Top-down check: outer container width = sum of all inner containers + gaps + actor space + padding.** If the sum exceeds your estimate, increase the outer container.
+**1. Containers** — describe nesting, border styles, and layout type. No pixel positions — Main handles sizing.
 ```
 ### Outer container
-- Approximate: x~30, y~20, w~1900, h~1100
 - Border: solid, dark
-### Main left container (holds 3 rows of icons + 2 sub-containers)
-- Approximate: x~60, y~100, w~1100, h~960
-### Sub-container with 2 icons in a row
-- Approximate: w~460, h~300
+### Main left container
+- Layout: layers (describe columns)
+- Border: solid, dark
+### Sub-container with 2 icons side by side
 - Layout: row
 ### Sub-container with 2 icons stacked
-- Approximate: w~300, h~500
 - Layout: col
 ```
 
@@ -273,6 +267,7 @@ The plan must contain these sections in order:
 ### Planner does NOT do
 
 - Do NOT write D2 code — Main does that
+- Do NOT specify pixel positions — Main handles all `pos:` values
 - Do NOT read previous diagram versions from `diagram_building/`
 - Do NOT read `skills/diagram-review/` files — those are for the Critic only
 
