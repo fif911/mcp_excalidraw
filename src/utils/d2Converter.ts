@@ -1366,14 +1366,19 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
         // So for END points, sign is OPPOSITE of dx direction
         const sign = isStartPoint ? (dx > 0 ? 1 : -1) : (dx > 0 ? -1 : 1);
         allPts[ptIdx] = [centerX + sign * (ICON_HALF + EDGE_GAP), centerY];
-      } else if (isStartPoint ? (dy > 0) : (dy < 0)) {
-        // Start: going downward → snap to bottom edge
-        // End: approach goes upward (dy<0) → arrow comes from below → snap to TOP edge
-        allPts[ptIdx] = [centerX, centerY - ICON_HALF - EDGE_GAP];
       } else {
-        // Start: going upward → snap to top edge
-        // End: approach goes downward (dy>0) → arrow comes from above → snap BELOW label
-        allPts[ptIdx] = [centerX, centerY + ICON_HALF + gap + textH + EDGE_GAP];
+        // Vertical approach — determine if arrow arrives at top or bottom of icon
+        // For START: dy>0 = going down = exit from bottom; dy<0 = going up = exit from top
+        // For END: dy>0 = pt below neighbor = arrow comes from ABOVE = snap to TOP
+        //          dy<0 = pt above neighbor = arrow comes from BELOW = snap BELOW text
+        const arrivesFromAbove = isStartPoint ? (dy < 0) : (dy > 0);
+        if (arrivesFromAbove) {
+          // Arrow comes from above → snap to TOP edge of icon
+          allPts[ptIdx] = [centerX, centerY - ICON_HALF - EDGE_GAP];
+        } else {
+          // Arrow comes from below → snap BELOW label text
+          allPts[ptIdx] = [centerX, centerY + ICON_HALF + gap + textH + EDGE_GAP];
+        }
       }
     }
 
