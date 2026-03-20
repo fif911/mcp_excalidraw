@@ -174,13 +174,13 @@ The plan must contain these sections in order:
 - Service E: cx~400, cy~800 (architecture, purple)
 ```
 
-**3. Arrow connection table** — one clean table with border annotations:
+**3. Arrow connection table** — one clean table. Source and target only — no direction symbols, no notes. The Main agent figures out routing. Targets can be icons or container borders (e.g., "SFN border (left)"):
 
-| Source | Target | Direction | Badge # | Style |
-|--------|--------|-----------|---------|-------|
-| Data Transfer Hub UI | Amazon CloudFront | → | 1 | dark circle |
-| AWS Lambda (middle) | SFN border (left) | → | 5 | dark circle |
-| SFN border (bottom) | AWS Fargate | ↓ | — | unlabeled |
+| Source | Target | Badge # |
+|--------|--------|---------|
+| Data Transfer Hub UI | Amazon CloudFront | 1 |
+| AWS Lambda (middle) | SFN border (left) | 5 |
+| SFN border (bottom) | AWS Fargate | — |
 
 **Total: N numbered + M unlabeled = T arrows**
 
