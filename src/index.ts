@@ -2131,13 +2131,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
         }
 
         const cropResult = await cropResponse.json() as { success: boolean; data: string };
-        const fullImageB64 = cropResult.data;
-
-        // Use sharp or canvas to crop — but since we're in Node without image libs,
-        // shell out to python with PIL which we know is available
-        const tmpDir = os.tmpdir();
-        const fullPath = path.join(tmpDir, `excalidraw_full_${Date.now()}.png`);
-        fs.writeFileSync(fullPath, Buffer.from(fullImageB64, 'base64'));
+        const fullImageBuf = Buffer.from(cropResult.data, 'base64');
+        const sharp = (await import('sharp')).default;
+        const metadata = await sharp(fullImageBuf).metadata();
+        const imgW = metadata.width ?? 1920;
+        const imgH = metadata.height ?? 1080;
 
         if (params.grid) {
           // Grid mode: split into NxM cells
@@ -2145,82 +2143,44 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
           if (!gridMatch) throw new Error(`Invalid grid format "${params.grid}" — use "3x3"`);
           const cols = parseInt(gridMatch[1]!);
           const rows = parseInt(gridMatch[2]!);
-
-          const scriptPath = path.join(tmpDir, `crop_grid_${Date.now()}.py`);
-          const imgPathFwd = fullPath.replace(/\\/g, '/');
-          const outPrefix = fullPath.replace(/\\/g, '/').replace('.png', '');
-          fs.writeFileSync(scriptPath, `
-from PIL import Image
-img = Image.open("${imgPathFwd}")
-w, h = img.size
-cw, ch = w // ${cols}, h // ${rows}
-results = []
-for r in range(${rows}):
-    for c in range(${cols}):
-        x1, y1 = c * cw, r * ch
-        crop = img.crop((x1, y1, x1 + cw, y1 + ch))
-        out = "${outPrefix}_r%d_c%d.png" % (r, c)
-        crop.save(out)
-        results.append(out)
-print("\\n".join(results))
-`);
-          const gridOutput = execSync(`python "${scriptPath}"`, { encoding: 'utf-8' }).trim();
-          try { fs.unlinkSync(scriptPath); } catch {}
-          const cellPaths = gridOutput.split('\n').filter(Boolean);
+          const cellW = Math.floor(imgW / cols);
+          const cellH = Math.floor(imgH / rows);
 
           const content: any[] = [];
-          for (let i = 0; i < cellPaths.length; i++) {
-            const cellPath = cellPaths[i]!.trim();
-            const r = Math.floor(i / cols);
-            const c = i % cols;
-            const cellData = fs.readFileSync(cellPath).toString('base64');
-            content.push({
-              type: 'image' as const,
-              data: cellData,
-              mimeType: 'image/png'
-            });
-            content.push({
-              type: 'text',
-              text: `Grid cell [row ${r}, col ${c}]`
-            });
-            // Clean up cell file
-            try { fs.unlinkSync(cellPath); } catch {}
-          }
-          // Clean up full image
-          try { fs.unlinkSync(fullPath); } catch {}
+          content.push({ type: 'text', text: `Canvas split into ${cols}x${rows} grid (${cols * rows} cells):` });
 
-          content.unshift({ type: 'text', text: `Canvas split into ${cols}x${rows} grid (${cellPaths.length} cells):` });
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              const cellBuf = await sharp(fullImageBuf)
+                .extract({ left: c * cellW, top: r * cellH, width: cellW, height: cellH })
+                .png()
+                .toBuffer();
+              content.push({
+                type: 'image' as const,
+                data: cellBuf.toString('base64'),
+                mimeType: 'image/png'
+              });
+              content.push({ type: 'text', text: `Grid cell [row ${r}, col ${c}]` });
+            }
+          }
           return { content };
         } else {
           // Single crop mode
           const cx = params.x ?? 0;
           const cy = params.y ?? 0;
-          const cw = params.width ?? 400;
-          const ch = params.height ?? 400;
+          const cw = Math.min(params.width ?? 400, imgW - cx);
+          const ch = Math.min(params.height ?? 400, imgH - cy);
 
-          const cropOutPath = fullPath.replace('.png', '_crop.png');
-          const scriptPath = path.join(tmpDir, `crop_single_${Date.now()}.py`);
-          const imgPathFwd = fullPath.replace(/\\/g, '/');
-          const outPathFwd = cropOutPath.replace(/\\/g, '/');
-          fs.writeFileSync(scriptPath, `
-from PIL import Image
-img = Image.open("${imgPathFwd}")
-crop = img.crop((${cx}, ${cy}, ${cx + cw}, ${cy + ch}))
-crop.save("${outPathFwd}")
-`);
-          execSync(`python "${scriptPath}"`, { encoding: 'utf-8' });
-          try { fs.unlinkSync(scriptPath); } catch {}
-
-          const croppedData = fs.readFileSync(cropOutPath).toString('base64');
-          // Clean up
-          try { fs.unlinkSync(fullPath); } catch {}
-          try { fs.unlinkSync(cropOutPath); } catch {}
+          const croppedBuf = await sharp(fullImageBuf)
+            .extract({ left: Math.max(0, cx), top: Math.max(0, cy), width: cw, height: ch })
+            .png()
+            .toBuffer();
 
           return {
             content: [
               {
                 type: 'image' as const,
-                data: croppedData,
+                data: croppedBuf.toString('base64'),
                 mimeType: 'image/png'
               },
               {
