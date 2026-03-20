@@ -135,6 +135,8 @@ The Planner reads the reference image and writes `plan.md` — a structured desc
 
 The plan must contain these sections in order:
 
+**Important: each icon+label takes ~160×136px. Account for this when estimating container sizes — a container with 3 icons in a row needs at least ~600px wide.**
+
 **1. Containers** — with approximate positions estimated from the reference:
 ```
 ### AWS Cloud (outermost)
