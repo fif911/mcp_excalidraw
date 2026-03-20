@@ -116,20 +116,23 @@ The Planner reads the reference image and writes `plan.md` — a **text descript
 
 ### Planner output
 
-`diagram_building/v{N}/plan.md` with:
+`diagram_building/v{N}/plan.md` — a clean, structured document. **No stream-of-consciousness reasoning, no corrections inline, no "wait, let me re-examine".** Examine the reference carefully BEFORE writing, then write the final clean output once.
+
+The plan must contain these sections in order:
 
 1. **Container hierarchy** — nesting, which are dashed, colored borders, header icons
-2. **Service nodes** — label, which container, icon type (architecture/resource/custom)
-3. **Numbered arrow table:**
-   | Source | Target | Direction | Badge # | Style |
-   |--------|--------|-----------|---------|-------|
-   | Data Transfer Hub UI | Amazon CloudFront | → | 1 | dark circle |
-   | AWS Lambda (middle) | Step Functions border | → | 5 | dark circle |
-4. **Unlabeled arrows** — same format, no badge
+2. **Service nodes** — one table per container with: label, icon type, icon color, icon notes
+3. **Numbered arrow table** — one final clean table, no duplicates, no corrections:
+   | # | Source | Target | Direction | Style |
+   |---|--------|--------|-----------|-------|
+   | 1 | Amazon CloudFront | Amazon S3 (customer) | → | dark circle |
+4. **Unlabeled arrows** — same format, no badge column
 5. **Standalone elements** — nodes with no connections
 6. **External actors** — position relative to containers. **Double-check every actor's nesting**: trace the container borders in the reference to determine if the actor is outside ALL containers, inside AWS Cloud but outside account containers, or inside an account container. Getting this wrong is the most common Planner error.
 7. **Icon notes** — resource vs architecture type, **specific color** (orange, pink, purple, green), custom icons. Always note the icon color — the same icon shape exists in multiple colors.
 8. **Layout intent** — "Managed Account: 2x3 grid", "Auth: horizontal row"
+
+**IMPORTANT: Write each section ONCE. Do not revise inline. If you need to re-examine the reference, do it before writing — not during.**
 
 ### Planner hard rules
 
