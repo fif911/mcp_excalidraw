@@ -1571,17 +1571,17 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
               const pts = (el.points as number[][]) || [];
               for (let si = 0; si < pts.length - 1; si++) {
                 const sx = ox + pts[si]![0]!;
-                const sy = ox + pts[si]![1]!;  // intentional: check segment proximity
+                const sy = oy + pts[si]![1]!;
                 const ex2 = ox + pts[si + 1]![0]!;
                 const ey2 = oy + pts[si + 1]![1]!;
                 // Simple: check if badge center is within badgeR of the segment line
                 const segDx = ex2 - sx;
-                const segDy = ey2 - (oy + pts[si]![1]!);
+                const segDy = ey2 - sy;
                 const segLen = Math.sqrt(segDx * segDx + segDy * segDy);
                 if (segLen > 0) {
-                  const t = Math.max(0, Math.min(1, ((cx - sx) * segDx + (cy - (oy + pts[si]![1]!)) * segDy) / (segLen * segLen)));
+                  const t = Math.max(0, Math.min(1, ((cx - sx) * segDx + (cy - sy) * segDy) / (segLen * segLen)));
                   const projX = sx + t * segDx;
-                  const projY = (oy + pts[si]![1]!) + t * segDy;
+                  const projY = sy + t * segDy;
                   const dist = Math.sqrt((cx - projX) ** 2 + (cy - projY) ** 2);
                   if (dist < badgeR) return true;
                 }
