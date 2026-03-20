@@ -810,7 +810,7 @@ app.post('/api/elements/from-d2', async (req: Request, res: Response) => {
     // Run overlap checks on built elements
     const overlapReport = runAllOverlapChecks(result.elements);
 
-    // Auto-save .excalidraw file after each build for debugging
+    // Auto-save .excalidraw file after each build
     try {
       const excalidrawData = {
         type: 'excalidraw',
@@ -820,10 +820,28 @@ app.post('/api/elements/from-d2', async (req: Request, res: Response) => {
         files: Object.fromEntries(result.files.map(f => [f.id, { id: f.id, dataURL: f.dataURL, mimeType: f.mimeType }])),
         appState: { viewBackgroundColor: '#ffffff' },
       };
-      const savePath = path.resolve(process.cwd(), 'diagram_building', 'latest_build.excalidraw');
-      fs.mkdirSync(path.dirname(savePath), { recursive: true });
-      fs.writeFileSync(savePath, JSON.stringify(excalidrawData, null, 2));
-      logger.info(`Auto-saved .excalidraw to ${savePath}`);
+
+      // Detect version folder from D2 content or request
+      // Look for diagrams/vN/ pattern in the D2 comments or nearby context
+      const versionMatch = d2Diagram.match(/[—-]\s*v(\d+)/i);
+      const diagramsDir = path.resolve(process.cwd(), 'diagrams');
+
+      if (versionMatch) {
+        // Save to version folder: diagrams/vN/diagram.excalidraw
+        const vDir = path.resolve(diagramsDir, `v${versionMatch[1]}`);
+        fs.mkdirSync(vDir, { recursive: true });
+        const savePath = path.resolve(vDir, 'diagram.excalidraw');
+        fs.writeFileSync(savePath, JSON.stringify(excalidrawData, null, 2));
+        logger.info(`Auto-saved .excalidraw to ${savePath}`);
+      } else {
+        // Test build — save as diagram_test_N.excalidraw
+        fs.mkdirSync(diagramsDir, { recursive: true });
+        const existing = fs.readdirSync(diagramsDir).filter(f => f.startsWith('diagram_test_') && f.endsWith('.excalidraw'));
+        const nextN = existing.length + 1;
+        const savePath = path.resolve(diagramsDir, `diagram_test_${nextN}.excalidraw`);
+        fs.writeFileSync(savePath, JSON.stringify(excalidrawData, null, 2));
+        logger.info(`Auto-saved test .excalidraw to ${savePath}`);
+      }
     } catch (saveErr) {
       logger.warn('Failed to auto-save .excalidraw:', saveErr);
     }
