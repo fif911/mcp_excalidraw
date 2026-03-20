@@ -1302,20 +1302,14 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
   }
 
   function perpOffset(segDx: number, segDy: number, offset: number): { offX: number; offY: number } {
-    const segLen = Math.sqrt(segDx * segDx + segDy * segDy);
-    let px: number, py: number;
-    if (segLen > 0) {
-      px = -segDy / segLen;
-      py = segDx / segLen;
-      if (Math.abs(segDx) >= Math.abs(segDy)) {
-        if (py > 0) { px = -px; py = -py; }
-      } else {
-        if (px < 0) { px = -px; py = -py; }
-      }
+    // Simple and consistent: horizontal arrows → badge ABOVE, vertical arrows → badge to the RIGHT
+    if (Math.abs(segDx) >= Math.abs(segDy)) {
+      // Horizontal segment → offset upward (negative Y)
+      return { offX: 0, offY: -offset };
     } else {
-      px = 0; py = -1;
+      // Vertical segment → offset to the right (positive X)
+      return { offX: offset, offY: 0 };
     }
-    return { offX: px * offset, offY: py * offset };
   }
 
   // Detect if a shape is inside a container (for cross-container arrow routing)
