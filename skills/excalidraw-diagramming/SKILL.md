@@ -127,7 +127,45 @@ managed_account: AWS Managed Account {
 }
 ```
 
-Values: `"NxM"` (cols × rows), `row`, `col`. Tool auto-detects grid if omitted.
+Values: `"NxM"` (cols × rows), `row`, `col`, `layers`. Tool auto-detects grid if omitted.
+
+**`layout: layers`** — arranges children as left-to-right columns. Each direct child is an invisible "layer" (no borders). Elements within each layer stack vertically. Use this for containers with complex multi-column arrangements:
+
+```d2
+customer_account: Customer's AWS Account {
+  layout: layers
+
+  col1: {
+    dth_ui: Data Transfer Hub UI
+  }
+  col2: {
+    auth: Authentication {
+      layout: row
+      cognito: Amazon Cognito
+      openid: OpenID Connect
+    }
+    dynamodb: Amazon DynamoDB
+  }
+  col3: {
+    appsync: AWS AppSync
+    cloudfront: Amazon CloudFront
+  }
+  col4: {
+    lambda: AWS Lambda
+    s3: Amazon S3
+  }
+  col5: {
+    sfn: AWS Step Functions workflow {
+      layout: col
+      lambda_sf: AWS Lambda
+      cloudformation: AWS CloudFormation
+    }
+    fargate: AWS Fargate
+  }
+}
+```
+
+The tool calculates all column widths, heights, and positions. No `pos:` needed on any element inside a layers container.
 
 ---
 

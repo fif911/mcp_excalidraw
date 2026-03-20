@@ -469,6 +469,84 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
     let contentW = 0;
     let contentH = 0;
 
+    // ── Layers layout: arrange children as left-to-right columns ──
+    if (shape.layout === 'layers') {
+      // Each direct child is a "layer" (invisible vertical column)
+      // Layers are arranged left-to-right, elements within each layer stack top-to-bottom
+      let layerX = containerX + CONTAINER_PAD;
+      const layerStartY = containerY + headerH + CONTAINER_PAD;
+      let maxLayerH = 0;
+
+      for (const childId of shape.children) {
+        const layerShape = graph.shapes[childId];
+        if (!layerShape) continue;
+
+        // Layout all children of this layer vertically
+        let itemY = layerStartY;
+        let layerW = 0;
+
+        const layerChildren = layerShape.children.length > 0 ? layerShape.children : [childId];
+        const isRealLayer = layerShape.children.length > 0;
+
+        if (!isRealLayer) {
+          // Single element, not a layer group — treat as its own layer
+          const node = layoutShape(layerShape, layerX, layerStartY);
+          layerW = node.w;
+          maxLayerH = Math.max(maxLayerH, node.h);
+          layerX += layerW + H_GAP;
+          contentW += layerW + H_GAP;
+          continue;
+        }
+
+        // Mark this layer as invisible (won't render borders)
+        layerShape.shape = '_layer'; // special marker for element builder
+
+        for (const itemId of layerShape.children) {
+          const itemShape = graph.shapes[itemId];
+          if (!itemShape) continue;
+
+          const node = layoutShape(itemShape, layerX, itemY);
+          layerW = Math.max(layerW, node.w);
+          itemY += node.h + V_GAP;
+        }
+
+        const layerH = itemY - layerStartY - V_GAP;
+        maxLayerH = Math.max(maxLayerH, layerH);
+
+        // Set the invisible layer's layout node (for reference, won't render)
+        layout[childId] = { id: childId, x: layerX, y: layerStartY, w: layerW, h: layerH };
+
+        layerX += layerW + H_GAP;
+        contentW += layerW + H_GAP;
+      }
+
+      contentW = Math.max(0, contentW - H_GAP); // remove trailing gap
+      contentH = maxLayerH;
+
+      // Auto-expand for header text
+      const headerTextW = measureText(shape.label, FONT_SIZE).width + ICON_SIZE + 20;
+      contentW = Math.max(contentW, headerTextW);
+
+      let w = Math.max(explicitW ?? (contentW + CONTAINER_PAD * 2), contentW + CONTAINER_PAD * 2);
+      let h = Math.max(explicitH ?? (headerH + CONTAINER_PAD + contentH + CONTAINER_PAD), headerH + CONTAINER_PAD + contentH + CONTAINER_PAD);
+
+      // Cap to parent bounds
+      if (shape.parent) {
+        const parentNode = layout[shape.parent];
+        if (parentNode) {
+          const maxW = parentNode.w - (containerX - parentNode.x) - CONTAINER_PAD;
+          const maxH = parentNode.h - (containerY - parentNode.y) - CONTAINER_PAD;
+          if (maxW > 0) w = Math.min(w, maxW);
+          if (maxH > 0) h = Math.min(h, maxH);
+        }
+      }
+
+      const node: LayoutNode = { id: shape.id, x: containerX, y: containerY, w, h };
+      layout[shape.id] = node;
+      return node;
+    }
+
+    // ── Standard layout (non-layers) ──
     // Layout sub-containers in a row first
     let childX = containerX + CONTAINER_PAD;
     let childY = containerY + headerH + CONTAINER_PAD;
@@ -859,6 +937,9 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
     const isContainer = shape.children.length > 0;
     const isDashed = Boolean(shape.style['stroke-dash']);
     const strokeColor = shape.style['stroke'] ?? (isContainer ? '#545B64' : '#1a1a1a');
+
+    // Skip invisible layer containers (used by layout: layers)
+    if (shape.shape === '_layer') continue;
 
     if (isContainer) {
       // ── Container ──
