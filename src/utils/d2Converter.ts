@@ -1269,14 +1269,21 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
 
       if (absDx >= absDy) {
         // Horizontal approach → stop at left or right icon edge, centered vertically
-        const sign = dx > 0 ? 1 : -1;
+        // For start: dx>0 means going right, snap to right edge (+1)
+        // For end: dx>0 means approach FROM left, snap to left edge (-1)... wait:
+        // dx = approach direction. For end points, dx = pt - neighbor.
+        // dx < 0 means approach goes LEFT → arrow comes FROM right → snap to RIGHT edge
+        // dx > 0 means approach goes RIGHT → arrow comes FROM left → snap to LEFT edge
+        // So for END points, sign is OPPOSITE of dx direction
+        const sign = isStartPoint ? (dx > 0 ? 1 : -1) : (dx > 0 ? -1 : 1);
         allPts[ptIdx] = [centerX + sign * (ICON_HALF + EDGE_GAP), centerY];
-      } else if (dy > 0) {
-        // Approaching FROM ABOVE (arrow goes downward toward icon top)
+      } else if (isStartPoint ? (dy > 0) : (dy < 0)) {
+        // Start: going downward → snap to bottom edge
+        // End: approach goes upward (dy<0) → arrow comes from below → snap to TOP edge
         allPts[ptIdx] = [centerX, centerY - ICON_HALF - EDGE_GAP];
       } else {
-        // Approaching FROM BELOW (arrow goes upward toward icon bottom)
-        // Stop below the label text so arrow doesn't cross it
+        // Start: going upward → snap to top edge
+        // End: approach goes downward (dy>0) → arrow comes from above → snap BELOW label
         allPts[ptIdx] = [centerX, centerY + ICON_HALF + gap + textH + EDGE_GAP];
       }
     }
