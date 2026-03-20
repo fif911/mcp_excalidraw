@@ -163,23 +163,24 @@ The Planner reads the reference image and writes `plan.md` — a **text descript
 
 Main reads `plan.md` and the reference image, writes `diagram.d2` with full D2 syntax including positions, layout hints, and waypoints. Then builds with `create_from_d2` and iterates. **Critic talks directly to Main** — no routing through Planner for visual/positional fixes.
 
-### Main responsibilities — two-pass build
+### Main responsibilities — EXACTLY two builds, no more
 
-**Pass 1: Initial build**
-1. Write `diagram.d2` from `plan.md` — translate the text plan into D2 syntax
-2. Add `pos:` where needed (see positioning rules below)
-3. Add `layout:` hints to containers with grid-like children
-4. Call `create_from_d2` — the tool builds AND returns exact positions of all elements
+**Build 1: Structure + positions, NO arrows refinement**
+1. Write `diagram.d2` from `plan.md` — all containers, nodes, connections
+2. Add `pos:` to containers and special-placement elements
+3. Add `layout:` to grid containers
+4. Do NOT add `waypoints:` or `badge_pos:` yet — let the tool auto-route
+5. Call `create_from_d2` ONCE
+6. **STOP. Read the ELEMENT POSITIONS output.** Write down the icon_center and borders values you need.
 
-**Pass 2: Refine arrows using exact positions**
-5. Read the **ELEMENT POSITIONS** section from the build output
-6. Use exact `icon_center` coordinates and `borders` values to calculate:
-   - `waypoints:` for arrows that need L-shapes (use exact icon_cy values)
-   - `badge_pos:` for cross-container badges (use container border midpoints)
-7. Update `diagram.d2` with refined waypoints/badge_pos
-8. Rebuild with `create_from_d2`
-9. Verify visually with `get_canvas_screenshot`
-10. Export using `export_to_image`
+**Build 2: Arrow refinement using EXACT positions from Build 1**
+7. Calculate `waypoints:` using exact `icon_center` Y values from Build 1 output
+8. Calculate `badge_pos:` using exact `borders` values (e.g., gap midpoint = `(container1.right + container2.left) / 2`)
+9. Update `diagram.d2` with the calculated waypoints and badge_pos
+10. Call `create_from_d2` ONCE more
+11. Verify visually with `get_canvas_screenshot`
+
+**HARD RULE: Maximum 2 builds before Critic review.** Do not iterate endlessly. Build 1 gets the structure right, Build 2 gets the arrows right. If there are still issues, the Critic will tell you what to fix specifically.
 
 ### Positioning rules — what gets `pos:` and what doesn't
 
