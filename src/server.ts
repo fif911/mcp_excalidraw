@@ -826,15 +826,17 @@ app.post('/api/elements/from-d2', async (req: Request, res: Response) => {
       const versionMatch = d2Diagram.match(/[—-]\s*v(\d+)/i);
       const diagramsDir = path.resolve(process.cwd(), 'diagrams');
 
+      let savedDir: string;
       if (versionMatch) {
         // Save to version folder: diagrams/vN/diagram.excalidraw
-        const vDir = path.resolve(diagramsDir, `v${versionMatch[1]}`);
-        fs.mkdirSync(vDir, { recursive: true });
-        const savePath = path.resolve(vDir, 'diagram.excalidraw');
+        savedDir = path.resolve(diagramsDir, `v${versionMatch[1]}`);
+        fs.mkdirSync(savedDir, { recursive: true });
+        const savePath = path.resolve(savedDir, 'diagram.excalidraw');
         fs.writeFileSync(savePath, JSON.stringify(excalidrawData, null, 2));
         logger.info(`Auto-saved .excalidraw to ${savePath}`);
       } else {
         // Test build — save as diagram_test_N.excalidraw
+        savedDir = diagramsDir;
         fs.mkdirSync(diagramsDir, { recursive: true });
         const existing = fs.readdirSync(diagramsDir).filter(f => f.startsWith('diagram_test_') && f.endsWith('.excalidraw'));
         const nextN = existing.length + 1;
@@ -842,6 +844,25 @@ app.post('/api/elements/from-d2', async (req: Request, res: Response) => {
         fs.writeFileSync(savePath, JSON.stringify(excalidrawData, null, 2));
         logger.info(`Auto-saved test .excalidraw to ${savePath}`);
       }
+
+      // Auto-export PNG — trigger internal export after a short delay for frontend sync
+      setTimeout(async () => {
+        try {
+          const pngName = versionMatch ? 'diagram.png' : `diagram_test.png`;
+          const pngPath = path.resolve(savedDir, pngName);
+          // Use the export endpoint internally
+          const exportResp = await fetch(`http://localhost:${PORT}/api/export/image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ format: 'png', filePath: pngPath, background: true }),
+          });
+          if (exportResp.ok) {
+            logger.info(`Auto-exported PNG to ${pngPath}`);
+          }
+        } catch (pngErr) {
+          logger.warn('Failed to auto-export PNG:', pngErr);
+        }
+      }, 2000); // Wait 2s for frontend to render
     } catch (saveErr) {
       logger.warn('Failed to auto-save .excalidraw:', saveErr);
     }
