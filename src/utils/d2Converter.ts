@@ -405,6 +405,59 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
   const layout: Record<string, LayoutNode> = {};
   const roots = Object.values(graph.shapes).filter(s => !s.parent);
 
+  // Helper: redistribute leaf items vertically within a container to fill available height
+  function redistributeLeaves(containerId: string) {
+    const containerNode = layout[containerId];
+    const containerShape = graph.shapes[containerId];
+    if (!containerNode || !containerShape) return;
+
+    const leafIds = containerShape.children.filter(cid => {
+      const s = graph.shapes[cid];
+      return s && s.children.length === 0;
+    });
+    if (leafIds.length === 0) return;
+
+    // Determine grid dimensions
+    const layoutType = containerShape.layout;
+    const gridMatch = layoutType?.match(/^(\d+)x(\d+)$/);
+    let cols = 1, rows = leafIds.length;
+    if (gridMatch) {
+      cols = parseInt(gridMatch[1]!);
+      rows = parseInt(gridMatch[2]!);
+    } else if (layoutType === 'row') {
+      cols = leafIds.length;
+      rows = 1;
+    } else if (layoutType === 'col') {
+      cols = 1;
+      rows = leafIds.length;
+    }
+    if (rows <= 1) return;
+
+    // Detect header height for this container
+    const cType = detectContainerType(containerShape.label);
+    const isDashed = Boolean(containerShape.style['stroke-dash']);
+    let hasHdrIcon = false;
+    if (cType && cType.headerIcon) {
+      const icDir = path.resolve(process.cwd(), 'icons');
+      hasHdrIcon = fs.existsSync(path.resolve(icDir, cType.headerIcon));
+    }
+    if (!hasHdrIcon && cType) hasHdrIcon = /step\s*functions|vpc|region/i.test(containerShape.label);
+    const hdrH = hasHdrIcon ? HEADER_HEIGHT : Math.round(FONT_SIZE * 1.5 + 10);
+
+    const availH = containerNode.h - hdrH - CONTAINER_PAD * 2;
+    const rowSpacing = availH / rows;
+
+    for (let idx = 0; idx < leafIds.length; idx++) {
+      const lid = leafIds[idx]!;
+      const leafNode = layout[lid];
+      if (!leafNode) continue;
+      const row = Math.floor(idx / cols);
+      const newCy = containerNode.y + hdrH + CONTAINER_PAD + row * rowSpacing + rowSpacing / 2;
+      leafNode.y = newCy - leafNode.h / 2;
+      layout[lid] = leafNode;
+    }
+  }
+
   let rootX = CONTAINER_PAD;
 
   const layoutShape = (shape: D2Shape, x: number, y: number): LayoutNode => {
@@ -608,53 +661,13 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
       for (const cid of containerIds) {
         const node = layout[cid];
         if (node && node.h < rowMaxH) {
-          const oldH = node.h;
           node.h = rowMaxH;
           layout[cid] = node;
-
-          // Redistribute leaf children vertically to fill the expanded height
-          const childShape = graph.shapes[cid];
-          if (childShape) {
-            const childLeafIds = childShape.children.filter(lid => {
-              const ls = graph.shapes[lid];
-              return ls && ls.children.length === 0;
-            });
-            const childContainerIds = childShape.children.filter(lid => {
-              const ls = graph.shapes[lid];
-              return ls && ls.children.length > 0;
-            });
-            // Only redistribute if there are leaf nodes (grid/row/col items)
-            if (childLeafIds.length > 0) {
-              // Determine how many rows of leaves exist
-              const childHeaderH = node.y; // approximate
-              const layoutType = childShape.layout;
-              const gridMatch = layoutType?.match(/^(\d+)x(\d+)$/);
-              let numRows = 1;
-              if (gridMatch) {
-                numRows = parseInt(gridMatch[2]!);
-              } else if (layoutType === 'col') {
-                numRows = childLeafIds.length;
-              }
-              if (numRows > 1) {
-                // Get the container's content area
-                const cHeaderH = 108; // approximate header for containers with icons
-                const availH = node.h - cHeaderH - CONTAINER_PAD * 2;
-                const rowSpacing = availH / numRows;
-                for (const lid of childLeafIds) {
-                  const leafNode = layout[lid];
-                  if (!leafNode) continue;
-                  // Find which row this leaf is in
-                  const idx = childLeafIds.indexOf(lid);
-                  const cols = gridMatch ? parseInt(gridMatch[1]!) : 1;
-                  const row = Math.floor(idx / cols);
-                  const newCy = node.y + cHeaderH + CONTAINER_PAD + row * rowSpacing + rowSpacing / 2;
-                  leafNode.y = newCy - leafNode.h / 2;
-                  layout[lid] = leafNode;
-                }
-              }
-            }
-          }
         }
+      }
+      // Redistribute leaf items in ALL sibling containers to fill available height
+      for (const cid of containerIds) {
+        redistributeLeaves(cid);
       }
     }
 
