@@ -234,6 +234,12 @@ Icons are **98px** (not the old 65px). Everything must be scaled accordingly:
 7. **One waypoint per turn** — no redundant tiny segments
 8. **Arrows stop at icon edges** — tool auto-snaps, no manual edge offsets needed
 
+### Element alignment for clean arrows
+
+**Elements connected by horizontal arrows must share the same Y position.** If AppSync → Lambda → Step Functions are on the same flow row, set all their `pos:` to the same Y value. Same for cross-container horizontal arrows (ECR → Fargate, S3 managed → CloudFormation).
+
+Look at the reference image and identify horizontal rows. All elements on the same row get the same Y. This eliminates L-shape bends — the tool draws straight horizontal lines when source and target share Y.
+
 ### Arrow routing guidance
 
 - **Horizontal lanes for 10+ arrows** — assign each flow a Y lane
