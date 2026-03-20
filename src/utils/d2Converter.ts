@@ -501,6 +501,7 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
         // Mark this layer as invisible (won't render borders)
         layerShape.shape = '_layer'; // special marker for element builder
 
+        const layerItemIds: string[] = [];
         for (const itemId of layerShape.children) {
           const itemShape = graph.shapes[itemId];
           if (!itemShape) continue;
@@ -508,6 +509,16 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
           const node = layoutShape(itemShape, layerX, itemY);
           layerW = Math.max(layerW, node.w);
           itemY += node.h + V_GAP;
+          layerItemIds.push(itemId);
+        }
+
+        // Center all items horizontally within the column
+        for (const itemId of layerItemIds) {
+          const node = layout[itemId];
+          if (node && node.w < layerW) {
+            node.x = layerX + (layerW - node.w) / 2;
+            layout[itemId] = node;
+          }
         }
 
         const layerH = itemY - layerStartY - V_GAP;
