@@ -429,16 +429,16 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
       return node;
     }
 
-    // ── Container: check for explicit pos ──
+    // ── Container: check for explicit pos (x,y only — w,h auto-calculated) ──
     let containerX = x, containerY = y;
-    let explicitW: number | undefined, explicitH: number | undefined;
+    const explicitW: number | undefined = undefined;
+    const explicitH: number | undefined = undefined;
     if (shape.pos) {
       const parts = shape.pos.split(',').map(s => parseFloat(s.trim()));
-      if (parts.length === 4) {
+      if (parts.length >= 2) {
         containerX = parts[0]!;
         containerY = parts[1]!;
-        explicitW = parts[2]!;
-        explicitH = parts[3]!;
+        // w,h ignored — tool auto-calculates from content
       }
     }
 

@@ -313,7 +313,7 @@ Each icon+label takes ~160×136px. Header height is 108px. **Calculate container
 
 ### Positioning rules
 
-**`pos:` ONLY on top-level containers** (AWS Cloud, account containers). Everything inside uses `layout:`.
+**`pos:` ONLY on top-level containers** (AWS Cloud, account containers) — **x,y only, no width/height**. The tool calculates w,h from content. Everything inside uses `layout:`.
 
 **Use `layout: layers`** for containers with multi-column arrangements. Each direct child is an invisible column. Elements within each column stack vertically. The tool handles all widths, heights, and positions.
 
