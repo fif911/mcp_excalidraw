@@ -401,8 +401,14 @@ interface LayoutNode {
   h: number;
 }
 
-export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
+export interface LayoutChange {
+  elementId: string;
+  change: string;
+}
+
+export function layoutD2Graph(graph: D2Graph): { layout: Record<string, LayoutNode>; changes: LayoutChange[] } {
   const layout: Record<string, LayoutNode> = {};
+  const changes: LayoutChange[] = [];
   const roots = Object.values(graph.shapes).filter(s => !s.parent);
 
   // Helper: redistribute leaf items vertically within a container to fill available height
@@ -846,8 +852,14 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
       if (parentNode) {
         const maxW = parentNode.w - (containerX - parentNode.x) - CONTAINER_PAD;
         const maxH = parentNode.h - (containerY - parentNode.y) - CONTAINER_PAD;
-        if (maxW > 0) w = Math.min(w, maxW);
-        if (maxH > 0) h = Math.min(h, maxH);
+        if (maxW > 0 && w > maxW) {
+          changes.push({ elementId: shape.id, change: `Width capped from ${Math.round(w)}px to ${Math.round(maxW)}px by parent "${shape.parent}". Expand the parent container.` });
+          w = maxW;
+        }
+        if (maxH > 0 && h > maxH) {
+          changes.push({ elementId: shape.id, change: `Height capped from ${Math.round(h)}px to ${Math.round(maxH)}px by parent "${shape.parent}". Expand the parent container.` });
+          h = maxH;
+        }
       }
     }
 
@@ -968,7 +980,7 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
     }
   }
 
-  return layout;
+  return { layout, changes };
 }
 
 // ─── Element Builder ────────────────────────────────────────────────────
@@ -998,11 +1010,12 @@ export interface ConvertResult {
   validationIssues: string[];
   stats: { containers: number; nodes: number; arrows: number; badges: number };
   positions: ElementPosition[];
+  layoutChanges: LayoutChange[];
 }
 
 export function convertD2ToExcalidraw(source: string): ConvertResult {
   const graph = parseD2(source);
-  const layout = layoutD2Graph(graph);
+  const { layout, changes: layoutChanges } = layoutD2Graph(graph);
   const elements: any[] = [];
   const fileUploads: Array<{ id: string; dataURL: string; mimeType: string }> = [];
   const iconsMissing: string[] = [];
@@ -1786,6 +1799,7 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
     iconsMissing,
     validationIssues,
     stats: { containers: containerCount, nodes: nodeCount, arrows: arrowCount, badges: badgeCount },
+    layoutChanges,
     positions,
   };
 }

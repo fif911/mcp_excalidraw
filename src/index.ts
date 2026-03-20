@@ -1547,6 +1547,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
             summary += `\n\n${result.overlapReport.summary}`;
           }
 
+          // Layout changes — things the tool modified from the D2 spec
+          if (result.layoutChanges?.length) {
+            summary += '\n\n=== LAYOUT CHANGES (update your D2 to match) ===\n';
+            for (const c of result.layoutChanges) {
+              summary += `  ${c.elementId}: ${c.change}\n`;
+            }
+          }
+
           // Position map for Main agent — use these for waypoints and badge_pos calculations
           if (result.positions?.length) {
             summary += '\n\n=== ELEMENT POSITIONS (use for waypoints/badge_pos) ===\n';
