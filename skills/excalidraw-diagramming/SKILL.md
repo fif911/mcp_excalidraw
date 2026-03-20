@@ -227,15 +227,15 @@ Main reads `plan.md` and the reference image, writes `diagram.d2` with full D2 s
 
 ### Icon resolution (Main translates Planner's descriptions)
 
-| Planner says | What Main does |
+| Planner says | D2 attribute |
 |---|---|
-| "architecture icon" (default for AWS services) | nothing — auto-resolves |
-| "resource icon" or "outline icon" | `search_aws_icons` with `icon_type: resource`, use `icon:` with returned path |
-| "Light/outline variant" | `search_aws_icons` with `variant: Light`, use `icon:` with returned path |
-| "orange CloudFormation Template" | `search_aws_icons` for template, check `icons/custom/` for orange variant, use `icon:` path |
+| "architecture icon" (default for AWS services) | none needed — auto-resolves from label |
+| "resource icon" or "outline icon" | `icon_type: resource` |
+| "Light/outline variant" | `icon_type: resource` + `icon_variant: Light` |
+| "orange CloudFormation Template" | `icon_hint: "CloudFormation Template Orange"` |
 | "custom OpenID icon" | `icon: "custom/icons8-openid.svg"` |
 
-**Always use `icon:` with the full path when the auto-resolution picks the wrong icon.** The `icon_hint`/`icon_type`/`icon_variant` attributes work for simple cases but explicit `icon:` paths are more reliable.
+**If the tool picks the wrong icon, make the description more specific.** Add `icon_type`, `icon_variant`, or refine `icon_hint` text. Only use `icon:` with file paths for truly custom icons (e.g., OpenID).
 
 **Container header icon mapping (auto-detected):**
 
@@ -254,7 +254,7 @@ Main reads `plan.md` and the reference image, writes `diagram.d2` with full D2 s
 - Arrow crosses text → fix `waypoints`
 - Container overflow → expand `pos` or split labels with `\n`
 - Diagonal segment → fix waypoints
-- Wrong icon → use `search_aws_icons` to find the correct icon, then set `icon:` with the exact file path. Don't retry with `icon_hint` — explicit paths always work.
+- Wrong icon → fix the icon description: improve `icon_hint` to be more specific, add `icon_type: resource` or `icon_variant: Light` if needed. The tool resolves icons from descriptions — if it picked wrong, the description wasn't specific enough.
 
 Only structural issues (missing elements, wrong connections) route back to Planner via orchestrator.
 
