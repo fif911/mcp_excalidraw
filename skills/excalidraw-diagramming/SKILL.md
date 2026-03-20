@@ -207,7 +207,9 @@ The plan must contain these sections in order:
    Reference overrides: if it clearly shows an arrow crossing a border
    to reach an icon inside, note it as icon-to-icon.
    ```
-4. **No external arrows** — every arrow must connect two real elements. If the reference shows a line entering from the diagram edge, trace it to the actual source element (User, DTH UI, etc.). Never write "(left edge, external)" or "(outside)" as a source — find the real element.
+4. **No external arrows** — every arrow must connect two real elements. If the reference shows a line entering from the diagram edge, trace it to the actual source element. Never write "(left edge, external)" or "(outside)" as a source — find the real element.
+   - **Trace arrowheads, not badge positions** — the badge sits on the arrow body, not at the source. Follow the arrowhead to determine direction. A badge near element X doesn't mean X is the source — it means the arrow passes near X.
+   - **One element can be the source of multiple arrows** — look for fan-out patterns where one element connects to several targets.
 5. **No stub arrows** — describe exits as one arrow from border to target
 6. **Same service = same label** — identical label text for duplicate services
 7. **Icon color must match reference** — note color variants (e.g., "CloudFormation Template — orange, not pink")
@@ -218,6 +220,7 @@ The plan must contain these sections in order:
    - Dashed text-only (Authentication, Storage, Catalog — no icon)
    - Colored border (Step Functions #E7157B pink)
 10. **External actor arrows** — arrows from actors start at the icon edge, connect to container border or target icon directly
+11. **Trace every arrow end-to-end** — for each numbered badge, follow the line from one end to the other. Don't assume the source from the badge position alone. An arrow with badge "8" near DynamoDB could go FROM AppSync TO DynamoDB, not from the nearest icon.
 
 ### Planner does NOT do
 
