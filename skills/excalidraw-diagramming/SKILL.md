@@ -147,7 +147,7 @@ The plan must contain these sections in order:
 
 **Nested container spacing: each container has a 108px header. A sub-container's top must be at least 120px below its parent container's top to avoid header overlap. For 3-level nesting (Cloud → Account → Auth), the innermost container starts ~240px below the outermost.**
 
-**1. Containers** — with approximate positions estimated from the reference. Remember: each icon takes ~160×136px, gaps are 60px, padding is 40px. A 2-icon row container needs ~460px wide. A 3-icon row needs ~640px wide.
+**1. Containers** — with approximate positions estimated from the reference. Remember: each icon takes ~160×136px, gaps are 60px, padding is 40px. A 2-icon row container needs ~460px wide. A 3-icon row needs ~640px wide. **If actors sit between two container borders, leave at least 200px gap between them for the actor icon.**
 ```
 ### Outer container
 - Approximate: x~30, y~20, w~1900, h~1100
@@ -262,7 +262,12 @@ Main reads `plan.md` and the reference image, writes `diagram.d2`, then does exa
 
 ### Sizing
 
-Each icon+label takes ~160×136px. Header height is 108px. Size containers to fit their content with 40px padding — don't inflate everything. A sub-container with 2 icons in a row needs ~460px wide, 2 stacked needs ~440px tall. **Container width must also fit the header text** — measure the label + icon (98px) + padding. "AWS Step Functions workflow" needs ~380px width just for the header. The tool auto-expands if too small, but getting it right saves a rebuild.
+Each icon+label takes ~160×136px. Header height is 108px. **Calculate container sizes by adding up children + gaps + padding:**
+- 2-icon row: 160 + 60 + 160 + 80 (padding) = **460px wide**
+- 3-icon row: 160 + 60 + 160 + 60 + 160 + 80 = **680px wide**
+- A container holding 3 rows of icons + 2 sub-containers needs ~**1100px wide** and ~**960px tall**
+- Header text must also fit: label width + icon (98px) + 40px padding
+- The tool auto-expands if too small, but getting it right avoids cascading overlaps with neighbors
 
 ### Positioning rules — what gets `pos:` and what doesn't
 
