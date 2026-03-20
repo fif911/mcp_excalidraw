@@ -827,9 +827,24 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
         const avgY = targetYs.reduce((a, b) => a + b, 0) / targetYs.length;
         const rootTextH = measureText(root.label, FONT_SIZE).height;
         const rootIconCy = avgY;
-        // Shift root so its icon center aligns with target average
         rootNode.y = rootIconCy - rootNode.h / 2 + (8 + rootTextH) / 2;
         layout[root.id] = rootNode;
+      } else {
+        // Standalone actor (no connections) — center vertically relative to positioned content
+        let maxH = 0;
+        let minY = Infinity;
+        for (const pr of positionedRoots) {
+          const pn = layout[pr.id];
+          if (pn) {
+            minY = Math.min(minY, pn.y);
+            maxH = Math.max(maxH, pn.y + pn.h);
+          }
+        }
+        if (maxH > 0) {
+          const centerY = (minY + maxH) / 2;
+          rootNode.y = centerY - rootNode.h / 2;
+          layout[root.id] = rootNode;
+        }
       }
     }
   } else {
