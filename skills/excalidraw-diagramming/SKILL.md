@@ -145,6 +145,8 @@ The plan must contain these sections in order:
 
 **Important: each icon+label takes ~160×136px. Account for this when estimating container sizes — a container with 3 icons in a row needs at least ~600px wide.**
 
+**Nested container spacing: each container has a 108px header. A sub-container's top must be at least 120px below its parent container's top to avoid header overlap. For 3-level nesting (Cloud → Account → Auth), the innermost container starts ~240px below the outermost.**
+
 **1. Containers** — with approximate positions estimated from the reference. Remember: each icon takes ~160×136px, gaps are 60px, padding is 40px. A 2-icon row container needs ~460px wide. A 3-icon row needs ~640px wide.
 ```
 ### Outer container
@@ -188,7 +190,7 @@ The plan must contain these sections in order:
 
 **4. Standalone elements** — nodes with zero connections
 
-**5. External actors** — with nesting level. **Double-check every actor's nesting**: trace the container borders in the reference. Getting this wrong is the most common Planner error.
+**5. External actors** — with nesting level. **Double-check every actor's nesting**: trace the container borders in the reference. Getting this wrong is the most common Planner error. **Leave room for actors between containers** — if an actor sits between AWS Cloud left border and Customer Account left border, the gap must be at least 200px (one icon width + padding). Shift the inner container right to make room.
 
 **6. Icon variants** — which need resource type, Light variant, color variants, custom icons
 

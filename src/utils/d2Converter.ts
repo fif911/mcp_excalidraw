@@ -723,16 +723,16 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
   }
 
   // ── Post-layout: Y-align connected leaf nodes for clean horizontal arrows ──
-  // If two leaf nodes are connected by a direct arrow and their icon-center Y
-  // values differ by < 50px, snap the target to match the source's Y.
-  const ALIGN_THRESHOLD = 50;
+  // For mostly-horizontal connections (dx > dy), snap target Y to match source Y.
+  // Same-container: only within 50px threshold (small adjustment)
+  // Cross-container: no threshold (grid/col layouts produce different Y values)
+  const SAME_CONTAINER_THRESHOLD = 50;
   for (const conn of graph.connections) {
     const fromShape = graph.shapes[conn.from];
     const toShape = graph.shapes[conn.to];
     const fromPos = layout[conn.from];
     const toPos = layout[conn.to];
     if (!fromShape || !toShape || !fromPos || !toPos) continue;
-    // Only align leaf-to-leaf or leaf-to-container horizontal connections
     const fromIsLeaf = fromShape.children.length === 0;
     const toIsLeaf = toShape.children.length === 0;
     if (!fromIsLeaf && !toIsLeaf) continue;
@@ -743,13 +743,24 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
     const toIconCy = toIsLeaf ? (toPos.y + toPos.h / 2) - (8 + toTextH) / 2 : toPos.y + toPos.h / 2;
     const dy = Math.abs(fromIconCy - toIconCy);
     const dx = Math.abs((fromPos.x + fromPos.w / 2) - (toPos.x + toPos.w / 2));
-    // Only align if mostly horizontal (dx > dy) and Y is close
-    if (dy > 0 && dy < ALIGN_THRESHOLD && dx > dy) {
-      // Snap target Y to match source icon center Y
+    const isCrossContainer = fromShape.parent !== toShape.parent;
+    const fromIconCx = fromPos.x + fromPos.w / 2;
+    const toIconCx = toPos.x + toPos.w / 2;
+
+    if (dx > dy && dy > 0) {
+      // Mostly horizontal — align Y
+      if (!isCrossContainer && dy > SAME_CONTAINER_THRESHOLD) continue;
       if (toIsLeaf) {
-        const targetIconCy = fromIconCy;
-        const newY = targetIconCy - toPos.h / 2 + (8 + toTextH) / 2;
+        const newY = fromIconCy - toPos.h / 2 + (8 + toTextH) / 2;
         toPos.y = newY;
+        layout[conn.to] = toPos;
+      }
+    } else if (dy > dx && dx > 0) {
+      // Mostly vertical — align X
+      if (!isCrossContainer && dx > SAME_CONTAINER_THRESHOLD) continue;
+      if (toIsLeaf) {
+        const newX = fromIconCx - toPos.w / 2;
+        toPos.x = newX;
         layout[conn.to] = toPos;
       }
     }
