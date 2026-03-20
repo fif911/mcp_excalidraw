@@ -750,11 +750,10 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
     }
   }
 
-  // ── Post-layout: Y-align connected leaf nodes for clean horizontal arrows ──
-  // For mostly-horizontal connections (dx > dy), snap target Y to match source Y.
-  // Same-container: only within 50px threshold (small adjustment)
-  // Cross-container: no threshold (grid/col layouts produce different Y values)
-  const SAME_CONTAINER_THRESHOLD = 50;
+  // ── Post-layout: Y-align connected leaf nodes within SAME container ──
+  // Only aligns elements in the same parent container within 50px threshold.
+  // Cross-container alignment is the agent's responsibility via pos: values.
+  const ALIGN_THRESHOLD = 50;
   for (const conn of graph.connections) {
     const fromShape = graph.shapes[conn.from];
     const toShape = graph.shapes[conn.to];
@@ -763,34 +762,22 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
     if (!fromShape || !toShape || !fromPos || !toPos) continue;
     const fromIsLeaf = fromShape.children.length === 0;
     const toIsLeaf = toShape.children.length === 0;
-    if (!fromIsLeaf && !toIsLeaf) continue;
-    // Compute icon center Y for both
+    if (!fromIsLeaf || !toIsLeaf) continue;
+    // Only same-container alignment
+    if (fromShape.parent !== toShape.parent) continue;
+
     const fromTextH = measureText(fromShape.label, FONT_SIZE).height;
     const toTextH = measureText(toShape.label, FONT_SIZE).height;
-    const fromIconCy = fromIsLeaf ? (fromPos.y + fromPos.h / 2) - (8 + fromTextH) / 2 : fromPos.y + fromPos.h / 2;
-    const toIconCy = toIsLeaf ? (toPos.y + toPos.h / 2) - (8 + toTextH) / 2 : toPos.y + toPos.h / 2;
+    const fromIconCy = (fromPos.y + fromPos.h / 2) - (8 + fromTextH) / 2;
+    const toIconCy = (toPos.y + toPos.h / 2) - (8 + toTextH) / 2;
     const dy = Math.abs(fromIconCy - toIconCy);
     const dx = Math.abs((fromPos.x + fromPos.w / 2) - (toPos.x + toPos.w / 2));
-    const isCrossContainer = fromShape.parent !== toShape.parent;
-    const fromIconCx = fromPos.x + fromPos.w / 2;
-    const toIconCx = toPos.x + toPos.w / 2;
 
-    if (dx > dy && dy > 0) {
-      // Mostly horizontal — align Y
-      if (!isCrossContainer && dy > SAME_CONTAINER_THRESHOLD) continue;
-      if (toIsLeaf) {
-        const newY = fromIconCy - toPos.h / 2 + (8 + toTextH) / 2;
-        toPos.y = newY;
-        layout[conn.to] = toPos;
-      }
-    } else if (dy > dx && dx > 0) {
-      // Mostly vertical — align X
-      if (!isCrossContainer && dx > SAME_CONTAINER_THRESHOLD) continue;
-      if (toIsLeaf) {
-        const newX = fromIconCx - toPos.w / 2;
-        toPos.x = newX;
-        layout[conn.to] = toPos;
-      }
+    if (dx > dy && dy > 0 && dy < ALIGN_THRESHOLD) {
+      // Mostly horizontal, small Y offset — align Y
+      const newY = fromIconCy - toPos.h / 2 + (8 + toTextH) / 2;
+      toPos.y = newY;
+      layout[conn.to] = toPos;
     }
   }
 
