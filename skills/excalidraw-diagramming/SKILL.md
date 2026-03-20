@@ -145,32 +145,33 @@ The plan must contain these sections in order:
 
 **Important: each icon+label takes ~160×136px. Account for this when estimating container sizes — a container with 3 icons in a row needs at least ~600px wide.**
 
-**1. Containers** — with approximate positions estimated from the reference:
+**1. Containers** — with approximate positions estimated from the reference. Remember: each icon takes ~160×136px, gaps are 60px, padding is 40px. A 2-icon row container needs ~460px wide. A 3-icon row needs ~640px wide.
 ```
-### AWS Cloud (outermost)
-- Approximate size: full canvas, ~1900x1000
+### Outer container
+- Approximate: x~30, y~20, w~1900, h~1100
 - Border: solid, dark
-### Customer's AWS Account
-- Approximate: left 60%, x~200, y~100, w~980, h~860
-- Border: solid, dark
-### Authentication (inside Customer's Account)
-- Approximate: top-left, x~225, y~230, w~420, h~300
-- Border: dashed
-- Layout: row (Cognito left, OpenID right)
+### Main left container (holds 3 rows of icons + 2 sub-containers)
+- Approximate: x~60, y~100, w~1100, h~960
+### Sub-container with 2 icons in a row
+- Approximate: w~460, h~300
+- Layout: row
+### Sub-container with 2 icons stacked
+- Approximate: w~300, h~500
+- Layout: col
 ```
 
-**2. Service nodes** — grouped by container, with approximate cx,cy positions:
+**2. Service nodes** — grouped by container, with approximate cx,cy positions. Space icons ~220px apart horizontally (160px icon + 60px gap):
 ```
-### Inside Authentication
-- Amazon Cognito: cx~320, cy~330 (architecture, pink)
-- OpenID Connect: cx~460, cy~330 (custom icon)
+### Inside sub-container (row layout — tool auto-places)
+- Service A: (architecture, pink)
+- Service B: (custom icon)
 
-### Middle row (inside Customer's Account)
-- AWS AppSync: cx~550, cy~510 (architecture, pink)
-- AWS Lambda: cx~730, cy~510 (architecture, orange)
+### Middle row (free-placed, all same Y for horizontal arrows)
+- Service C: cx~400, cy~550 (architecture, pink)
+- Service D: cx~620, cy~550 (architecture, orange)
 
-### Bottom row (inside Customer's Account)
-- Amazon CloudFront: cx~550, cy~790 (architecture, purple)
+### Bottom row (free-placed, all same Y)
+- Service E: cx~400, cy~800 (architecture, purple)
 ```
 
 **3. Arrow connection table** — one clean table with border annotations:
