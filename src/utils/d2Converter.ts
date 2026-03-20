@@ -452,7 +452,20 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
       return c && c.children.length > 0;
     });
 
-    const headerH = HEADER_HEIGHT;
+    // Containers without header icons have a smaller header (just text)
+    const containerType = detectContainerType(shape.label);
+    let hasHeaderIcon = false;
+    if (containerType && containerType.headerIcon) {
+      // Has an explicit group icon path
+      const iconsDir = path.resolve(process.cwd(), 'icons');
+      const hdrPath = path.resolve(iconsDir, containerType.headerIcon);
+      hasHeaderIcon = fs.existsSync(hdrPath);
+    }
+    if (!hasHeaderIcon && containerType) {
+      // Fallback to search (e.g., Step Functions) — if label matches a known pattern, assume it has an icon
+      hasHeaderIcon = /step\s*functions|vpc|region/i.test(shape.label);
+    }
+    const headerH = hasHeaderIcon ? HEADER_HEIGHT : Math.round(FONT_SIZE * 1.5 + 10); // ~46px for text-only
     let contentW = 0;
     let contentH = 0;
 
