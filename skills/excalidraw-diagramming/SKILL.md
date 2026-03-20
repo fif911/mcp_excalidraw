@@ -199,7 +199,14 @@ The plan must contain these sections in order:
 4. **No external arrows** — every arrow must connect two real elements. If the reference shows a line entering from the diagram edge, trace it to the actual source element (User, DTH UI, etc.). Never write "(left edge, external)" or "(outside)" as a source — find the real element.
 5. **No stub arrows** — describe exits as one arrow from border to target
 6. **Same service = same label** — identical label text for duplicate services
-6. **Icon color must match reference** — note color variants (e.g., "CloudFormation Template — orange, not pink")
+7. **Icon color must match reference** — note color variants (e.g., "CloudFormation Template — orange, not pink")
+8. **Wide labels split with `\n`** — any label wider than ~140px must be split (e.g., "S3 replication\ncomponent template")
+9. **Container types** — four patterns exist, check reference for each:
+   - Solid + header icon (AWS Cloud, Account, Region, VPC)
+   - Dashed + header icon (rare sub-boundaries with their own icon)
+   - Dashed text-only (Authentication, Storage, Catalog — no icon)
+   - Colored border (Step Functions #E7157B pink)
+10. **External actor arrows** — arrows from actors start at the icon edge, connect to container border or target icon directly
 
 ### Planner does NOT do
 
