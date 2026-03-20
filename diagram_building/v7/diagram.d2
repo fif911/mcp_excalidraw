@@ -1,0 +1,56 @@
+aws_cloud: AWS Cloud {
+  customer_account: Customer's AWS Account {
+    auth: Authentication {
+      style.stroke-dash: 5
+      cognito: Amazon Cognito
+      openid: OpenID Connect
+    }
+
+    dynamodb: Amazon DynamoDB
+    appsync: AWS AppSync
+    lambda: AWS Lambda
+    cloudfront: Amazon CloudFront
+    s3_customer: Amazon S3
+
+    step_functions: AWS Step Functions workflow {
+      style.stroke: "#E7157B"
+      lambda_sf: AWS Lambda
+      cloudformation: AWS CloudFormation
+    }
+
+    fargate: AWS Fargate
+  }
+
+  managed_account: AWS Managed Account {
+    s3_repl: S3 replication\ncomponent template
+    # standalone: true
+    dynamodb_repl: DynamoDB\nreplication\ncomponent template
+    # standalone: true
+    s3_managed: Amazon S3
+    ecr_repl: ECR replication\ncomponent template
+    # standalone: true
+    ecr: Amazon ECR
+    ecr_docker: ECR replication\nDocker image
+    # standalone: true
+  }
+}
+
+# External actors
+user: User
+dth_ui: Data Transfer\nHub UI
+
+# Numbered connections
+dth_ui -> aws_cloud.customer_account.cloudfront: 1
+dth_ui -> aws_cloud.customer_account.appsync: 2
+user -> dth_ui: 3
+aws_cloud.customer_account.appsync -> aws_cloud.customer_account.lambda: 4
+aws_cloud.customer_account.lambda -> aws_cloud.customer_account.step_functions: 5
+aws_cloud.managed_account.s3_managed -> aws_cloud.customer_account.step_functions.cloudformation: 6
+aws_cloud.managed_account.ecr -> aws_cloud.customer_account.fargate: 7
+aws_cloud.customer_account.appsync -> aws_cloud.customer_account.dynamodb: 8
+
+# Unlabeled connections
+aws_cloud.customer_account.cloudfront -> aws_cloud.customer_account.s3_customer
+aws_cloud.customer_account.step_functions.cloudformation -> aws_cloud.customer_account.fargate
+dth_ui -> aws_cloud.customer_account.auth
+aws_cloud.customer_account.auth.openid -> aws_cloud.customer_account.auth.cognito

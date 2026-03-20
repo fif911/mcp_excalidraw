@@ -1,0 +1,168 @@
+# Data Transfer Hub — v8
+
+# ── AWS Cloud (outermost container) ──
+aws_cloud: AWS Cloud {
+  pos: "220,20,1780,1060"
+
+  # ── Customer's AWS Account ──
+  customer_account: Customer's AWS Account {
+    pos: "240,90,1020,970"
+
+    # ── Authentication sub-boundary (dashed) ──
+    auth: Authentication {
+      pos: "280,175,380,240"
+      style.stroke-dash: 5
+
+      cognito: Amazon Cognito {
+        pos: "380,305"
+      }
+
+      openid: OpenID Connect {
+        pos: "560,305"
+        icon: "custom/icons8-openid.svg"
+      }
+    }
+
+    # ── AWS Step Functions workflow (magenta border) ──
+    step_functions: AWS Step Functions\nworkflow {
+      pos: "880,175,340,530"
+      style.stroke: "#E7157B"
+
+      lambda_sf: AWS Lambda {
+        pos: "1050,350"
+      }
+
+      cloudformation: AWS CloudFormation {
+        pos: "1050,560"
+      }
+    }
+
+    # ── Loose nodes in Customer's Account ──
+    dynamodb: Amazon DynamoDB {
+      pos: "780,230"
+    }
+
+    appsync: AWS AppSync {
+      pos: "460,560"
+    }
+
+    lambda_mid: AWS Lambda {
+      pos: "680,560"
+    }
+
+    cloudfront: Amazon CloudFront {
+      pos: "440,860"
+    }
+
+    s3_customer: Amazon S3 {
+      pos: "660,860"
+    }
+
+    fargate: AWS Fargate {
+      pos: "920,860"
+    }
+  }
+
+  # ── AWS Managed Account ──
+  managed_account: AWS Managed Account {
+    pos: "1320,90,660,970"
+
+    s3_repl: S3 replication\ncomponent template {
+      pos: "1460,290"
+      icon: "custom/Res_AWS-CloudFormation_Template_48_Orange.svg"
+    }
+
+    dynamodb_repl: DynamoDB\nreplication\ncomponent template {
+      pos: "1680,290"
+      icon: "custom/Res_AWS-CloudFormation_Template_48_Orange.svg"
+    }
+
+    s3_managed: Amazon S3 {
+      pos: "1460,540"
+      icon: "aws-icons-official/Resource-Icons_01302026/Res_Storage/Res_Amazon-Simple-Storage-Service_Bucket_48.svg"
+    }
+
+    ecr_repl: ECR replication\ncomponent template {
+      pos: "1680,540"
+      icon: "custom/Res_AWS-CloudFormation_Template_48_Orange.svg"
+    }
+
+    ecr: Amazon ECR {
+      pos: "1460,780"
+    }
+
+    ecr_docker: ECR replication\nDocker image {
+      pos: "1680,780"
+      icon: "aws-icons-official/Resource-Icons_01302026/Res_Containers/Res_Amazon-Elastic-Container-Registry_Image_48.svg"
+    }
+  }
+}
+
+# ── External actors (outside AWS Cloud) ──
+user: User {
+  pos: "90,980"
+  icon: "aws-icons-official/Resource-Icons_01302026/Res_General-Icons/Res_48_Light/Res_User_48_Light.svg"
+}
+
+dth_ui: Data Transfer\nHub UI {
+  pos: "90,720"
+  icon: "aws-icons-official/Resource-Icons_01302026/Res_General-Icons/Res_48_Light/Res_Client_48_Light.svg"
+}
+
+# ── Numbered connections ──
+
+# 1: Data Transfer Hub UI → Amazon CloudFront (right, down, right)
+dth_ui -> aws_cloud.customer_account.cloudfront: 1 {
+  waypoints: (190,720),(190,860),(440,860)
+  badge_pos: (270,825)
+}
+
+# 2: Data Transfer Hub UI → AWS AppSync (right, up, right)
+dth_ui -> aws_cloud.customer_account.appsync: 2 {
+  waypoints: (190,720),(190,560),(460,560)
+  badge_pos: (270,525)
+}
+
+# 3: User → Data Transfer Hub UI (vertical up)
+user -> dth_ui: 3 {
+  badge_pos: (110,880)
+}
+
+# 4: AWS AppSync → AWS Lambda (middle) (horizontal right, same container)
+aws_cloud.customer_account.appsync -> aws_cloud.customer_account.lambda_mid: 4 {
+  badge_pos: (575,525)
+}
+
+# 5: AWS Lambda (middle) → Step Functions container border (horizontal right)
+aws_cloud.customer_account.lambda_mid -> aws_cloud.customer_account.step_functions: 5 {
+  waypoints: (770,560),(880,560)
+  badge_pos: (800,525)
+}
+
+# 6: Amazon S3 (managed) → CloudFormation (inside Step Functions) — crosses border horizontally left
+aws_cloud.managed_account.s3_managed -> aws_cloud.customer_account.step_functions.cloudformation: 6 {
+  waypoints: (1320,560),(1050,560)
+  badge_pos: (1280,525)
+}
+
+# 7: Amazon ECR → AWS Fargate — crosses borders horizontally left
+aws_cloud.managed_account.ecr -> aws_cloud.customer_account.fargate: 7 {
+  waypoints: (1320,860),(920,860)
+  badge_pos: (1280,825)
+}
+
+# 8: AWS AppSync → Amazon DynamoDB (L-shape: right past auth, up, right to DynamoDB)
+aws_cloud.customer_account.appsync -> aws_cloud.customer_account.dynamodb: 8 {
+  waypoints: (710,560),(710,230),(780,230)
+  badge_pos: (730,190)
+}
+
+# ── Unlabeled connections ──
+
+# CloudFront → S3 (customer's) (horizontal right)
+aws_cloud.customer_account.cloudfront -> aws_cloud.customer_account.s3_customer
+
+# CloudFormation → Fargate (downward, crosses Step Functions border)
+aws_cloud.customer_account.step_functions.cloudformation -> aws_cloud.customer_account.fargate {
+  waypoints: (920,705),(920,860)
+}

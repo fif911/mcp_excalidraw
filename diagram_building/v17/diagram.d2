@@ -1,0 +1,144 @@
+arrow_style {
+  stroke_color: "#545B64"
+  badge_bg: "#232F3E"
+  badge_color: "#ffffff"
+  badge_shape: circle
+}
+
+user: User {
+  icon_hint: "user"
+  icon_type: resource
+  icon_variant: Light
+  pos: "80,940,160,136"
+}
+# standalone: true
+
+entry_appsync: \  {
+  pos: "180,530,1,1"
+  style.opacity: 0
+}
+
+entry_cognito: \  {
+  pos: "180,300,1,1"
+  style.opacity: 0
+}
+
+aws_cloud: AWS Cloud {
+  pos: "30,20,1740,900"
+
+  dth_ui: Data Transfer\nHub UI {
+    icon_hint: "client"
+    icon_type: resource
+    icon_variant: Light
+    pos: "80,600,160,136"
+  }
+
+  customer_account: Customer's AWS Account {
+    pos: "240,90,530,720"
+
+    auth: Authentication {
+      style.stroke-dash: 5
+      pos: "260,170,420,300"
+      layout: row
+
+      cognito: Amazon Cognito
+      openid: OpenID Connect {
+        icon: "custom/icons8-openid.svg"
+      }
+    }
+
+    dynamodb: Amazon DynamoDB {
+      pos: "570,210,160,136"
+    }
+
+    appsync: AWS AppSync {
+      pos: "310,530,160,136"
+    }
+
+    lambda_mid: AWS Lambda {
+      pos: "520,530,160,136"
+    }
+
+    cloudfront: Amazon CloudFront {
+      pos: "310,660,160,136"
+    }
+
+    s3_cust: Amazon S3 {
+      icon_hint: "S3 bucket"
+      icon_type: resource
+      pos: "540,660,160,136"
+    }
+  }
+
+  step_functions: AWS Step Functions\nworkflow {
+    style.stroke: "#E7157B"
+    pos: "800,190,280,430"
+    layout: col
+
+    lambda_sf: AWS Lambda
+    cloudformation: AWS CloudFormation
+  }
+
+  fargate: AWS Fargate {
+    pos: "830,670,160,136"
+  }
+
+  managed_account: AWS Managed Account {
+    pos: "1120,90,640,720"
+    layout: "2x3"
+
+    s3_repl: S3 replication\ncomponent template {
+      icon_hint: "CloudFormation Template Orange"
+    }
+    dynamodb_repl: DynamoDB\nreplication\ncomponent template {
+      icon_hint: "CloudFormation Template Orange"
+    }
+    s3_managed: Amazon S3 {
+      icon_hint: "S3 bucket"
+      icon_type: resource
+    }
+    ecr_repl: ECR replication\ncomponent template {
+      icon_hint: "CloudFormation Template Orange"
+    }
+    ecr: Amazon ECR
+    ecr_docker: ECR replication\nDocker image {
+      icon_hint: "elastic container registry"
+    }
+  }
+}
+
+# Numbered arrows
+aws_cloud.dth_ui -> aws_cloud.customer_account.cloudfront: 1 {
+  waypoints: "310,566"
+  badge_pos: "195,566"
+}
+entry_appsync -> aws_cloud.customer_account.appsync: 2 {
+  badge_pos: "215,511"
+}
+user -> aws_cloud.dth_ui: 3 {
+  badge_pos: "80,830"
+}
+aws_cloud.customer_account.appsync -> aws_cloud.customer_account.lambda_mid: 4 {
+  badge_pos: "415,511"
+}
+aws_cloud.customer_account.lambda_mid -> aws_cloud.step_functions: 5 {
+  badge_pos: "785,511"
+}
+aws_cloud.managed_account.s3_managed -> aws_cloud.step_functions.cloudformation: 6 {
+  waypoints: "1070,583"
+  badge_pos: "1070,533"
+}
+aws_cloud.managed_account.ecr -> aws_cloud.fargate: 7 {
+  badge_pos: "1070,679"
+}
+aws_cloud.customer_account.auth.cognito -> aws_cloud.customer_account.dynamodb: 8 {
+  waypoints: "570,367"
+  badge_pos: "485,367"
+}
+
+# Unlabeled arrows
+entry_cognito -> aws_cloud.customer_account.auth.cognito {
+  waypoints: "260,281"
+}
+aws_cloud.customer_account.cloudfront -> aws_cloud.customer_account.s3_cust
+aws_cloud.step_functions.cloudformation -> aws_cloud.fargate

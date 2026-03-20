@@ -22,8 +22,7 @@ When asked to build a diagram, you do NOT do the work yourself. You **spawn agen
 
 ### What the orchestrator does directly
 
-- Determine version number: check `diagram_building/` for existing versions
-- Copy reference image to `diagram_building/v{N}/reference.png` if needed
+- Determine version number: check `diagrams/` for existing versions
 - Decide when the diagram is done
 - Write the build log after export
 
@@ -40,7 +39,7 @@ When asked to build a diagram, you do NOT do the work yourself. You **spawn agen
 Spawn with the Agent tool. Include in the prompt:
 
 - The reference image path (or text description)
-- The output path: `diagram_building/v{N}/plan.md`
+- The output path: `diagrams/v{N}/plan.md`
 - "Read `skills/excalidraw-diagramming/SKILL.md` — Phase 1 (Planner) section"
 - If re-running after Critic structural feedback: include the issues list
 
@@ -50,13 +49,13 @@ Spawn with the Agent tool. Include in the prompt:
 
 - Read `skills/excalidraw-diagramming/SKILL.md` — Phase 1 (Planner) section only
 - Do NOT read `skills/diagram-review/` files — those are for the Critic only
-- NEVER read files from `diagram_building/` other than the current version
+- NEVER read files from `diagrams/` other than the current version
 - Do NOT write D2 code — Main translates the plan into D2
 - Version format: `v{N}` (e.g., `v1`, `v2`, `v3`)
 
 ### Planner output
 
-`diagram_building/v{N}/plan.md` with:
+`diagrams/v{N}/plan.md` with:
 - All containers with approximate positions (x, y, w, h estimated from reference)
 - All service nodes grouped by container with approximate cx, cy positions
 - Arrow connection table with border annotations (e.g., "SFN border (left)")
@@ -128,7 +127,7 @@ Return a structured list of issues:
 
 ## Build Log
 
-After every build (successful or not), write `diagram_building/v{N}/build_log.md`. This is a full record of what happened, what went wrong, and what was learned. Future sessions use it to avoid repeating mistakes.
+After every build (successful or not), write `diagrams/v{N}/build_log.md`. This is a full record of what happened, what went wrong, and what was learned. Future sessions use it to avoid repeating mistakes.
 
 ### Required sections
 

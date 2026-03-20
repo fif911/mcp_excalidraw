@@ -1,0 +1,76 @@
+# Data Transfer Hub — v12
+
+user: User {
+  icon: "aws-icons-official/Resource-Icons_01302026/Res_General-Icons/Res_48_Light/Res_Users_48_Light.svg"
+}
+
+aws_cloud: AWS Cloud {
+  pos: "170,10,2400,1100"
+
+  dth_ui: Data Transfer\nHub UI {
+    icon: "aws-icons-official/Resource-Icons_01302026/Res_General-Icons/Res_48_Light/Res_Client_48_Light.svg"
+  }
+
+  customer_account: Customer's AWS Account {
+    pos: "260,70,1400,1000"
+
+    auth: Authentication {
+      style.stroke-dash: 5
+
+      cognito: Amazon Cognito
+      openid: OpenID Connect {
+        icon: "custom/icons8-openid.svg"
+      }
+    }
+
+    dynamodb: Amazon DynamoDB
+
+    appsync: AWS AppSync
+    lambda_mid: AWS Lambda
+
+    step_functions: AWS Step Functions workflow {
+      style.stroke: "#E7157B"
+
+      lambda_sf: AWS Lambda
+      cloudformation_sf: AWS CloudFormation
+    }
+
+    cloudfront: Amazon CloudFront
+    s3_customer: Amazon S3
+    fargate: AWS Fargate
+  }
+
+  managed_account: AWS Managed Account {
+    pos: "1720,70,830,1000"
+
+    s3_repl_template: S3 replication\ncomponent template {
+      icon: "custom/Res_AWS-CloudFormation_Template_48_Orange.svg"
+    }
+    dynamodb_repl_template: DynamoDB\nreplication\ncomponent template {
+      icon: "custom/Res_AWS-CloudFormation_Template_48_Orange.svg"
+    }
+    s3_managed: Amazon S3
+    ecr_repl_template: ECR replication\ncomponent\ntemplate {
+      icon: "custom/Res_AWS-CloudFormation_Template_48_Orange.svg"
+    }
+    ecr: Amazon ECR
+    ecr_docker: ECR replication\nDocker image {
+      icon: "aws-icons-official/Resource-Icons_01302026/Res_Containers/Res_Amazon-Elastic-Container-Registry_Image_48.svg"
+    }
+  }
+}
+
+# Numbered arrows
+aws_cloud.dth_ui -> aws_cloud.customer_account.cloudfront: 1
+aws_cloud.customer_account.auth.cognito -> aws_cloud.customer_account.appsync: 2
+aws_cloud.dth_ui -> aws_cloud.customer_account.auth.cognito: 3
+aws_cloud.customer_account.appsync -> aws_cloud.customer_account.lambda_mid: 4
+aws_cloud.customer_account.lambda_mid -> aws_cloud.customer_account.step_functions: 5
+aws_cloud.customer_account.step_functions.cloudformation_sf -> aws_cloud.managed_account: 6
+aws_cloud.managed_account.ecr -> aws_cloud.customer_account.fargate: 7
+aws_cloud.customer_account.lambda_mid -> aws_cloud.customer_account.dynamodb: 8
+
+# Unlabeled arrows
+aws_cloud.customer_account.cloudfront -> aws_cloud.customer_account.s3_customer
+aws_cloud.customer_account.s3_customer -> aws_cloud.customer_account.fargate
+aws_cloud.customer_account.step_functions.cloudformation_sf -> aws_cloud.customer_account.fargate

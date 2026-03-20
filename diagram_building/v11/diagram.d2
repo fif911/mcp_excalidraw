@@ -1,0 +1,88 @@
+user: User {
+  icon: "aws-icons-official/Resource-Icons_01302026/Res_General-Icons/Res_48_Light/Res_User_48_Light.svg"
+}
+
+dth_ui: Data Transfer\nHub UI {
+  icon: "aws-icons-official/Resource-Icons_01302026/Res_General-Icons/Res_48_Light/Res_Client_48_Light.svg"
+}
+
+aws_cloud: AWS Cloud {
+  pos: "220,10,2050,1000"
+
+  customer_account: Customer's AWS Account {
+    pos: "250,70,1200,900"
+
+    auth: Authentication {
+      style.stroke-dash: 5
+      cognito: Amazon Cognito
+      openid: OpenID Connect {
+        icon: "custom/icons8-openid.svg"
+      }
+    }
+
+    step_functions: AWS Step Functions workflow {
+      style.stroke: "#E7157B"
+      lambda_sf: AWS Lambda
+      cloudformation: AWS CloudFormation
+    }
+
+    dynamodb: Amazon DynamoDB
+    appsync: AWS AppSync
+    lambda: AWS Lambda
+    cloudfront: Amazon CloudFront
+    s3: Amazon S3 {
+      icon: "aws-icons-official/Resource-Icons_01302026/Res_Storage/Res_Amazon-Simple-Storage-Service_Bucket_48.svg"
+    }
+    fargate: AWS Fargate
+  }
+
+  managed_account: AWS Managed Account {
+    pos: "1490,70,760,900"
+    s3_repl: S3 replication\ncomponent template {
+      icon: "aws-icons-official/Resource-Icons_01302026/Res_Management-Governance/Res_AWS-CloudFormation_Template_48.svg"
+    }
+    dynamodb_repl: DynamoDB replication\ncomponent template {
+      icon: "aws-icons-official/Resource-Icons_01302026/Res_Management-Governance/Res_AWS-CloudFormation_Template_48.svg"
+    }
+    s3_managed: Amazon S3 {
+      icon: "aws-icons-official/Resource-Icons_01302026/Res_Storage/Res_Amazon-Simple-Storage-Service_Bucket_48.svg"
+    }
+    ecr_repl: ECR replication\ncomponent template {
+      icon: "aws-icons-official/Resource-Icons_01302026/Res_Management-Governance/Res_AWS-CloudFormation_Template_48.svg"
+    }
+    ecr: Amazon ECR
+    ecr_docker: ECR replication\nDocker image {
+      icon: "aws-icons-official/Resource-Icons_01302026/Res_Containers/Res_Amazon-Elastic-Container-Registry_Image_48.svg"
+    }
+  }
+}
+
+# Arrow 1: DTH UI -> CloudFront
+dth_ui -> aws_cloud.customer_account.cloudfront: 1
+
+# Arrow 2: DTH UI -> AppSync
+dth_ui -> aws_cloud.customer_account.appsync: 2
+
+# Arrow 3: DTH UI -> Auth container border
+dth_ui -> aws_cloud.customer_account.auth: 3
+
+# Arrow 4: AppSync -> Lambda (outside SF)
+aws_cloud.customer_account.appsync -> aws_cloud.customer_account.lambda: 4
+
+# Arrow 5: Lambda (outside SF) -> Step Functions border
+aws_cloud.customer_account.lambda -> aws_cloud.customer_account.step_functions: 5
+
+# Arrow 6: S3 (Managed) -> CloudFormation (inside SF)
+aws_cloud.managed_account.s3_managed -> aws_cloud.customer_account.step_functions.cloudformation: 6
+
+# Arrow 7: ECR (Managed) -> Fargate (Customer)
+aws_cloud.managed_account.ecr -> aws_cloud.customer_account.fargate: 7
+
+# Arrow 8: Lambda (outside SF) -> DynamoDB (upward)
+aws_cloud.customer_account.lambda -> aws_cloud.customer_account.dynamodb: 8
+
+# Unlabeled: CloudFront -> S3 (Customer)
+aws_cloud.customer_account.cloudfront -> aws_cloud.customer_account.s3
+
+# Unlabeled: CloudFormation -> Fargate
+aws_cloud.customer_account.step_functions.cloudformation -> aws_cloud.customer_account.fargate

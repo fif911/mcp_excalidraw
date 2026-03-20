@@ -1,0 +1,108 @@
+# AWS Data Transfer Hub — v13 — Final
+
+# External actor: User (outside AWS Cloud, bottom-left)
+user: User {
+  icon_type: resource
+  icon_hint: "users"
+  # standalone: true
+}
+
+aws_cloud: AWS Cloud {
+  pos: "170,20,1780,1060"
+
+  customer_account: Customer's AWS Account {
+    pos: "190,70,1070,1000"
+    layout: "4x2"
+
+    dynamodb: Amazon DynamoDB
+
+    dth_ui: Data Transfer\nHub UI {
+      icon_type: resource
+      icon_hint: "client vpn"
+    }
+
+    appsync: AWS AppSync
+
+    lambda_mid: AWS Lambda
+
+    cloudfront: Amazon CloudFront
+
+    s3_cust: Amazon S3
+
+    fargate: AWS Fargate
+
+    auth: Authentication {
+      style.stroke-dash: 5
+      layout: row
+      pos: "220,140,520,340"
+      cognito: Amazon Cognito
+      openid: OpenID Connect {
+        icon: "custom/icons8-openid.svg"
+      }
+    }
+
+    step_functions: AWS Step Functions\nworkflow {
+      style.stroke: "#E7157B"
+      layout: col
+      pos: "850,140,380,520"
+      lambda_sf: AWS Lambda
+      cloudformation: AWS CloudFormation
+    }
+  }
+
+  managed_account: AWS Managed Account {
+    pos: "1310,70,620,1000"
+    layout: "2x3"
+
+    s3_repl: S3 replication\ncomponent template {
+      icon_hint: "CloudFormation template"
+      icon_type: resource
+    }
+
+    dynamodb_repl: DynamoDB\nreplication\ncomponent template {
+      icon_hint: "CloudFormation template"
+      icon_type: resource
+    }
+
+    s3_managed: Amazon S3
+
+    ecr_repl: ECR replication\ncomponent template {
+      icon_hint: "CloudFormation template"
+      icon_type: resource
+    }
+
+    ecr: Amazon ECR
+
+    ecr_docker: ECR replication\nDocker image {
+      icon_hint: "elastic container registry image"
+      icon_type: resource
+    }
+  }
+}
+
+# Numbered arrows
+aws_cloud.customer_account.dth_ui -> aws_cloud.customer_account.cloudfront: 1 {
+  badge_pos: "450,900"
+}
+aws_cloud.customer_account.dth_ui -> aws_cloud.customer_account.appsync: 2
+aws_cloud.customer_account.appsync -> aws_cloud.customer_account.lambda_mid: 4
+aws_cloud.customer_account.lambda_mid -> aws_cloud.customer_account.step_functions: 5 {
+  badge_pos: "1140,710"
+}
+aws_cloud.customer_account.auth -> aws_cloud.customer_account.dynamodb: 8 {
+  badge_pos: "530,590"
+}
+aws_cloud.managed_account.s3_managed -> aws_cloud.customer_account.step_functions.cloudformation: 6 {
+  badge_pos: "1290,500"
+}
+aws_cloud.managed_account.ecr -> aws_cloud.customer_account.fargate: 7 {
+  badge_pos: "1290,840"
+  waypoints: "1290,659;1290,965"
+}
+
+# Unlabeled arrows
+aws_cloud.customer_account.cloudfront -> aws_cloud.customer_account.s3_cust
+
+aws_cloud.customer_account.step_functions.cloudformation -> aws_cloud.customer_account.fargate {
+  waypoints: "1016,720;843,720"
+}

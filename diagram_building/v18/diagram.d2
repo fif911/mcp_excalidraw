@@ -1,0 +1,158 @@
+arrow_style {
+  stroke_color: "#545B64"
+  badge_bg: "#232F3E"
+  badge_color: "#ffffff"
+  badge_shape: circle
+}
+
+# External actor — outside AWS Cloud entirely
+user: User {
+  icon_type: resource
+  icon_variant: Light
+  pos: "80,950,160,136"
+}
+
+aws_cloud: AWS Cloud {
+  pos: "30,20,1680,840"
+
+  customer_account: Customer's AWS Account {
+    pos: "55,95,1000,730"
+
+    auth: Authentication {
+      pos: "80,170,520,250"
+      style.stroke-dash: 5
+      layout: row
+
+      cognito: Amazon Cognito
+      openid: OpenID Connect {
+        icon: "custom/icons8-openid.svg"
+      }
+    }
+
+    dynamodb: Amazon DynamoDB {
+      pos: "580,170,160,136"
+    }
+
+    appsync: AWS AppSync {
+      pos: "330,470,160,136"
+    }
+
+    lambda_mid: AWS Lambda {
+      pos: "560,470,160,136"
+    }
+
+    sfn: AWS Step Functions\nworkflow {
+      pos: "780,170,280,500"
+      style.stroke: "#E7157B"
+      layout: col
+
+      lambda_sf: AWS Lambda
+      cloudformation: AWS\nCloudFormation
+    }
+
+    cloudfront: Amazon CloudFront {
+      pos: "330,680,160,136"
+    }
+
+    s3_cust: Amazon S3 {
+      pos: "560,680,160,136"
+      icon_type: resource
+      icon_hint: "S3 bucket"
+    }
+
+    fargate: AWS Fargate {
+      pos: "790,700,160,136"
+    }
+
+    dth_ui: Data Transfer\nHub UI {
+      pos: "120,560,160,136"
+      icon_type: resource
+      icon_variant: Light
+      icon_hint: "Client"
+    }
+  }
+
+  managed_account: AWS Managed Account {
+    pos: "1100,95,620,730"
+    layout: "2x3"
+
+    s3_repl: S3 replication\ncomponent template {
+      icon_hint: "CloudFormation Template Orange"
+    }
+    dynamodb_repl: DynamoDB replication\ncomponent template {
+      icon_hint: "CloudFormation Template Orange"
+    }
+    s3_managed: Amazon S3 {
+      icon_type: resource
+      icon_hint: "S3 bucket"
+    }
+    ecr_repl: ECR replication\ncomponent template {
+      icon_hint: "CloudFormation Template Orange"
+    }
+    ecr: Amazon ECR
+    ecr_docker: ECR replication\nDocker image {
+      icon_hint: "elastic container registry image"
+    }
+  }
+}
+
+# Numbered arrows
+# Arrow 1: DTH UI → CloudFront — L-shape: right then down
+# DTH UI center=(120, 526), CloudFront center=(330, 661)
+# Route: right from DTH UI to x=260, then down to CloudFront Y
+aws_cloud.customer_account.dth_ui -> aws_cloud.customer_account.cloudfront: 1 {
+  waypoints: "260,526;260,661"
+  badge_pos: "260,590"
+}
+
+# Arrow 2: DTH UI → AppSync — L-shape: right then up
+# DTH UI center=(120, 526), AppSync center=(330, 451)
+# Route: right from DTH UI to x=260, then up to AppSync Y
+aws_cloud.customer_account.dth_ui -> aws_cloud.customer_account.appsync: 2 {
+  waypoints: "260,451"
+  badge_pos: "225,490"
+}
+
+# Arrow 3: User → DTH UI — vertical upward
+user -> aws_cloud.customer_account.dth_ui: 3
+
+# Arrow 4: AppSync → Lambda mid — horizontal right
+# AppSync center=(330, 451), Lambda center=(560, 451)
+# Badge at midpoint x=445
+aws_cloud.customer_account.appsync -> aws_cloud.customer_account.lambda_mid: 4 {
+  badge_pos: "485,451"
+}
+
+# Arrow 5: Lambda mid → SFN border — horizontal right
+# Lambda center=(560, 451), SFN left=780
+# Badge at midpoint x=670
+aws_cloud.customer_account.lambda_mid -> aws_cloud.customer_account.sfn: 5 {
+  badge_pos: "670,451"
+}
+
+# Arrow 6: S3 managed → SFN border — horizontal left across gap
+# S3 managed center=(1259, 488), SFN right=1030
+# Gap midpoint = (1030+1100)/2 = 1065
+aws_cloud.managed_account.s3_managed -> aws_cloud.customer_account.sfn: 6 {
+  badge_pos: "1078,488"
+}
+
+# Arrow 7: ECR → Fargate — horizontal left across gap
+# ECR center=(1259, 684), Fargate center=(790, 684)
+# Gap midpoint = (1055+1100)/2 = 1077
+aws_cloud.managed_account.ecr -> aws_cloud.customer_account.fargate: 7 {
+  badge_pos: "1077,684"
+}
+
+# Arrow 8: Cognito → DynamoDB — L-shape: right then up
+# Cognito center=(219, 367), DynamoDB center=(580, 151)
+# Route: right from Cognito past Auth right border (550), exit at x=565, then up to DynamoDB Y
+# Need vertical segment at x far enough right to clear DynamoDB label
+aws_cloud.customer_account.auth.cognito -> aws_cloud.customer_account.dynamodb: 8 {
+  waypoints: "565,367;565,151"
+  badge_pos: "565,260"
+}
+
+# Unlabeled arrows
+aws_cloud.customer_account.cloudfront -> aws_cloud.customer_account.s3_cust
+aws_cloud.customer_account.sfn -> aws_cloud.customer_account.fargate

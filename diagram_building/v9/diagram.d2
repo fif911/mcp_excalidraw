@@ -1,0 +1,160 @@
+# Data Transfer Hub Architecture
+
+# External actor — outside AWS Cloud
+user: User {
+  icon: "aws-icons-official/Resource-Icons_01302026/Res_General-Icons/Res_48_Light/Res_User_48_Light.svg"
+  pos: "130,1110"
+}
+
+aws_cloud: AWS Cloud {
+  pos: "30,20,1780,1020"
+
+  customer_account: Customer's AWS Account {
+    pos: "50,90,1030,930"
+
+    auth: Authentication {
+      style.stroke-dash: 5
+      pos: "80,180,440,230"
+
+      cognito: Amazon Cognito {
+        pos: "190,300"
+      }
+      # standalone: true
+      openid: OpenID Connect {
+        pos: "400,300"
+        icon: "custom/icons8-openid.svg"
+      }
+      # standalone: true
+    }
+
+    dynamodb: Amazon DynamoDB {
+      pos: "630,220"
+    }
+
+    appsync: AWS AppSync {
+      pos: "400,530"
+    }
+
+    lambda: AWS Lambda {
+      pos: "600,530"
+    }
+
+    step_functions: AWS Step Functions\nworkflow {
+      style.stroke: "#E7157B"
+      pos: "740,175,340,545"
+
+      lambda_sf: AWS Lambda {
+        pos: "910,340"
+      }
+      # standalone: true
+      cloudformation: AWS CloudFormation {
+        pos: "910,560"
+      }
+    }
+
+    dth_ui: Data Transfer\nHub UI {
+      icon: "aws-icons-official/Resource-Icons_01302026/Res_General-Icons/Res_48_Light/Res_Client_48_Light.svg"
+      pos: "140,700"
+    }
+
+    cloudfront: Amazon CloudFront {
+      pos: "400,850"
+    }
+
+    s3_customer: Amazon S3 {
+      pos: "610,850"
+      icon: "aws-icons-official/Resource-Icons_01302026/Res_Storage/Res_Amazon-Simple-Storage-Service_Bucket_48.svg"
+    }
+
+    fargate: AWS Fargate {
+      pos: "910,850"
+    }
+  }
+
+  managed_account: AWS Managed Account {
+    pos: "1120,90,670,930"
+
+    s3_repl: S3 replication\ncomponent template {
+      icon: "custom/Res_AWS-CloudFormation_Template_48_Orange.svg"
+      pos: "1290,280"
+    }
+    # standalone: true
+    dynamodb_repl: DynamoDB\nreplication\ncomponent template {
+      icon: "custom/Res_AWS-CloudFormation_Template_48_Orange.svg"
+      pos: "1560,280"
+    }
+    # standalone: true
+    s3_managed: Amazon S3 {
+      icon: "aws-icons-official/Resource-Icons_01302026/Res_Storage/Res_Amazon-Simple-Storage-Service_Bucket_48.svg"
+      pos: "1290,540"
+    }
+    # standalone: true
+    ecr_repl: ECR replication\ncomponent\ntemplate {
+      icon: "custom/Res_AWS-CloudFormation_Template_48_Orange.svg"
+      pos: "1560,540"
+    }
+    # standalone: true
+    ecr: Amazon ECR {
+      pos: "1290,790"
+    }
+    # standalone: true
+    ecr_docker: ECR replication\nDocker image {
+      icon: "aws-icons-official/Resource-Icons_01302026/Res_Containers/Res_Amazon-Elastic-Container-Registry_Image_48.svg"
+      pos: "1560,790"
+    }
+    # standalone: true
+  }
+}
+
+# --- Numbered connections ---
+
+# Badge 1: DTH UI -> CloudFront
+aws_cloud.customer_account.dth_ui -> aws_cloud.customer_account.cloudfront: 1 {
+  waypoints: (270,700),(270,850)
+  badge_pos: (285,810)
+}
+
+# Badge 2: DTH UI -> AppSync
+aws_cloud.customer_account.dth_ui -> aws_cloud.customer_account.appsync: 2 {
+  waypoints: (270,700),(270,530)
+  badge_pos: (285,490)
+}
+
+# Badge 3: User -> DTH UI (vertical up)
+user -> aws_cloud.customer_account.dth_ui: 3 {
+  badge_pos: (90,920)
+}
+
+# Badge 4: AppSync -> Lambda (horizontal right, same y=530)
+aws_cloud.customer_account.appsync -> aws_cloud.customer_account.lambda: 4 {
+  badge_pos: (510,490)
+}
+
+# Badge 5: Lambda -> Step Functions border
+aws_cloud.customer_account.lambda -> aws_cloud.customer_account.step_functions: 5 {
+  waypoints: (690,511),(740,511)
+  badge_pos: (700,471)
+}
+
+# Badge 6: CloudFormation -> Managed Account border
+aws_cloud.customer_account.step_functions.cloudformation -> aws_cloud.managed_account: 6 {
+  waypoints: (1080,541),(1120,541)
+  badge_pos: (1100,496)
+}
+
+# Badge 7: CloudFormation -> Fargate (vertical down)
+aws_cloud.customer_account.step_functions.cloudformation -> aws_cloud.customer_account.fargate: 7 {
+  waypoints: (910,720),(910,815)
+  badge_pos: (928,760)
+}
+
+# Badge 8: AppSync -> DynamoDB (L-shape right then up)
+aws_cloud.customer_account.appsync -> aws_cloud.customer_account.dynamodb: 8 {
+  waypoints: (480,530),(480,220)
+  badge_pos: (495,180)
+}
+
+# --- Unlabeled connections ---
+
+# CloudFront -> S3 (horizontal right, same y=850)
+aws_cloud.customer_account.cloudfront -> aws_cloud.customer_account.s3_customer
