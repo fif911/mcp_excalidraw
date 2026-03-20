@@ -105,7 +105,15 @@ arrow_style {
 }
 ```
 
-Defines badge appearance for all numbered arrows. Per-connection overrides with `badge_bg`, `badge_color`, `badge_shape` still work.
+Badge style is determined by the reference — check which style it uses:
+
+| Style | badge_bg | badge_shape |
+|---|---|---|
+| Dark filled circle (most common) | `#232F3E` | `circle` |
+| Blue filled square (workflow diagrams) | `#147EBA` | `square` |
+| Dark filled square | `#232F3E` | `square` |
+
+All badges in a diagram must use the same style — never mix.
 
 ### Layout hints
 
@@ -174,6 +182,8 @@ The plan must contain these sections in order:
 | SFN border (bottom) | AWS Fargate | ↓ | — | unlabeled |
 
 **Total: N numbered + M unlabeled = T arrows**
+
+**Verification: every leaf node must appear in exactly one of: numbered arrows, unlabeled arrows, or standalone elements. If any node is missing from all three, the plan has a gap.**
 
 **4. Standalone elements** — nodes with zero connections
 
