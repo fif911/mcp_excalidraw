@@ -608,8 +608,52 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
       for (const cid of containerIds) {
         const node = layout[cid];
         if (node && node.h < rowMaxH) {
+          const oldH = node.h;
           node.h = rowMaxH;
           layout[cid] = node;
+
+          // Redistribute leaf children vertically to fill the expanded height
+          const childShape = graph.shapes[cid];
+          if (childShape) {
+            const childLeafIds = childShape.children.filter(lid => {
+              const ls = graph.shapes[lid];
+              return ls && ls.children.length === 0;
+            });
+            const childContainerIds = childShape.children.filter(lid => {
+              const ls = graph.shapes[lid];
+              return ls && ls.children.length > 0;
+            });
+            // Only redistribute if there are leaf nodes (grid/row/col items)
+            if (childLeafIds.length > 0) {
+              // Determine how many rows of leaves exist
+              const childHeaderH = node.y; // approximate
+              const layoutType = childShape.layout;
+              const gridMatch = layoutType?.match(/^(\d+)x(\d+)$/);
+              let numRows = 1;
+              if (gridMatch) {
+                numRows = parseInt(gridMatch[2]!);
+              } else if (layoutType === 'col') {
+                numRows = childLeafIds.length;
+              }
+              if (numRows > 1) {
+                // Get the container's content area
+                const cHeaderH = 108; // approximate header for containers with icons
+                const availH = node.h - cHeaderH - CONTAINER_PAD * 2;
+                const rowSpacing = availH / numRows;
+                for (const lid of childLeafIds) {
+                  const leafNode = layout[lid];
+                  if (!leafNode) continue;
+                  // Find which row this leaf is in
+                  const idx = childLeafIds.indexOf(lid);
+                  const cols = gridMatch ? parseInt(gridMatch[1]!) : 1;
+                  const row = Math.floor(idx / cols);
+                  const newCy = node.y + cHeaderH + CONTAINER_PAD + row * rowSpacing + rowSpacing / 2;
+                  leafNode.y = newCy - leafNode.h / 2;
+                  layout[lid] = leafNode;
+                }
+              }
+            }
+          }
         }
       }
     }
