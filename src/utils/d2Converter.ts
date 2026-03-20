@@ -592,6 +592,17 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
       childX = childNode.x + childNode.w + H_GAP;
       rowMaxH = Math.max(rowMaxH, childNode.h);
     }
+    // Equalize sibling container heights — all match the tallest
+    if (containerIds.length > 1 && rowMaxH > 0) {
+      for (const cid of containerIds) {
+        const node = layout[cid];
+        if (node && node.h < rowMaxH) {
+          node.h = rowMaxH;
+          layout[cid] = node;
+        }
+      }
+    }
+
     if (containerIds.length > 0) {
       contentW = childX - (containerX + CONTAINER_PAD) - H_GAP;
       contentH = rowMaxH + V_GAP;
