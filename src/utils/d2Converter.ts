@@ -652,8 +652,20 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
     // Auto-expand explicit width/height if too small for header or content
     const minW = contentW + CONTAINER_PAD * 2;
     const minH = headerH + CONTAINER_PAD + contentH + CONTAINER_PAD;
-    const w = Math.max(explicitW ?? minW, Math.max(minW, headerTextW + CONTAINER_PAD * 2));
-    const h = Math.max(explicitH ?? minH, minH);
+    let w = Math.max(explicitW ?? minW, Math.max(minW, headerTextW + CONTAINER_PAD * 2));
+    let h = Math.max(explicitH ?? minH, minH);
+
+    // Cap expansion to parent bounds — don't grow beyond parent's available space
+    if (shape.parent) {
+      const parentNode = layout[shape.parent];
+      if (parentNode) {
+        const maxW = parentNode.w - (containerX - parentNode.x) - CONTAINER_PAD;
+        const maxH = parentNode.h - (containerY - parentNode.y) - CONTAINER_PAD;
+        if (maxW > 0) w = Math.min(w, maxW);
+        if (maxH > 0) h = Math.min(h, maxH);
+      }
+    }
+
     const node: LayoutNode = { id: shape.id, x: containerX, y: containerY, w, h };
     layout[shape.id] = node;
     return node;
