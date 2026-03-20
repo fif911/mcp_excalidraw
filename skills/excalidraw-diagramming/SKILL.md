@@ -94,6 +94,19 @@ ecr_docker: ECR Docker image {
 | `icon_variant` | `Light`, `Dark` | Need outline variant |
 | `icon_hint` | any search string | Label doesn't match icon name |
 
+### Arrow style (global)
+
+```d2
+arrow_style {
+  stroke_color: "#545B64"
+  badge_bg: "#232F3E"
+  badge_color: "#ffffff"
+  badge_shape: circle
+}
+```
+
+Defines badge appearance for all numbered arrows. Per-connection overrides with `badge_bg`, `badge_color`, `badge_shape` still work.
+
 ### Layout hints
 
 ```d2
@@ -112,27 +125,59 @@ Values: `"NxM"` (cols × rows), `row`, `col`. Tool auto-detects grid if omitted.
 
 ## Phase 1: Planner (structure & reference interpretation)
 
-The Planner reads the reference image and writes `plan.md` — a **text description** of every element, container, connection, and styling. No D2 code, no positions.
+The Planner reads the reference image and writes `plan.md` — a structured description of every element, container, connection, and styling, with approximate positions estimated from the reference. No D2 code.
 
 ### Planner output
 
 `diagram_building/v{N}/plan.md` — a clean, structured document. **No stream-of-consciousness reasoning, no corrections inline, no "wait, let me re-examine".** Examine the reference carefully BEFORE writing, then write the final clean output once.
 
+**IMPORTANT: Write each section ONCE. Do not revise inline. If you need to re-examine the reference, do it before writing — not during.**
+
 The plan must contain these sections in order:
 
-1. **Container hierarchy** — nesting, which are dashed, colored borders, header icons
-2. **Service nodes** — one table per container with: label, icon type, icon color, icon notes
-3. **Numbered arrow table** — one final clean table, no duplicates, no corrections:
-   | # | Source | Target | Direction | Style |
-   |---|--------|--------|-----------|-------|
-   | 1 | Amazon CloudFront | Amazon S3 (customer) | → | dark circle |
-4. **Unlabeled arrows** — same format, no badge column
-5. **Standalone elements** — nodes with no connections
-6. **External actors** — position relative to containers. **Double-check every actor's nesting**: trace the container borders in the reference to determine if the actor is outside ALL containers, inside AWS Cloud but outside account containers, or inside an account container. Getting this wrong is the most common Planner error.
-7. **Icon notes** — resource vs architecture type, **specific color** (orange, pink, purple, green), custom icons. Always note the icon color — the same icon shape exists in multiple colors.
-8. **Layout intent** — "Managed Account: 2x3 grid", "Auth: horizontal row"
+**1. Containers** — with approximate positions estimated from the reference:
+```
+### AWS Cloud (outermost)
+- Approximate size: full canvas, ~1900x1000
+- Border: solid, dark
+### Customer's AWS Account
+- Approximate: left 60%, x~200, y~100, w~980, h~860
+- Border: solid, dark
+### Authentication (inside Customer's Account)
+- Approximate: top-left, x~225, y~230, w~420, h~300
+- Border: dashed
+- Layout: row (Cognito left, OpenID right)
+```
 
-**IMPORTANT: Write each section ONCE. Do not revise inline. If you need to re-examine the reference, do it before writing — not during.**
+**2. Service nodes** — grouped by container, with approximate cx,cy positions:
+```
+### Inside Authentication
+- Amazon Cognito: cx~320, cy~330 (architecture, pink)
+- OpenID Connect: cx~460, cy~330 (custom icon)
+
+### Middle row (inside Customer's Account)
+- AWS AppSync: cx~550, cy~510 (architecture, pink)
+- AWS Lambda: cx~730, cy~510 (architecture, orange)
+
+### Bottom row (inside Customer's Account)
+- Amazon CloudFront: cx~550, cy~790 (architecture, purple)
+```
+
+**3. Arrow connection table** — one clean table with border annotations:
+
+| Source | Target | Direction | Badge # | Style |
+|--------|--------|-----------|---------|-------|
+| Data Transfer Hub UI | Amazon CloudFront | → | 1 | dark circle |
+| AWS Lambda (middle) | SFN border (left) | → | 5 | dark circle |
+| SFN border (bottom) | AWS Fargate | ↓ | — | unlabeled |
+
+**Total: N numbered + M unlabeled = T arrows**
+
+**4. Standalone elements** — nodes with zero connections
+
+**5. External actors** — with nesting level. **Double-check every actor's nesting**: trace the container borders in the reference. Getting this wrong is the most common Planner error.
+
+**6. Icon variants** — which need resource type, Light variant, color variants, custom icons
 
 ### Planner hard rules
 
@@ -156,7 +201,6 @@ The plan must contain these sections in order:
 ### Planner does NOT do
 
 - Do NOT write D2 code — Main does that
-- Do NOT specify pixel positions
 - Do NOT read previous diagram versions from `diagram_building/`
 - Do NOT read `skills/diagram-review/` files — those are for the Critic only
 
@@ -164,7 +208,7 @@ The plan must contain these sections in order:
 
 ## Phase 2: Main (D2 coding, building, iterating)
 
-Main reads `plan.md` and the reference image, writes `diagram.d2` with full D2 syntax including positions, layout hints, and waypoints. Then builds with `create_from_d2` and iterates. **Critic talks directly to Main** — no routing through Planner for visual/positional fixes.
+Main reads `plan.md` and the reference image, writes `diagram.d2`, then does exactly 2 builds. **Critic talks directly to Main** — no routing through Planner for visual/positional fixes.
 
 ### Main responsibilities — EXACTLY two builds, no more
 
@@ -185,16 +229,9 @@ Main reads `plan.md` and the reference image, writes `diagram.d2` with full D2 s
 
 **HARD RULE: Maximum 2 builds before Critic review.** Do not iterate endlessly. Build 1 gets the structure right, Build 2 gets the arrows right. If there are still issues, the Critic will tell you what to fix specifically.
 
-### Canvas and container sizing
+### Sizing
 
-Icons are **98px** (not the old 65px). Everything must be scaled accordingly:
-- **Minimum canvas:** 2800×1500 for a typical 2-account diagram
-- **Each icon+label takes ~160×136px** of space
-- **Containers need at least 60px gap** between children and **40px padding** from edges
-- **Header height is 108px** — don't place children within 108px of container top
-- A container with 2 icons in a row needs at least **420px wide** (2×160 + 60 gap + 2×40 padding)
-- A container with 2 icons stacked vertically needs at least **440px tall** (108 header + 2×136 + 60 gap)
-- **Side-by-side account containers:** split proportionally — if one has more children, give it more width
+Each icon+label takes ~160×136px. Header height is 108px. Size containers to fit their content with 40px padding — don't inflate everything. A sub-container with 2 icons in a row needs ~420px wide, 2 stacked needs ~440px tall.
 
 ### Positioning rules — what gets `pos:` and what doesn't
 
@@ -210,7 +247,7 @@ Icons are **98px** (not the old 65px). Everything must be scaled accordingly:
 
 **Leaf nodes inside a `layout:` container need no `pos:`** — the tool auto-places them.
 
-**Do NOT guess coordinates.** After Pass 1, the tool gives you exact positions. Use them for Pass 2.
+**For Build 1**, use Planner's approximate positions. **For Build 2**, use the exact positions returned by the tool — never guess.
 
 ### What the tool handles automatically (don't override unless Critic flags issues)
 
@@ -225,20 +262,14 @@ Icons are **98px** (not the old 65px). Everything must be scaled accordingly:
 
 ### Main hard rules
 
-1. **All arrows must be orthogonal** — tool draws straight lines, verify the result
-2. **Cross-container arrows need explicit `waypoints`** — without them, arrows go straight (may cross containers)
-3. **Cross-container badges need explicit `badge_pos`** — auto-position may land on borders
-4. **Container sizing must fit all children** — 15px minimum padding
-5. **Arrows to container borders: no waypoints needed** — tool draws straight to nearest border edge
-6. **Icon-to-icon same Y/X: no waypoints** — tool draws straight
-7. **One waypoint per turn** — no redundant tiny segments
-8. **Arrows stop at icon edges** — tool auto-snaps, no manual edge offsets needed
+1. **Cross-container arrows need `waypoints` in Build 2** — use exact positions from Build 1 output
+2. **Cross-container badges need `badge_pos` in Build 2** — calculate gap midpoint from container borders
+3. **One waypoint per turn** — no redundant tiny segments
+4. **Container sizing must fit all children** — check validation for overflow
 
 ### Element alignment for clean arrows
 
-**Elements connected by horizontal arrows must share the same Y position.** If AppSync → Lambda → Step Functions are on the same flow row, set all their `pos:` to the same Y value. Same for cross-container horizontal arrows (ECR → Fargate, S3 managed → CloudFormation).
-
-Look at the reference image and identify horizontal rows. All elements on the same row get the same Y. This eliminates L-shape bends — the tool draws straight horizontal lines when source and target share Y.
+Elements connected by horizontal arrows must share the same Y position. Identify horizontal rows in the reference and set all elements on the same row to the same Y. The tool also auto-aligns connected elements within 50px — but setting correct Y from the start is better.
 
 ### Arrow routing guidance
 
@@ -281,7 +312,6 @@ Only structural issues (missing elements, wrong connections) route back to Plann
 
 ### Main does NOT do
 
-- Do NOT add `pos:` to leaf nodes — tool auto-places via layout hints
-- Do NOT call `search_aws_icons` — `create_from_d2` handles icon resolution
+- Do NOT add `pos:` to leaf nodes inside `layout:` containers — tool auto-places them
 - Do NOT create files other than `diagram.d2`
 - Do NOT use `header_bg_color`

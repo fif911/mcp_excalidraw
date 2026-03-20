@@ -8,8 +8,8 @@ When asked to build a diagram, you do NOT do the work yourself. You **spawn agen
 
 ```
 1. Spawn Planner agent → writes plan.md (text description of the diagram)
-2. Spawn Main agent with plan.md path
-   Main writes diagram.d2, calls create_from_d2, iterates on validation
+2. Spawn Main agent with plan.md path + reference image path
+   Main writes diagram.d2, does exactly 2 builds (structure → arrows)
 3. Spawn Critic agent → reviews output, sends fixes directly to Main
 4. Main fixes issues based on Critic feedback, rebuilds
 5. Repeat 3-4 until Critic reports no issues
@@ -42,7 +42,7 @@ Spawn with the Agent tool. Include in the prompt:
 - "Read `skills/excalidraw-diagramming/SKILL.md` — Phase 1 (Planner) section"
 - If re-running after Critic structural feedback: include the issues list
 
-**Goal:** Write a text plan describing every element, container, connection, and styling in the diagram. No D2 code, no positions.
+**Goal:** Write a text plan describing every element, container, connection, and styling in the diagram, with approximate positions estimated from the reference. No D2 code.
 
 ### Planner instructions (include in agent prompt)
 
@@ -55,14 +55,13 @@ Spawn with the Agent tool. Include in the prompt:
 ### Planner output
 
 `diagram_building/v{N}/plan.md` with:
-- List of all containers (nesting, which are dashed, colored borders)
-- List of all service nodes (which container they're inside, icon descriptions)
-- Arrow connection table (source, target, direction, badge number, badge style)
+- All containers with approximate positions (x, y, w, h estimated from reference)
+- All service nodes grouped by container with approximate cx, cy positions
+- Arrow connection table with border annotations (e.g., "SFN border (left)")
 - Unlabeled arrows table
 - Standalone elements (no connections)
-- External actor positions (inside/outside which containers)
-- Icon notes (which need resource vs architecture type, color variants)
-- Layout intent (e.g., "Managed Account has 2-column grid", "Auth is a horizontal row")
+- External actor nesting levels (double-checked against reference)
+- Icon variants (resource vs architecture, color, custom icons)
 
 ---
 
@@ -75,15 +74,15 @@ Spawn with the Agent tool. Include in the prompt:
 - "Read `skills/excalidraw-diagramming/SKILL.md` — Phase 2 (Main) section"
 - If re-running after Critic feedback: include the issues list
 
-**Goal:** Translate `plan.md` into `diagram.d2`, build with `create_from_d2`, and iterate until clean.
+**Goal:** Translate `plan.md` into `diagram.d2`, do exactly 2 builds (structure then arrows), then hand to Critic.
 
 ### Main instructions (include in agent prompt)
 
 - Read `skills/excalidraw-diagramming/SKILL.md` — Phase 2 (Main) section only
-- Write `diagram.d2` from the plan — full D2 syntax with positions, layout hints, waypoints
-- Call `create_from_d2` and check validation output + fix suggestions
-- Fix issues and rebuild (tool clears canvas each time)
-- Verify visually with `get_canvas_screenshot`
+- Write `diagram.d2` from the plan — use Planner's approximate positions
+- **Build 1:** structure + positions, no waypoints/badge_pos. Read ELEMENT POSITIONS output.
+- **Build 2:** add waypoints/badge_pos using exact positions from Build 1. Verify with screenshot.
+- **Maximum 2 builds before Critic review** — do not iterate endlessly
 - **Critic talks directly to you** — fix what the Critic flags without going back to Planner
 
 ### Main receives Critic feedback on
@@ -98,8 +97,9 @@ Spawn with the Agent tool. Include in the prompt:
 Spawn with the Agent tool. Include in the prompt:
 
 - The reference image path
-- The path to `diagram.d2`
+- The path to `plan.md` and `diagram.d2`
 - "Read `skills/diagram-review/SKILL.md` and `skills/diagram-review/references/checklist.md`"
+- "Verify every arrow in diagram.d2 against the connection table in plan.md"
 - "Use `crop_screenshot` with grid mode (e.g., `grid: "3x3"`) to systematically inspect every region"
 - "Use `crop_screenshot` with x/y/width/height to zoom into specific problem areas"
 - "Compare each crop against the corresponding region in the reference image"

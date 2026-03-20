@@ -722,6 +722,39 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
     }
   }
 
+  // ── Post-layout: Y-align connected leaf nodes for clean horizontal arrows ──
+  // If two leaf nodes are connected by a direct arrow and their icon-center Y
+  // values differ by < 50px, snap the target to match the source's Y.
+  const ALIGN_THRESHOLD = 50;
+  for (const conn of graph.connections) {
+    const fromShape = graph.shapes[conn.from];
+    const toShape = graph.shapes[conn.to];
+    const fromPos = layout[conn.from];
+    const toPos = layout[conn.to];
+    if (!fromShape || !toShape || !fromPos || !toPos) continue;
+    // Only align leaf-to-leaf or leaf-to-container horizontal connections
+    const fromIsLeaf = fromShape.children.length === 0;
+    const toIsLeaf = toShape.children.length === 0;
+    if (!fromIsLeaf && !toIsLeaf) continue;
+    // Compute icon center Y for both
+    const fromTextH = measureText(fromShape.label, FONT_SIZE).height;
+    const toTextH = measureText(toShape.label, FONT_SIZE).height;
+    const fromIconCy = fromIsLeaf ? (fromPos.y + fromPos.h / 2) - (8 + fromTextH) / 2 : fromPos.y + fromPos.h / 2;
+    const toIconCy = toIsLeaf ? (toPos.y + toPos.h / 2) - (8 + toTextH) / 2 : toPos.y + toPos.h / 2;
+    const dy = Math.abs(fromIconCy - toIconCy);
+    const dx = Math.abs((fromPos.x + fromPos.w / 2) - (toPos.x + toPos.w / 2));
+    // Only align if mostly horizontal (dx > dy) and Y is close
+    if (dy > 0 && dy < ALIGN_THRESHOLD && dx > dy) {
+      // Snap target Y to match source icon center Y
+      if (toIsLeaf) {
+        const targetIconCy = fromIconCy;
+        const newY = targetIconCy - toPos.h / 2 + (8 + toTextH) / 2;
+        toPos.y = newY;
+        layout[conn.to] = toPos;
+      }
+    }
+  }
+
   return layout;
 }
 
