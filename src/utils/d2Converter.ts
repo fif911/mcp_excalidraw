@@ -1309,8 +1309,41 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
         const labelOffset = BADGE_SIZE / 2 + 10;
         const mid = pathMidpoint(allPts);
         const off = perpOffset(mid.dx, mid.dy, labelOffset);
-        badgeCx = Math.round(mid.mx + off.offX);
-        badgeCy = Math.round(mid.my + off.offY);
+        // Try default side first
+        let candidateCx = Math.round(mid.mx + off.offX);
+        let candidateCy = Math.round(mid.my + off.offY);
+
+        // Check if badge overlaps any existing element — if so, try the other side
+        const badgeR = BADGE_SIZE / 2 + 5;
+        const overlapsElement = (cx: number, cy: number): boolean => {
+          for (const el of elements) {
+            if (el.type === 'arrow' || el.type === 'text') continue;
+            const ex = el.x as number;
+            const ey = el.y as number;
+            const ew = (el.width as number) || 0;
+            const eh = (el.height as number) || 0;
+            // Check if badge circle overlaps element bbox
+            if (cx + badgeR > ex && cx - badgeR < ex + ew &&
+                cy + badgeR > ey && cy - badgeR < ey + eh) {
+              return true;
+            }
+          }
+          return false;
+        };
+
+        if (overlapsElement(candidateCx, candidateCy)) {
+          // Try the opposite side
+          const altCx = Math.round(mid.mx - off.offX);
+          const altCy = Math.round(mid.my - off.offY);
+          if (!overlapsElement(altCx, altCy)) {
+            candidateCx = altCx;
+            candidateCy = altCy;
+          }
+          // If both sides overlap, keep the default — validation will flag it
+        }
+
+        badgeCx = candidateCx;
+        badgeCy = candidateCy;
       }
       const badgeGroupId = `g-${conn.id}-badge`;
       const bSize = conn.badgeSize ?? BADGE_SIZE;
