@@ -1317,7 +1317,32 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
         const badgeR = BADGE_SIZE / 2 + 5;
         const overlapsElement = (cx: number, cy: number): boolean => {
           for (const el of elements) {
-            if (el.type === 'arrow' || el.type === 'text') continue;
+            if (el.type === 'text') continue;
+            if (el.type === 'arrow') {
+              // Check if badge overlaps any OTHER arrow (not its own parent)
+              if (el.id === conn.id) continue;
+              const ox = el.x as number;
+              const oy = el.y as number;
+              const pts = (el.points as number[][]) || [];
+              for (let si = 0; si < pts.length - 1; si++) {
+                const sx = ox + pts[si]![0]!;
+                const sy = ox + pts[si]![1]!;  // intentional: check segment proximity
+                const ex2 = ox + pts[si + 1]![0]!;
+                const ey2 = oy + pts[si + 1]![1]!;
+                // Simple: check if badge center is within badgeR of the segment line
+                const segDx = ex2 - sx;
+                const segDy = ey2 - (oy + pts[si]![1]!);
+                const segLen = Math.sqrt(segDx * segDx + segDy * segDy);
+                if (segLen > 0) {
+                  const t = Math.max(0, Math.min(1, ((cx - sx) * segDx + (cy - (oy + pts[si]![1]!)) * segDy) / (segLen * segLen)));
+                  const projX = sx + t * segDx;
+                  const projY = (oy + pts[si]![1]!) + t * segDy;
+                  const dist = Math.sqrt((cx - projX) ** 2 + (cy - projY) ** 2);
+                  if (dist < badgeR) return true;
+                }
+              }
+              continue;
+            }
             const ex = el.x as number;
             const ey = el.y as number;
             const ew = (el.width as number) || 0;
