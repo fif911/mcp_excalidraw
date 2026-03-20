@@ -1149,41 +1149,51 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       cx1 = fromPos.x + fromPos.w / 2;
       cy1 = (fromPos.y + fromPos.h / 2) - (gap + fromTextH) / 2;
     } else {
-      // Container source: use nearest border edge toward first waypoint or target
+      // Container source: pick border based on which side the target is on
       const targetX = (conn.waypoints?.length ? conn.waypoints[0]![0] : toPos.x + toPos.w / 2)!;
       const targetY = (conn.waypoints?.length ? conn.waypoints[0]![1] : toPos.y + toPos.h / 2)!;
-      cx1 = fromPos.x + fromPos.w / 2;
-      cy1 = fromPos.y + fromPos.h / 2;
-      // Determine which border edge is closest to target
-      const dLeft = Math.abs(targetX - fromPos.x);
-      const dRight = Math.abs(targetX - (fromPos.x + fromPos.w));
-      const dTop = Math.abs(targetY - fromPos.y);
-      const dBottom = Math.abs(targetY - (fromPos.y + fromPos.h));
-      const minD = Math.min(dLeft, dRight, dTop, dBottom);
-      if (minD === dBottom) { cx1 = targetX; cy1 = fromPos.y + fromPos.h; }
-      else if (minD === dTop) { cx1 = targetX; cy1 = fromPos.y; }
-      else if (minD === dLeft) { cx1 = fromPos.x; cy1 = targetY; }
-      else { cx1 = fromPos.x + fromPos.w; cy1 = targetY; }
+      const fromCx = fromPos.x + fromPos.w / 2;
+      const fromCy = fromPos.y + fromPos.h / 2;
+      cx1 = fromCx;
+      cy1 = fromCy;
+      // Direction from container center to target
+      const dirX = targetX - fromCx;
+      const dirY = targetY - fromCy;
+      if (Math.abs(dirX) >= Math.abs(dirY)) {
+        // Target is primarily to the left or right
+        if (dirX < 0) { cx1 = fromPos.x; cy1 = targetY; }       // target is left → exit left border
+        else { cx1 = fromPos.x + fromPos.w; cy1 = targetY; }     // target is right → exit right border
+      } else {
+        // Target is primarily above or below
+        if (dirY < 0) { cx1 = targetX; cy1 = fromPos.y; }        // target is above → exit top border
+        else { cx1 = targetX; cy1 = fromPos.y + fromPos.h; }      // target is below → exit bottom border
+      }
     }
 
     if (toIsLeaf) {
       cx2 = toPos.x + toPos.w / 2;
       cy2 = (toPos.y + toPos.h / 2) - (gap + toTextH) / 2;
     } else {
-      // Container target: use nearest border edge toward last waypoint or source
+      // Container target: pick border based on which side the source is on
+      // (relative to container center, not nearest edge)
       const srcX = (conn.waypoints?.length ? conn.waypoints[conn.waypoints.length - 1]![0] : fromPos.x + fromPos.w / 2)!;
       const srcY = (conn.waypoints?.length ? conn.waypoints[conn.waypoints.length - 1]![1] : fromPos.y + fromPos.h / 2)!;
-      cx2 = toPos.x + toPos.w / 2;
-      cy2 = toPos.y + toPos.h / 2;
-      const dLeft = Math.abs(srcX - toPos.x);
-      const dRight = Math.abs(srcX - (toPos.x + toPos.w));
-      const dTop = Math.abs(srcY - toPos.y);
-      const dBottom = Math.abs(srcY - (toPos.y + toPos.h));
-      const minD = Math.min(dLeft, dRight, dTop, dBottom);
-      if (minD === dLeft) { cx2 = toPos.x; cy2 = srcY; }
-      else if (minD === dRight) { cx2 = toPos.x + toPos.w; cy2 = srcY; }
-      else if (minD === dTop) { cx2 = srcX; cy2 = toPos.y; }
-      else { cx2 = srcX; cy2 = toPos.y + toPos.h; }
+      const toCx = toPos.x + toPos.w / 2;
+      const toCy = toPos.y + toPos.h / 2;
+      cx2 = toCx;
+      cy2 = toCy;
+      // Direction from container center to source
+      const dirX = srcX - toCx;
+      const dirY = srcY - toCy;
+      if (Math.abs(dirX) >= Math.abs(dirY)) {
+        // Source is primarily to the left or right
+        if (dirX < 0) { cx2 = toPos.x; cy2 = srcY; }       // source is left → enter left border
+        else { cx2 = toPos.x + toPos.w; cy2 = srcY; }       // source is right → enter right border
+      } else {
+        // Source is primarily above or below
+        if (dirY < 0) { cx2 = srcX; cy2 = toPos.y; }        // source is above → enter top border
+        else { cx2 = srcX; cy2 = toPos.y + toPos.h; }        // source is below → enter bottom border
+      }
     }
 
     // Build full path at centers first, then offset endpoints by R
