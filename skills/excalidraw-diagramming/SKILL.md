@@ -196,8 +196,9 @@ The plan must contain these sections in order:
    Reference overrides: if it clearly shows an arrow crossing a border
    to reach an icon inside, note it as icon-to-icon.
    ```
-4. **No stub arrows** — describe exits as one arrow from border to target
-5. **Same service = same label** — identical label text for duplicate services
+4. **No external arrows** — every arrow must connect two real elements. If the reference shows a line entering from the diagram edge, trace it to the actual source element (User, DTH UI, etc.). Never write "(left edge, external)" or "(outside)" as a source — find the real element.
+5. **No stub arrows** — describe exits as one arrow from border to target
+6. **Same service = same label** — identical label text for duplicate services
 6. **Icon color must match reference** — note color variants (e.g., "CloudFormation Template — orange, not pink")
 
 ### Planner does NOT do

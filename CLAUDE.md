@@ -8,14 +8,16 @@ When asked to build a diagram, you do NOT do the work yourself. You **spawn agen
 
 ```
 1. Spawn Planner agent → writes plan.md (text description of the diagram)
-2. Spawn Main agent with plan.md path + reference image path
+2. Spawn Critic agent (Phase 0) → verifies plan.md arrows against reference
+   If Critic finds wrong arrows → spawn Planner again to fix plan.md
+3. Spawn Main agent with plan.md path + reference image path
    Main writes diagram.d2, does exactly 2 builds (structure → arrows)
-3. Spawn Critic agent → reviews output, sends fixes directly to Main
-4. Main fixes issues based on Critic feedback, rebuilds
-5. Repeat 3-4 until Critic reports no issues
-6. If Critic finds structural issues (missing elements, wrong connections)
+4. Spawn Critic agent → reviews output, sends fixes directly to Main
+5. Main fixes issues based on Critic feedback, rebuilds
+6. Repeat 4-5 until Critic reports no issues
+7. If Critic finds structural issues (missing elements, wrong connections)
    → spawn Planner again to update plan.md, then Main rebuilds
-7. Export final diagram
+8. Export final diagram
 ```
 
 ### What the orchestrator does directly
@@ -106,7 +108,14 @@ Spawn with the Agent tool. Include in the prompt:
 
 **Goal:** Compare output against reference and `plan.md`. Flag discrepancies.
 
-**Always use `crop_screenshot`** — never rely on full-image inspection alone. Issues invisible at full scale become obvious when zoomed in.
+**Phase 0 (pre-build):** When spawned before Main builds, verify every arrow in `plan.md` against the reference:
+- Source element exists in the reference
+- Target element exists (no phantom "(left edge, external)" sources)
+- Direction matches
+- No missing connections
+- Errors route to Planner, not Main
+
+**Phase 1+ (post-build):** Use `crop_screenshot` — never rely on full-image inspection alone.
 
 ### Critic output format
 
