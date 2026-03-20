@@ -649,8 +649,11 @@ export function layoutD2Graph(graph: D2Graph): Record<string, LayoutNode> {
     const headerTextW = measureText(shape.label, FONT_SIZE).width + ICON_SIZE + 20;
     contentW = Math.max(contentW, headerTextW);
 
-    const w = explicitW ?? (contentW + CONTAINER_PAD * 2);
-    const h = explicitH ?? (headerH + CONTAINER_PAD + contentH + CONTAINER_PAD);
+    // Auto-expand explicit width/height if too small for header or content
+    const minW = contentW + CONTAINER_PAD * 2;
+    const minH = headerH + CONTAINER_PAD + contentH + CONTAINER_PAD;
+    const w = Math.max(explicitW ?? minW, Math.max(minW, headerTextW + CONTAINER_PAD * 2));
+    const h = Math.max(explicitH ?? minH, minH);
     const node: LayoutNode = { id: shape.id, x: containerX, y: containerY, w, h };
     layout[shape.id] = node;
     return node;

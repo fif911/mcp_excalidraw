@@ -262,7 +262,7 @@ Main reads `plan.md` and the reference image, writes `diagram.d2`, then does exa
 
 ### Sizing
 
-Each icon+label takes ~160×136px. Header height is 108px. Size containers to fit their content with 40px padding — don't inflate everything. A sub-container with 2 icons in a row needs ~420px wide, 2 stacked needs ~440px tall.
+Each icon+label takes ~160×136px. Header height is 108px. Size containers to fit their content with 40px padding — don't inflate everything. A sub-container with 2 icons in a row needs ~460px wide, 2 stacked needs ~440px tall. **Container width must also fit the header text** — measure the label + icon (98px) + padding. "AWS Step Functions workflow" needs ~380px width just for the header. The tool auto-expands if too small, but getting it right saves a rebuild.
 
 ### Positioning rules — what gets `pos:` and what doesn't
 
