@@ -1600,8 +1600,9 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       return true;
     }
 
-    // Only attempt avoidance if we have elements to avoid (after some elements are built)
-    if (elements.length > 5) {
+    // Crossing avoidance — disabled for now, causes complex reroutes that conflict
+    // with endpoint snapping. The validation will flag crossings for the agent to fix.
+    if (false && elements.length > 5) {
       const obstacles = getObstacleBboxes();
       let rerouted = false;
       for (let attempt = 0; attempt < 3 && !rerouted; attempt++) {
