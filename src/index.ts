@@ -2612,16 +2612,45 @@ async function ensureExpressServer(): Promise<void> {
       try {
         const { execSync: execSyncLocal } = await import('child_process');
         if (process.platform === 'win32') {
-          const output = execSyncLocal('netstat -ano | findstr :3000 | findstr LISTENING', { encoding: 'utf-8', timeout: 3000 }).trim();
-          const pids = new Set(output.split('\n').map(line => line.trim().split(/\s+/).pop()).filter(Boolean));
-          for (const pid of pids) {
-            try { execSyncLocal(`taskkill /PID ${pid} /F`, { timeout: 3000 }); } catch { /* ignore */ }
+          // Use PowerShell for reliable process kill on Windows
+          try {
+            execSyncLocal(
+              'powershell -Command "Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"',
+              { timeout: 5000, stdio: 'ignore' }
+            );
+          } catch {
+            // Fallback to netstat + taskkill
+            try {
+              const output = execSyncLocal('netstat -ano | findstr :3000 | findstr LISTENING', { encoding: 'utf-8', timeout: 3000 }).trim();
+              const pids = new Set(output.split('\n').map(line => line.trim().split(/\s+/).pop()).filter(Boolean));
+              for (const pid of pids) {
+                try { execSyncLocal(`taskkill /PID ${pid} /F`, { timeout: 3000 }); } catch { /* ignore */ }
+              }
+            } catch { /* no process found */ }
           }
         } else {
           try { execSyncLocal('fuser -k 3000/tcp', { timeout: 3000 }); } catch { /* ignore */ }
         }
-        // Wait for port to be released
-        await new Promise(r => setTimeout(r, 1000));
+        // Wait for port to be released and verify
+        for (let i = 0; i < 5; i++) {
+          await new Promise(r => setTimeout(r, 500));
+          try {
+            await fetch(`${EXPRESS_SERVER_URL}/api/elements`, { signal: AbortSignal.timeout(500) });
+            // Still responding — try killing again
+            if (process.platform === 'win32') {
+              try {
+                const { execSync: retrySyncLocal } = await import('child_process');
+                retrySyncLocal(
+                  'powershell -Command "Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"',
+                  { timeout: 5000, stdio: 'ignore' }
+                );
+              } catch { /* ignore */ }
+            }
+          } catch {
+            // Server is down — port is free
+            break;
+          }
+        }
       } catch { /* ignore kill errors */ }
     }
   } catch {

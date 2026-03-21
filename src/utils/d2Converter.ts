@@ -50,8 +50,16 @@ function measureText(text: string, fontSize: number): { width: number; height: n
 
 function parsePointList(s: string): number[][] {
   const points: number[][] = [];
+  // Try parenthesized format first: (x,y) (x,y)
   for (const m of s.matchAll(/\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)/g)) {
     points.push([parseFloat(m[1]!), parseFloat(m[2]!)]);
+  }
+  if (points.length > 0) return points;
+  // Fall back to quoted/bare format: "x,y" or "x1,y1;x2,y2"
+  const stripped = s.replace(/^["']|["']$/g, '').trim();
+  for (const part of stripped.split(';')) {
+    const m = part.trim().match(/^\s*([-\d.]+)\s*,\s*([-\d.]+)\s*$/);
+    if (m) points.push([parseFloat(m[1]!), parseFloat(m[2]!)]);
   }
   return points;
 }
@@ -1105,6 +1113,55 @@ export function layoutD2Graph(graph: D2Graph): { layout: Record<string, LayoutNo
     }
   }
 
+  // ── Post-layout: expand containers when children are too close to borders ──
+  // Check each container's bottom edge against its bottom-most child (including text label).
+  // If the gap is < CONTAINER_PAD, expand the container downward.
+  const MIN_BOTTOM_PAD = CONTAINER_PAD;
+  for (const [shapeId, shape] of Object.entries(graph.shapes)) {
+    if (!shape.children || shape.children.length === 0) continue;
+    const containerNode = layout[shapeId];
+    if (!containerNode) continue;
+
+    const containerBottom = containerNode.y + containerNode.h;
+    let maxChildBottom = containerNode.y;
+
+    for (const childId of shape.children) {
+      const childShape = graph.shapes[childId];
+      const childNode = layout[childId];
+      if (!childNode) continue;
+
+      if (childShape && childShape.children && childShape.children.length > 0) {
+        // Sub-container — use its full height
+        maxChildBottom = Math.max(maxChildBottom, childNode.y + childNode.h);
+      } else if (childShape) {
+        // Leaf node — account for icon + gap + text label below
+        const textH = measureText(childShape.label, FONT_SIZE).height;
+        const gap = 8;
+        const leafBottom = childNode.y + childNode.h + gap + textH;
+        maxChildBottom = Math.max(maxChildBottom, leafBottom);
+      } else {
+        maxChildBottom = Math.max(maxChildBottom, childNode.y + childNode.h);
+      }
+    }
+
+    const currentPad = containerBottom - maxChildBottom;
+    if (currentPad < MIN_BOTTOM_PAD) {
+      const expansion = MIN_BOTTOM_PAD - currentPad;
+      containerNode.h += expansion;
+      changes.push({ elementId: shapeId, change: `expanded container bottom padding from ${Math.round(currentPad)}px to ${MIN_BOTTOM_PAD}px` });
+
+      // Propagate expansion to all ancestor containers
+      let parentId = shapeId;
+      while (parentId.includes('.')) {
+        parentId = parentId.substring(0, parentId.lastIndexOf('.'));
+        const parentNode = layout[parentId];
+        if (parentNode) {
+          parentNode.h += expansion;
+        }
+      }
+    }
+  }
+
   return { layout, changes };
 }
 
@@ -1482,13 +1539,15 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       const dirX = targetX - fromCx;
       const dirY = targetY - fromCy;
       if (Math.abs(dirX) >= Math.abs(dirY)) {
-        // Target is primarily to the left or right
-        if (dirX < 0) { cx1 = fromPos.x; cy1 = targetY; }       // target is left → exit left border
-        else { cx1 = fromPos.x + fromPos.w; cy1 = targetY; }     // target is right → exit right border
+        // Target is primarily to the left or right — exit left/right border
+        const clampedY = Math.max(fromPos.y + CONTAINER_PAD, Math.min(targetY, fromPos.y + fromPos.h - CONTAINER_PAD));
+        if (dirX < 0) { cx1 = fromPos.x; cy1 = clampedY; }
+        else { cx1 = fromPos.x + fromPos.w; cy1 = clampedY; }
       } else {
-        // Target is primarily above or below
-        if (dirY < 0) { cx1 = targetX; cy1 = fromPos.y; }        // target is above → exit top border
-        else { cx1 = targetX; cy1 = fromPos.y + fromPos.h; }      // target is below → exit bottom border
+        // Target is primarily above or below — exit top/bottom border
+        const clampedX = Math.max(fromPos.x + CONTAINER_PAD, Math.min(targetX, fromPos.x + fromPos.w - CONTAINER_PAD));
+        if (dirY < 0) { cx1 = clampedX; cy1 = fromPos.y; }
+        else { cx1 = clampedX; cy1 = fromPos.y + fromPos.h; }
       }
     }
 
@@ -1508,13 +1567,16 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       const dirX = srcX - toCx;
       const dirY = srcY - toCy;
       if (Math.abs(dirX) >= Math.abs(dirY)) {
-        // Source is primarily to the left or right
-        if (dirX < 0) { cx2 = toPos.x; cy2 = srcY; }       // source is left → enter left border
-        else { cx2 = toPos.x + toPos.w; cy2 = srcY; }       // source is right → enter right border
+        // Source is primarily to the left or right — enter left/right border
+        // Clamp Y to container bounds so the entry point is on the actual border
+        const clampedY = Math.max(toPos.y + CONTAINER_PAD, Math.min(srcY, toPos.y + toPos.h - CONTAINER_PAD));
+        if (dirX < 0) { cx2 = toPos.x; cy2 = clampedY; }
+        else { cx2 = toPos.x + toPos.w; cy2 = clampedY; }
       } else {
-        // Source is primarily above or below
-        if (dirY < 0) { cx2 = srcX; cy2 = toPos.y; }        // source is above → enter top border
-        else { cx2 = srcX; cy2 = toPos.y + toPos.h; }        // source is below → enter bottom border
+        // Source is primarily above or below — enter top/bottom border
+        const clampedX = Math.max(toPos.x + CONTAINER_PAD, Math.min(srcX, toPos.x + toPos.w - CONTAINER_PAD));
+        if (dirY < 0) { cx2 = clampedX; cy2 = toPos.y; }
+        else { cx2 = clampedX; cy2 = toPos.y + toPos.h; }
       }
     }
 
@@ -1523,15 +1585,53 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
 
     if (conn.waypoints && conn.waypoints.length > 0) {
       // Validate waypoints: check if they create a reasonable path
-      // If any waypoint is farther from the target than the source, discard all waypoints
       const srcToTarget = Math.sqrt((cx2 - cx1) ** 2 + (cy2 - cy1) ** 2);
       let waypointsValid = true;
+
+      // Check 1: Euclidean distance — waypoint shouldn't be way too far from target
       for (const wp of conn.waypoints) {
         const wpToTarget = Math.sqrt((cx2 - wp[0]!) ** 2 + (cy2 - wp[1]!) ** 2);
         const wpToSource = Math.sqrt((cx1 - wp[0]!) ** 2 + (cy1 - wp[1]!) ** 2);
         if (wpToTarget > srcToTarget * 1.5 && wpToSource > srcToTarget * 0.5) {
           waypointsValid = false;
           break;
+        }
+      }
+
+      // Check 2: Bounding box — waypoint shouldn't go far outside the source→target box
+      if (waypointsValid) {
+        const bbMinX = Math.min(cx1, cx2);
+        const bbMaxX = Math.max(cx1, cx2);
+        const bbMinY = Math.min(cy1, cy2);
+        const bbMaxY = Math.max(cy1, cy2);
+        const bbMargin = 100;
+        for (const wp of conn.waypoints) {
+          if (wp[0]! < bbMinX - bbMargin || wp[0]! > bbMaxX + bbMargin ||
+              wp[1]! < bbMinY - bbMargin || wp[1]! > bbMaxY + bbMargin) {
+            waypointsValid = false;
+            break;
+          }
+        }
+      }
+
+      // Check 3: U-turn detection — if a waypoint reverses direction on any axis,
+      // the path goes away from target then comes back (e.g., UP then DOWN).
+      // This means the waypoint is stale and creating a detour.
+      if (waypointsValid) {
+        const fullPath = [[cx1, cy1], ...conn.waypoints, [cx2, cy2]];
+        for (let k = 1; k < fullPath.length - 1; k++) {
+          const prev = fullPath[k - 1]!;
+          const cur = fullPath[k]!;
+          const next = fullPath[k + 1]!;
+          const dxIn = cur[0]! - prev[0]!;
+          const dxOut = next[0]! - cur[0]!;
+          const dyIn = cur[1]! - prev[1]!;
+          const dyOut = next[1]! - cur[1]!;
+          if ((dxIn > 20 && dxOut < -20) || (dxIn < -20 && dxOut > 20) ||
+              (dyIn > 20 && dyOut < -20) || (dyIn < -20 && dyOut > 20)) {
+            waypointsValid = false;
+            break;
+          }
         }
       }
       if (waypointsValid) {
@@ -1659,7 +1759,25 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
     function getObstacleBboxes(): Array<{ x1: number; y1: number; x2: number; y2: number; id: string }> {
       const obstacles: Array<{ x1: number; y1: number; x2: number; y2: number; id: string }> = [];
       for (const el of elements) {
-        if (el.type === 'arrow' || el.type === 'text') continue;
+        if (el.type === 'arrow') continue;
+        // Include container header labels as obstacles
+        if (el.type === 'text') {
+          const elId = el.id as string;
+          // Only keep container header labels (e.g., "xxx-lbl"), skip arrow labels and badge text
+          if (!elId.endsWith('-lbl') || elId.includes('-label') || elId.includes('-tx')) continue;
+          // Skip node labels (they end with -lbl but also have node-specific patterns)
+          // Container headers don't have "-lbl-1" suffix (that's for multi-line node labels)
+          if (elId.endsWith('-lbl-1')) continue;
+          // Skip labels of source/target containers
+          if (elId.includes(sourceId.replace(/\./g, '_')) || elId.includes(targetId.replace(/\./g, '_'))) continue;
+          // Text elements don't have width/height — compute from text content
+          const text = (el as any).text as string;
+          if (text) {
+            const measured = measureText(text, (el as any).fontSize ?? FONT_SIZE);
+            (el as any).width = measured.width;
+            (el as any).height = measured.height;
+          }
+        }
         // Skip containers (arrows ARE allowed to cross borders)
         if (el.type === 'rectangle' && (el.width as number) > 200 && (el.height as number) > 200) continue;
         // Skip source and target elements
@@ -1752,10 +1870,22 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       // This ensures the arrow exits/enters from the correct side regardless of L-shape routing.
       let dx: number, dy: number;
       if (isLeaf) {
-        // Start: use overall direction (for clean L-shape exit)
+        // Start: use direction to first waypoint if waypoints exist, otherwise overall target
         // End: use segment direction (snap to the edge the arrow actually approaches from)
-        dx = isStartPoint ? (overallTargetX - centerX) : (pt[0]! - neighbor[0]!);
-        dy = isStartPoint ? (overallTargetY - centerY) : (pt[1]! - neighbor[1]!);
+        if (isStartPoint) {
+          if (allPts.length > 2) {
+            // Has waypoints — snap toward first waypoint
+            dx = neighbor[0]! - centerX;
+            dy = neighbor[1]! - centerY;
+          } else {
+            // No waypoints — use overall direction for clean L-shape exit
+            dx = overallTargetX - centerX;
+            dy = overallTargetY - centerY;
+          }
+        } else {
+          dx = pt[0]! - neighbor[0]!;
+          dy = pt[1]! - neighbor[1]!;
+        }
       } else {
         // Container: use segment direction
         dx = isStartPoint ? (neighbor[0]! - pt[0]!) : (pt[0]! - neighbor[0]!);
@@ -1855,16 +1985,22 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
     else allPts = cleaned;
 
     // Ensure final segment ≥ 30px (prevents small arrowheads in Excalidraw)
-    if (allPts.length >= 2) {
+    // Only merge if the result stays orthogonal — don't create diagonals
+    if (allPts.length >= 3) {
       const last = allPts.length - 1;
       const prev = allPts[last - 1]!;
       const end = allPts[last]!;
       const fdx = end[0]! - prev[0]!;
       const fdy = end[1]! - prev[1]!;
       const flen = Math.sqrt(fdx * fdx + fdy * fdy);
-      if (flen > 0 && flen < 30 && allPts.length >= 3) {
-        // Merge the short final segment into the previous one by removing the second-to-last point
-        allPts.splice(last - 1, 1);
+      if (flen > 0 && flen < 30) {
+        // Only merge if result stays orthogonal — otherwise keep the short segment
+        const prevPrev = allPts[last - 2]!;
+        const mergedDx = Math.abs(end[0]! - prevPrev[0]!);
+        const mergedDy = Math.abs(end[1]! - prevPrev[1]!);
+        if (mergedDx < 2 || mergedDy < 2) {
+          allPts.splice(last - 1, 1);
+        }
       }
     }
 
