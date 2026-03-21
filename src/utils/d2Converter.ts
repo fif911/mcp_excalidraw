@@ -1429,6 +1429,88 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
     }
     allPts = ortho;
 
+    // ── Crossing avoidance: reroute arrows around icons/labels ──
+    // Arrows may only cross container borders — not icons, labels, or other elements.
+    // If a segment crosses an obstacle, insert extra waypoints to route around it.
+    const AVOID_MARGIN = 15; // clearance from obstacle edges
+    const sourceId = conn.from;
+    const targetId = conn.to;
+
+    function getObstacleBboxes(): Array<{ x1: number; y1: number; x2: number; y2: number; id: string }> {
+      const obstacles: Array<{ x1: number; y1: number; x2: number; y2: number; id: string }> = [];
+      for (const el of elements) {
+        if (el.type === 'arrow' || el.type === 'text') continue;
+        // Skip containers (arrows ARE allowed to cross borders)
+        if (el.type === 'rectangle' && (el.width as number) > 200 && (el.height as number) > 200) continue;
+        // Skip source and target elements
+        const elId = el.id as string;
+        if (elId.includes(sourceId.replace(/\./g, '_')) || elId.includes(targetId.replace(/\./g, '_'))) continue;
+        const ex = el.x as number;
+        const ey = el.y as number;
+        const ew = (el.width as number) || 0;
+        const eh = (el.height as number) || 0;
+        if (ew > 0 && eh > 0) {
+          obstacles.push({
+            x1: ex - AVOID_MARGIN, y1: ey - AVOID_MARGIN,
+            x2: ex + ew + AVOID_MARGIN, y2: ey + eh + AVOID_MARGIN,
+            id: elId,
+          });
+        }
+      }
+      return obstacles;
+    }
+
+    function segmentCrossesBox(sx: number, sy: number, ex: number, ey: number, b: { x1: number; y1: number; x2: number; y2: number }): boolean {
+      // Check if horizontal or vertical segment intersects the bbox
+      const minX = Math.min(sx, ex), maxX = Math.max(sx, ex);
+      const minY = Math.min(sy, ey), maxY = Math.max(sy, ey);
+      // No overlap at all
+      if (maxX < b.x1 || minX > b.x2 || maxY < b.y1 || minY > b.y2) return false;
+      // Segment passes through the box
+      return true;
+    }
+
+    // Only attempt avoidance if we have elements to avoid (after some elements are built)
+    if (elements.length > 5) {
+      const obstacles = getObstacleBboxes();
+      let rerouted = false;
+      for (let attempt = 0; attempt < 3 && !rerouted; attempt++) {
+        let needsReroute = false;
+        for (let si = 0; si < allPts.length - 1; si++) {
+          const [sx, sy] = allPts[si]!;
+          const [ex, ey] = allPts[si + 1]!;
+          for (const obs of obstacles) {
+            if (segmentCrossesBox(sx!, sy!, ex!, ey!, obs)) {
+              needsReroute = true;
+              // Route around: for horizontal segment, go above or below
+              // For vertical segment, go left or right
+              const isHoriz = Math.abs(ey! - sy!) < Math.abs(ex! - sx!);
+              if (isHoriz) {
+                // Try routing above the obstacle
+                const aboveY = obs.y1 - AVOID_MARGIN;
+                const belowY = obs.y2 + AVOID_MARGIN;
+                // Pick the side closer to the segment's current Y
+                const routeY = Math.abs(sy! - aboveY) < Math.abs(sy! - belowY) ? aboveY : belowY;
+                // Insert 3-segment route: horizontal to obs edge, vertical past obs, horizontal to end
+                allPts.splice(si + 1, 0, [sx!, routeY], [ex!, routeY]);
+                rerouted = true;
+              } else {
+                // Try routing left or right of the obstacle
+                const leftX = obs.x1 - AVOID_MARGIN;
+                const rightX = obs.x2 + AVOID_MARGIN;
+                const routeX = Math.abs(sx! - leftX) < Math.abs(sx! - rightX) ? leftX : rightX;
+                allPts.splice(si + 1, 0, [routeX, sy!], [routeX, ey!]);
+                rerouted = true;
+              }
+              break;
+            }
+          }
+          if (rerouted) break;
+        }
+        if (!needsReroute) break;
+      }
+    }
+
     // ── Edge-aware endpoint snapping ──
     // Arrows stop at the icon edge (or container border), centered on the
     // approached side. For bottom approach on leaf nodes, the endpoint
