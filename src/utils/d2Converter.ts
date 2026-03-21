@@ -1529,8 +1529,9 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
     }
 
     // Enforce orthogonal segments: straighten near-straight lines, L-shape true diagonals.
-    // If the minor axis difference is small (< 20% of major axis), straighten it.
-    // Otherwise create an L-shape entering from the dominant direction.
+    // L-shape direction matches the SOURCE exit direction:
+    // - Source exits horizontally (target primarily left/right) → horizontal first
+    // - Source exits vertically (target primarily above/below) → vertical first
     const ortho: number[][] = [allPts[0]!];
     for (let k = 1; k < allPts.length; k++) {
       const prev = ortho[ortho.length - 1]!;
@@ -1539,19 +1540,21 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       const ady = Math.abs(cur[1]! - prev[1]!);
       if (adx > 1 && ady > 1) {
         const minorRatio = Math.min(adx, ady) / Math.max(adx, ady);
-        if (minorRatio < 0.2) {
-          // Nearly straight — snap the minor axis to make it perfectly straight
+        if (minorRatio < 0.15) {
+          // Nearly straight — snap the minor axis
           if (adx < ady) {
-            cur[0] = prev[0]!; // mostly vertical, snap X
+            cur[0] = prev[0]!;
           } else {
-            cur[1] = prev[1]!; // mostly horizontal, snap Y
+            cur[1] = prev[1]!;
           }
         } else {
-          // True diagonal — L-shape entering from dominant direction
+          // True diagonal — L-shape matching source exit direction
           if (adx >= ady) {
-            ortho.push([prev[0]!, cur[1]!]); // vertical first, enter from side
+            // Target primarily horizontal → exit horizontal first, then vertical
+            ortho.push([cur[0]!, prev[1]!]);
           } else {
-            ortho.push([cur[0]!, prev[1]!]); // horizontal first, enter from top/bottom
+            // Target primarily vertical → exit vertical first, then horizontal
+            ortho.push([prev[0]!, cur[1]!]);
           }
         }
       }
