@@ -2100,9 +2100,21 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
         if (mergedDx < 2 || mergedDy < 2) {
           // Merge stays orthogonal — safe
           allPts.splice(last - 1, 1);
+        } else if (flen < 15 && allPts.length >= 3) {
+          // Very short final segment (<15px) — absorb into the previous segment
+          // by shifting the perpendicular segment to match the endpoint coordinate
+          if (Math.abs(fdx) < 2) {
+            // Final is vertical — shift preceding horizontal segment's Y to endpoint Y
+            prev[1] = end[1]!;
+            if (allPts.length >= 4) allPts[last - 2]![1] = end[1]!;
+            allPts.pop(); // remove redundant endpoint (now same as prev)
+          } else if (Math.abs(fdy) < 2) {
+            // Final is horizontal — shift preceding vertical segment's X to endpoint X
+            prev[0] = end[0]!;
+            if (allPts.length >= 4) allPts[last - 2]![0] = end[0]!;
+            allPts.pop();
+          }
         }
-        // Otherwise keep the short segment — Excalidraw renders arrowheads
-        // at fixed size based on strokeWidth, not segment length
       }
     }
 
