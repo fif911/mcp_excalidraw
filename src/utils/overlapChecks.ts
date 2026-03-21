@@ -920,13 +920,18 @@ function checkIconWrongContainer(elements: Elem[]): OverlapIssue[] {
         // Check if the icon belongs to this container (shares a group)
         const containerGroup = `g-${c.id}`;
         if (!iconGroups.has(containerGroup)) {
-          // Icon is inside container but doesn't belong to it — check if it belongs to a child container
+          // Check if icon is a descendant of this container via ID prefix
+          // Icon IDs: "img-parent_child_leaf", Container IDs: "parent_child"
+          const iconBaseId = ic.id.replace(/^img-/, '');
+          const isDescendant = iconBaseId.startsWith(c.id + '_');
+          if (isDescendant) continue; // legitimate nested child — skip
+
+          // Fallback: check if icon belongs to any child container
           let belongsToChild = false;
           for (const childC of containers) {
             if (childC.id === c.id) continue;
             const childBb = bbox(childC);
             if (rectContains(cBb, childBb)) {
-              // childC is inside c — check if icon belongs to childC
               const childGroup = `g-${childC.id}`;
               if (iconGroups.has(childGroup)) {
                 belongsToChild = true;

@@ -1095,8 +1095,15 @@ export function layoutD2Graph(graph: D2Graph): { layout: Record<string, LayoutNo
     const fromIsLeaf = fromShape.children.length === 0;
     const toIsLeaf = toShape.children.length === 0;
     if (!fromIsLeaf || !toIsLeaf) continue;
-    // Only same-container alignment
-    if (fromShape.parent !== toShape.parent) continue;
+    // Allow alignment within same container OR across layer siblings (same grandparent)
+    if (fromShape.parent !== toShape.parent) {
+      const fromParent = graph.shapes[fromShape.parent ?? ''];
+      const toParent = graph.shapes[toShape.parent ?? ''];
+      const sameGrandparent = fromParent?.parent && toParent?.parent &&
+        fromParent.parent === toParent.parent;
+      const bothLayers = fromParent?.shape === '_layer' && toParent?.shape === '_layer';
+      if (!(sameGrandparent && bothLayers)) continue;
+    }
 
     const fromTextH = measureText(fromShape.label, FONT_SIZE).height;
     const toTextH = measureText(toShape.label, FONT_SIZE).height;
@@ -1150,14 +1157,20 @@ export function layoutD2Graph(graph: D2Graph): { layout: Record<string, LayoutNo
       containerNode.h += expansion;
       changes.push({ elementId: shapeId, change: `expanded container bottom padding from ${Math.round(currentPad)}px to ${MIN_BOTTOM_PAD}px` });
 
-      // Propagate expansion to all ancestor containers
+      // Propagate expansion to ancestors only if child now exceeds/overlaps parent bottom
+      let expandedChildId = shapeId;
       let parentId = shapeId;
       while (parentId.includes('.')) {
         parentId = parentId.substring(0, parentId.lastIndexOf('.'));
         const parentNode = layout[parentId];
-        if (parentNode) {
-          parentNode.h += expansion;
+        const expandedChildNode = layout[expandedChildId];
+        if (!parentNode || !expandedChildNode) break;
+        const childBottom = expandedChildNode.y + expandedChildNode.h;
+        const parentBottom = parentNode.y + parentNode.h;
+        if (childBottom + MIN_BOTTOM_PAD > parentBottom) {
+          parentNode.h = childBottom + MIN_BOTTOM_PAD - parentNode.y;
         }
+        expandedChildId = parentId;
       }
     }
   }
@@ -1540,12 +1553,28 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       const dirY = targetY - fromCy;
       if (Math.abs(dirX) >= Math.abs(dirY)) {
         // Target is primarily to the left or right — exit left/right border
-        const clampedY = Math.max(fromPos.y + CONTAINER_PAD, Math.min(targetY, fromPos.y + fromPos.h - CONTAINER_PAD));
+        const tgtOutsideV = targetY < fromPos.y || targetY > fromPos.y + fromPos.h;
+        let clampedY: number;
+        if (tgtOutsideV) {
+          const usableTop = fromPos.y + HEADER_HEIGHT;
+          const usableBottom = fromPos.y + fromPos.h - CONTAINER_PAD;
+          clampedY = usableTop < usableBottom ? (usableTop + usableBottom) / 2 : fromPos.y + fromPos.h / 2;
+        } else {
+          clampedY = Math.max(fromPos.y + CONTAINER_PAD, Math.min(targetY, fromPos.y + fromPos.h - CONTAINER_PAD));
+        }
         if (dirX < 0) { cx1 = fromPos.x; cy1 = clampedY; }
         else { cx1 = fromPos.x + fromPos.w; cy1 = clampedY; }
       } else {
         // Target is primarily above or below — exit top/bottom border
-        const clampedX = Math.max(fromPos.x + CONTAINER_PAD, Math.min(targetX, fromPos.x + fromPos.w - CONTAINER_PAD));
+        const tgtOutsideH = targetX < fromPos.x || targetX > fromPos.x + fromPos.w;
+        let clampedX: number;
+        if (tgtOutsideH) {
+          const usableLeft = fromPos.x + CONTAINER_PAD;
+          const usableRight = fromPos.x + fromPos.w - CONTAINER_PAD;
+          clampedX = usableLeft < usableRight ? (usableLeft + usableRight) / 2 : fromPos.x + fromPos.w / 2;
+        } else {
+          clampedX = Math.max(fromPos.x + CONTAINER_PAD, Math.min(targetX, fromPos.x + fromPos.w - CONTAINER_PAD));
+        }
         if (dirY < 0) { cx1 = clampedX; cy1 = fromPos.y; }
         else { cx1 = clampedX; cy1 = fromPos.y + fromPos.h; }
       }
@@ -1568,13 +1597,29 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       const dirY = srcY - toCy;
       if (Math.abs(dirX) >= Math.abs(dirY)) {
         // Source is primarily to the left or right — enter left/right border
-        // Clamp Y to container bounds so the entry point is on the actual border
-        const clampedY = Math.max(toPos.y + CONTAINER_PAD, Math.min(srcY, toPos.y + toPos.h - CONTAINER_PAD));
+        const srcOutsideV = srcY < toPos.y || srcY > toPos.y + toPos.h;
+        let clampedY: number;
+        if (srcOutsideV) {
+          // Source is outside container vertically — use center of usable area
+          const usableTop = toPos.y + HEADER_HEIGHT;
+          const usableBottom = toPos.y + toPos.h - CONTAINER_PAD;
+          clampedY = usableTop < usableBottom ? (usableTop + usableBottom) / 2 : toPos.y + toPos.h / 2;
+        } else {
+          clampedY = Math.max(toPos.y + CONTAINER_PAD, Math.min(srcY, toPos.y + toPos.h - CONTAINER_PAD));
+        }
         if (dirX < 0) { cx2 = toPos.x; cy2 = clampedY; }
         else { cx2 = toPos.x + toPos.w; cy2 = clampedY; }
       } else {
         // Source is primarily above or below — enter top/bottom border
-        const clampedX = Math.max(toPos.x + CONTAINER_PAD, Math.min(srcX, toPos.x + toPos.w - CONTAINER_PAD));
+        const srcOutsideH = srcX < toPos.x || srcX > toPos.x + toPos.w;
+        let clampedX: number;
+        if (srcOutsideH) {
+          const usableLeft = toPos.x + CONTAINER_PAD;
+          const usableRight = toPos.x + toPos.w - CONTAINER_PAD;
+          clampedX = usableLeft < usableRight ? (usableLeft + usableRight) / 2 : toPos.x + toPos.w / 2;
+        } else {
+          clampedX = Math.max(toPos.x + CONTAINER_PAD, Math.min(srcX, toPos.x + toPos.w - CONTAINER_PAD));
+        }
         if (dirY < 0) { cx2 = clampedX; cy2 = toPos.y; }
         else { cx2 = clampedX; cy2 = toPos.y + toPos.h; }
       }
@@ -1656,6 +1701,28 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
     const startPt = allPts[0]!;
     const sourceExitsHorizontally = (Math.abs(startPt[1]! - cy1) < 2); // Y unchanged = horizontal exit
 
+    // Build obstacle list for L-shape crossing check: icons + container header text
+    const lShapeObstacles: Array<{ x: number; y: number; w: number; h: number; id: string }> = [];
+    const fromSafeId = conn.from.replace(/\./g, '_');
+    const toSafeId = conn.to.replace(/\./g, '_');
+    for (const el of elements) {
+      const elId = el.id as string;
+      if (elId.includes(fromSafeId) || elId.includes(toSafeId)) continue;
+      if (el.type === 'image') {
+        const ew = (el.width as number) || 0, eh = (el.height as number) || 0;
+        if (ew > 0 && eh > 0) {
+          lShapeObstacles.push({ x: el.x as number, y: el.y as number, w: ew, h: eh, id: elId });
+        }
+      } else if (el.type === 'text') {
+        if (!elId.endsWith('-lbl') || elId.includes('-label') || elId.includes('-tx') || elId.endsWith('-lbl-1')) continue;
+        const text = (el as any).text as string;
+        if (text) {
+          const measured = measureText(text, (el as any).fontSize ?? FONT_SIZE);
+          lShapeObstacles.push({ x: el.x as number, y: el.y as number, w: measured.width, h: measured.height, id: elId });
+        }
+      }
+    }
+
     const ortho: number[][] = [allPts[0]!];
     for (let k = 1; k < allPts.length; k++) {
       const prev = ortho[ortho.length - 1]!;
@@ -1676,48 +1743,33 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
           const isFirstSegment = (k === 1);
           let goHorizontalFirst = isFirstSegment ? sourceExitsHorizontally : (adx >= ady);
 
-          // Check if default direction's first segment would cross an icon
+          // Check if default direction's first segment would cross an obstacle
           const bendPt = goHorizontalFirst ? [cur[0]!, prev[1]!] : [prev[0]!, cur[1]!];
-          const segStartX = prev[0]!, segStartY = prev[1]!;
-          const segEndX = bendPt[0]!, segEndY = bendPt[1]!;
-          const segMinX = Math.min(segStartX, segEndX), segMaxX = Math.max(segStartX, segEndX);
-          const segMinY = Math.min(segStartY, segEndY), segMaxY = Math.max(segStartY, segEndY);
+          const segMinX = Math.min(prev[0]!, bendPt[0]!), segMaxX = Math.max(prev[0]!, bendPt[0]!);
+          const segMinY = Math.min(prev[1]!, bendPt[1]!), segMaxY = Math.max(prev[1]!, bendPt[1]!);
 
-          // Check against placed icons (not source/target)
-          let firstSegCrossesIcon = false;
-          for (const el of elements) {
-            if (el.type !== 'image') continue;
-            const elId = el.id as string;
-            if (elId.includes(conn.from.replace(/\./g, '_')) || elId.includes(conn.to.replace(/\./g, '_'))) continue;
-            const ex = el.x as number, ey = el.y as number;
-            const ew = (el.width as number) || 0, eh = (el.height as number) || 0;
-            if (segMaxX > ex && segMinX < ex + ew && segMaxY > ey && segMinY < ey + eh) {
-              firstSegCrossesIcon = true;
+          let firstSegCrossesObstacle = false;
+          for (const obs of lShapeObstacles) {
+            if (segMaxX > obs.x && segMinX < obs.x + obs.w && segMaxY > obs.y && segMinY < obs.y + obs.h) {
+              firstSegCrossesObstacle = true;
               break;
             }
           }
-          if (firstSegCrossesIcon) {
+          if (firstSegCrossesObstacle) {
             // Check if flipped direction also crosses
             const altBendPt = goHorizontalFirst ? [prev[0]!, cur[1]!] : [cur[0]!, prev[1]!];
-            const altStartX = prev[0]!, altStartY = prev[1]!;
-            const altEndX = altBendPt[0]!, altEndY = altBendPt[1]!;
-            const altMinX = Math.min(altStartX, altEndX), altMaxX = Math.max(altStartX, altEndX);
-            const altMinY = Math.min(altStartY, altEndY), altMaxY = Math.max(altStartY, altEndY);
+            const altMinX = Math.min(prev[0]!, altBendPt[0]!), altMaxX = Math.max(prev[0]!, altBendPt[0]!);
+            const altMinY = Math.min(prev[1]!, altBendPt[1]!), altMaxY = Math.max(prev[1]!, altBendPt[1]!);
 
-            let altCrossesIcon = false;
-            for (const el of elements) {
-              if (el.type !== 'image') continue;
-              const elId = el.id as string;
-              if (elId.includes(conn.from.replace(/\./g, '_')) || elId.includes(conn.to.replace(/\./g, '_'))) continue;
-              const ex = el.x as number, ey = el.y as number;
-              const ew = (el.width as number) || 0, eh = (el.height as number) || 0;
-              if (altMaxX > ex && altMinX < ex + ew && altMaxY > ey && altMinY < ey + eh) {
-                altCrossesIcon = true;
+            let altCrossesObstacle = false;
+            for (const obs of lShapeObstacles) {
+              if (altMaxX > obs.x && altMinX < obs.x + obs.w && altMaxY > obs.y && altMinY < obs.y + obs.h) {
+                altCrossesObstacle = true;
                 break;
               }
             }
 
-            if (!altCrossesIcon) {
+            if (!altCrossesObstacle) {
               goHorizontalFirst = !goHorizontalFirst; // flip works
             } else {
               // Both directions cross — add 3-segment route around the obstacle
@@ -1985,7 +2037,6 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
     else allPts = cleaned;
 
     // Ensure final segment ≥ 30px (prevents small arrowheads in Excalidraw)
-    // Only merge if the result stays orthogonal — don't create diagonals
     if (allPts.length >= 3) {
       const last = allPts.length - 1;
       const prev = allPts[last - 1]!;
@@ -1994,12 +2045,18 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       const fdy = end[1]! - prev[1]!;
       const flen = Math.sqrt(fdx * fdx + fdy * fdy);
       if (flen > 0 && flen < 30) {
-        // Only merge if result stays orthogonal — otherwise keep the short segment
         const prevPrev = allPts[last - 2]!;
         const mergedDx = Math.abs(end[0]! - prevPrev[0]!);
         const mergedDy = Math.abs(end[1]! - prevPrev[1]!);
         if (mergedDx < 2 || mergedDy < 2) {
+          // Merge stays orthogonal — safe
           allPts.splice(last - 1, 1);
+        } else {
+          // Can't merge without diagonal — extend endpoint INTO icon
+          const MIN_FINAL_SEG = 35;
+          const extendBy = MIN_FINAL_SEG - flen;
+          end[0] = end[0]! + (fdx / flen) * extendBy;
+          end[1] = end[1]! + (fdy / flen) * extendBy;
         }
       }
     }
