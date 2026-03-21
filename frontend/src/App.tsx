@@ -726,25 +726,23 @@ function App(): JSX.Element {
           break
 
         case 'd2_convert':
-          console.log('Received D2 conversion result from server')
+        case 'd3_convert':
+          console.log(`Received ${data.type} result from server`)
           if (data.elements && data.elements.length > 0) {
             try {
-              const cleanedD2Elements = data.elements.map(cleanElementForExcalidraw)
-              const validatedD2Elements = validateAndFixBindings(cleanedD2Elements)
-              const allD2Elements = [...currentElements, ...validatedD2Elements] as any[]
-              const rawConvertedD2 = convertToExcalidrawElements(allD2Elements, { regenerateIds: false })
-              const convertedD2Elements = restoreBindings(rawConvertedD2, allD2Elements)
+              const cleanedElements = data.elements.map(cleanElementForExcalidraw)
+              const validatedElements = validateAndFixBindings(cleanedElements)
+              const allElements = [...currentElements, ...validatedElements] as any[]
+              const rawConverted = convertToExcalidrawElements(allElements, { regenerateIds: false })
+              const convertedElements = restoreBindings(rawConverted, allElements)
               excalidrawAPI.updateScene({
-                elements: convertedD2Elements,
+                elements: convertedElements,
                 captureUpdate: CaptureUpdateAction.IMMEDIATELY
               })
 
-              console.log('D2 diagram rendered:', data.elements.length, 'elements')
-              // Don't syncToBackend — server already has correct elements from create_from_d2.
-              // Syncing back would overwrite server data with Excalidraw-normalized values
-              // (e.g., strokeColor gets reset to "" by convertToExcalidrawElements).
+              console.log(`${data.type} diagram rendered:`, data.elements.length, 'elements')
             } catch (error) {
-              console.error('Error rendering D2 diagram from WebSocket:', error)
+              console.error(`Error rendering ${data.type} diagram from WebSocket:`, error)
             }
           }
           break

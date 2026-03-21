@@ -20,16 +20,16 @@ to catch fine-grained issues that full-image review misses.
 
 ### Phase 0: Pre-Build Plan Verification (before Main agent starts)
 
-Before the Main agent builds anything, the Critic reads `diagram.d2` and
+Before the Main agent builds anything, the Critic reads `diagram.d3` and
 verifies every connection against the reference image:
 
-1. Read `diagram.d2` — list every numbered and unlabeled arrow
+1. Read `diagram.d3` — list every numbered and unlabeled arrow
 2. For each arrow, confirm against the reference:
    - Source element exists in the reference
    - Target element exists in the reference
    - Direction matches (from source to target, not reversed)
    - The connection itself exists (not a phantom arrow)
-3. Check for connections in the reference that are MISSING from `diagram.d2`
+3. Check for connections in the reference that are MISSING from `diagram.d3`
 4. Verify no `header_bg_color` is planned for any container
 5. Verify all cross-boundary arrow badges have manual position overrides planned
 
@@ -75,18 +75,18 @@ python3 scripts/crop_region.py <image> <x> <y> <width> <height> <o>.png
 
 Do NOT skip passes. Issues invisible at full-image scale become obvious when zoomed in.
 
-### Phase 3: D2 Structural Compliance Check
+### Phase 3: D3 Structural Compliance Check
 
-Before visual inspection, verify the canvas matches `diagram.d2` structurally:
+Before visual inspection, verify the canvas matches `diagram.d3` structurally:
 
-1. Read `diagram.d2` — list every node and connection
-2. Read `diagram.d2` — list every arrow
+1. Read `diagram.d3` — list every node and connection
+2. Read `diagram.d3` — list every arrow
 3. Call `describe_scene` or `get_elements` to get canvas element list
 4. Cross-check:
-   - Every leaf node in `diagram.d2` → has a corresponding icon+label on canvas
-   - Every container in `diagram.d2` → has a corresponding rectangle on canvas
-   - Every connection in `diagram.d2` → has a corresponding arrow on canvas
-   - No extra elements on canvas not present in `diagram.d2`
+   - Every leaf node in `diagram.d3` → has a corresponding icon+label on canvas
+   - Every container in `diagram.d3` → has a corresponding rectangle on canvas
+   - Every connection in `diagram.d3` → has a corresponding arrow on canvas
+   - No extra elements on canvas not present in `diagram.d3`
 
 Any mismatch is a **Critical** error → route to Planner if structural, Main if positional.
 
@@ -157,16 +157,16 @@ etc.), not from the void.
 
 ### HARD RULE: No Phantom Arrows — Every Arrow Must Trace to the Reference
 
-Do NOT invent arrows that aren't in `diagram.d2`. Every arrow must have
+Do NOT invent arrows that aren't in `diagram.d3`. Every arrow must have
 a clear source and target that matches the reference. Common violations:
 - Adding "external → Service" arrows from the diagram edge that don't exist in reference
 - Adding return arrows that aren't shown
 - Connecting icons that happen to be near each other but aren't linked
 - **Connecting standalone elements** — elements listed under "Standalone Elements" in
-  `diagram.d2` must have ZERO arrows. The agent often "helpfully" connects
+  `diagram.d3` must have ZERO arrows. The agent often "helpfully" connects
   unconnected icons (e.g., inventing User → DTH UI). Whether an element is standalone
   depends on the specific reference image — not the element type. Verify by checking that
-  every leaf node in `diagram.d2` appears in exactly one of: numbered arrows, unlabeled
+  every leaf node in `diagram.d3` appears in exactly one of: numbered arrows, unlabeled
   arrows, or standalone elements.
 
 ### HARD RULE: Icon Color Must Match the Reference Image
@@ -234,7 +234,7 @@ Crop and inspect every cross-boundary arrow endpoint:
   x-coordinate, a vertical segment at that x crosses through labels
 - Arrow only crosses container borders it's actually entering/leaving
 - Arrows must never cross container header text or icons
-- Arrow direction is correct (verify against `diagram.d2`)
+- Arrow direction is correct (verify against `diagram.d3`)
 - Arrow doesn't float in empty space
 
 ### L-Shaped Arrow Rules
@@ -266,7 +266,7 @@ is too short (<30px). Crop and compare every arrowhead at zoom.
 
 Crop each numbered badge. Check:
 
-- Badge shape matches `diagram.d2` (circle vs square)
+- Badge shape matches `diagram.d3` (circle vs square)
 - Badge color matches style (dark `#1a1a1a` vs blue `#147EBA`)
 - All badges use the same size, color, and shape — never mixed
 - Number is centered and readable (white text on dark background)
@@ -373,7 +373,7 @@ If an arrow is drawn over a badge, or a container covers an icon, the z-order is
 - Don't accept icons with the wrong color variant (e.g., pink template when reference shows orange)
 - Don't accept rounded corners on any container
 - Don't accept container borders that touch parent borders (min 15px clearance)
-- Don't invent arrows not in `diagram.d2`
+- Don't invent arrows not in `diagram.d3`
 - Don't assume external actors go outside the AWS Cloud boundary — check the reference
 - Don't use single-line wide labels in grids — split with `\n`
 - Don't trust `container_box` specified width — verify rendered width fits inside parent

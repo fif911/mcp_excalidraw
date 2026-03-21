@@ -11,7 +11,7 @@ When asked to build a diagram, you do NOT do the work yourself. You **spawn agen
 2. Spawn Critic agent (Phase 0) → verifies plan.md arrows against reference
    If Critic finds wrong arrows → spawn Planner again to fix plan.md
 3. Spawn Main agent with plan.md path + reference image path
-   Main writes diagram.d2, does exactly 2 builds (structure → arrows)
+   Main writes diagram.d3, does exactly 2 builds (structure → arrows)
 4. Spawn Critic agent → reviews output, sends fixes directly to Main
 5. Main fixes issues based on Critic feedback, rebuilds
 6. Repeat 4-5 until Critic reports no issues
@@ -29,7 +29,7 @@ When asked to build a diagram, you do NOT do the work yourself. You **spawn agen
 ### What the orchestrator does NOT do
 
 - Do NOT read skill files — agents read their own
-- Do NOT write `plan.md` or `diagram.d2` — Planner and Main write them
+- Do NOT write `plan.md` or `diagram.d3` — Planner and Main write them
 - Do NOT review the diagram — Critic does it
 
 ---
@@ -43,14 +43,14 @@ Spawn with the Agent tool. Include in the prompt:
 - "Read `skills/excalidraw-diagramming/SKILL.md` — Phase 1 (Planner) section"
 - If re-running after Critic structural feedback: include the issues list
 
-**Goal:** Write a text plan describing every element, container, connection, and styling in the diagram. Describe column structure for complex containers. No D2 code, no pixel positions.
+**Goal:** Write a text plan describing every element, container, connection, and styling in the diagram. Describe column structure for complex containers. No D3 code, no pixel positions.
 
 ### Planner instructions (include in agent prompt)
 
 - Read `skills/excalidraw-diagramming/SKILL.md` — Phase 1 (Planner) section only
 - Do NOT read `skills/diagram-review/` files — those are for the Critic only
 - NEVER read files from `diagrams/` other than the current version
-- Do NOT write D2 code — Main translates the plan into D2
+- Do NOT write D3 code — Main translates the plan into D2
 - Version format: `v{N}` (e.g., `v1`, `v2`, `v3`)
 
 ### Planner output
@@ -75,12 +75,12 @@ Spawn with the Agent tool. Include in the prompt:
 - "Read `skills/excalidraw-diagramming/SKILL.md` — Phase 2 (Main) section"
 - If re-running after Critic feedback: include the issues list
 
-**Goal:** Translate `plan.md` into `diagram.d2`, do exactly 2 builds (structure then arrows), then hand to Critic.
+**Goal:** Translate `plan.md` into `diagram.d3`, do exactly 2 builds (structure then arrows), then hand to Critic.
 
 ### Main instructions (include in agent prompt)
 
 - Read `skills/excalidraw-diagramming/SKILL.md` — Phase 2 (Main) section only
-- Write `diagram.d2` from the plan — use `layout: layers` for complex containers, `pos:` only on top-level containers
+- Write `diagram.d3` from the plan — use `layout: layers` for complex containers, `pos:` only on top-level containers
 - **Do NOT call `search_aws_icons`** — the tool resolves icons automatically
 - **Do NOT set `icon:` with file paths** — use `icon_type`, `icon_variant`, `icon_hint` only
 - **Build 1:** structure + layout, no waypoints/badge_pos. Read ELEMENT POSITIONS output.
@@ -100,9 +100,9 @@ Spawn with the Agent tool. Include in the prompt:
 Spawn with the Agent tool. Include in the prompt:
 
 - The reference image path
-- The path to `plan.md` and `diagram.d2`
+- The path to `plan.md` and `diagram.d3`
 - "Read `skills/diagram-review/SKILL.md` and `skills/diagram-review/references/checklist.md`"
-- "Verify every arrow in diagram.d2 against the connection table in plan.md"
+- "Verify every arrow in diagram.d3 against the connection table in plan.md"
 - "Use `crop_screenshot` with grid mode (e.g., `grid: "3x3"`) to systematically inspect every region"
 - "Use `crop_screenshot` with x/y/width/height to zoom into specific problem areas"
 - "Compare each crop against the corresponding region in the reference image"
@@ -139,7 +139,7 @@ After every build (successful or not), write `diagrams/v{N}/build_log.md`. This 
 ## Overview
 - **Reference:** `refs/{filename}` or text description summary
 - **Duration:** approximate total time
-- **Build iterations:** how many runs of create_from_d2 + fix reruns
+- **Build iterations:** how many runs of create_from_d3 + fix reruns
 - **Final element count:** total elements, arrows (numbered + unlabeled)
 
 ## Structure
@@ -157,9 +157,9 @@ Chronological record of every phase. For each phase include:
 
 Phases typically include:
 1. Setup & Exploration — reading reference, skill files, checking server
-2. Planner Phase — creating diagram.d2
+2. Planner Phase — creating diagram.d3
 3. Icon Lookup — search_aws_icons calls, path confirmations
-4. Build Run(s) — each create_from_d2 call and its result
+4. Build Run(s) — each create_from_d3 call and its result
 5. Fix Attempts — each fix with root cause, what changed, result
 6. Export — export method used and any issues
 

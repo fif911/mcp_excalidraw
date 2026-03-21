@@ -635,18 +635,13 @@ const tools: Tool[] = [
   },
   {
     name: 'create_from_d2',
-    description: 'Build a complete Excalidraw diagram from D2 syntax. Clears canvas, resolves AWS icons from labels, creates containers with headers, places service nodes with icons, draws arrows with numbered badges, and validates. Returns stats and any issues.',
+    description: 'Build a basic Excalidraw diagram from standard D2 syntax. For the enhanced version with layout engines, arrow routing, and crossing avoidance, use create_from_d3 instead.',
     inputSchema: {
       type: 'object',
       properties: {
         d2Diagram: {
           type: 'string',
-          description: 'Standard D2 diagram syntax. Containers use nested {}, connections use -> with optional numeric labels for badges (e.g., ": 2"). The tool auto-resolves icons from node labels and applies AWS styling.'
-        },
-        layout: {
-          type: 'string',
-          enum: ['dagre', 'elk'],
-          description: 'Layout engine hint — used for CLI validation only. Actual layout is computed by the converter.'
+          description: 'Standard D2 diagram syntax.'
         },
         validate: {
           type: 'boolean',
@@ -654,6 +649,25 @@ const tools: Tool[] = [
         }
       },
       required: ['d2Diagram']
+    }
+  },
+  {
+    name: 'create_from_d3',
+    description: 'Build a complete Excalidraw diagram from D3 syntax (enhanced D2). Clears canvas, resolves AWS icons from labels, creates containers with headers, places service nodes with icons, draws arrows with numbered badges, auto-routes around obstacles, and validates. Returns stats, validation issues, and element positions.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        d3Diagram: {
+          type: 'string',
+          description: 'D3 diagram syntax (enhanced D2). Supports layout: layers/row/col/NxM, pos:, waypoints:, badge_pos:, icon_type/variant/hint, arrow_style {}, and style properties.'
+        },
+        layout: {
+          type: 'string',
+          enum: ['dagre', 'elk'],
+          description: 'Layout engine hint — used for reference only. Actual layout is computed by the converter.'
+        }
+      },
+      required: ['d3Diagram']
     }
   },
   {
@@ -1503,24 +1517,43 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
       case 'create_from_d2': {
         const params = z.object({
           d2Diagram: z.string(),
-          layout: z.enum(['dagre', 'elk']).optional().default('dagre'),
           validate: z.boolean().optional().default(true),
         }).parse(args);
-
-        logger.info('Creating Excalidraw elements from D2 diagram via MCP', {
-          diagramLength: params.d2Diagram.length,
-          layout: params.layout,
-          validate: params.validate
-        });
-
         try {
           const response = await fetch(`${EXPRESS_SERVER_URL}/api/elements/from-d2`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ d2Diagram: params.d2Diagram, validate: params.validate }),
+          });
+          if (!response.ok) {
+            const err = await response.json() as any;
+            return { content: [{ type: 'text', text: `D2 conversion failed: ${err.error ?? response.statusText}` }] };
+          }
+          const result = await response.json() as any;
+          return { content: [{ type: 'text', text: `D2 diagram built! ${result.elementCount} elements.` }] };
+        } catch (error) {
+          throw new Error(`Failed to process D2 diagram: ${(error as Error).message}`);
+        }
+      }
+
+      case 'create_from_d3': {
+        const params = z.object({
+          d3Diagram: z.string(),
+          layout: z.enum(['dagre', 'elk']).optional().default('dagre'),
+        }).parse(args);
+
+        logger.info('Creating Excalidraw elements from D3 diagram via MCP', {
+          diagramLength: params.d3Diagram.length,
+          layout: params.layout,
+        });
+
+        try {
+          const response = await fetch(`${EXPRESS_SERVER_URL}/api/elements/from-d3`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              d2Diagram: params.d2Diagram,
+              d3Diagram: params.d3Diagram,
               layout: params.layout,
-              validate: params.validate,
             }),
           });
 
@@ -1529,14 +1562,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
             return {
               content: [{
                 type: 'text',
-                text: `D2 conversion failed: ${err.error ?? response.statusText}${err.details ? `\n\nDetails:\n${err.details}` : ''}`
+                text: `D3 conversion failed: ${err.error ?? response.statusText}${err.details ? `\n\nDetails:\n${err.details}` : ''}`
               }]
             };
           }
 
           const result = await response.json() as any;
 
-          let summary = `D2 diagram built!\n\nContainers: ${result.containers ?? 0}\nNodes: ${result.nodes ?? 0}\nArrows: ${result.arrows ?? 0}\nBadges: ${result.badges ?? 0}\nTotal elements: ${result.elementCount}`;
+          let summary = `D3 diagram built!\n\nContainers: ${result.containers ?? 0}\nNodes: ${result.nodes ?? 0}\nArrows: ${result.arrows ?? 0}\nBadges: ${result.badges ?? 0}\nTotal elements: ${result.elementCount}`;
           if (result.iconsMissing?.length) {
             summary += `\n\nIcons not found (shown as rectangles):\n${result.iconsMissing.join('\n')}`;
           }
@@ -1547,17 +1580,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
             summary += `\n\n${result.overlapReport.summary}`;
           }
 
-          // Layout changes — things the tool modified from the D2 spec
           if (result.layoutChanges?.length) {
-            summary += '\n\n=== LAYOUT CHANGES (update your D2 to match) ===\n';
+            summary += '\n\n=== LAYOUT CHANGES (update your D3 to match) ===\n';
             for (const c of result.layoutChanges) {
               summary += `  ${c.elementId}: ${c.change}\n`;
             }
           }
 
-          // Position map for Main agent — use these for waypoints and badge_pos calculations
           if (result.positions?.length) {
-            summary += '\n\n=== ELEMENT POSITIONS (use for waypoints/badge_pos) ===\n';
+            summary += '\n\n=== ELEMENT POSITIONS (use for waypoints) ===\n';
             for (const p of result.positions) {
               if (p.type === 'container') {
                 summary += `\n[CONTAINER] ${p.id} "${p.label}"\n`;
@@ -1576,7 +1607,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
             }]
           };
         } catch (error) {
-          throw new Error(`Failed to process D2 diagram: ${(error as Error).message}`);
+          throw new Error(`Failed to process D3 diagram: ${(error as Error).message}`);
         }
       }
 

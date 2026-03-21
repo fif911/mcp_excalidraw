@@ -31,6 +31,7 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import { convertD2ToExcalidraw } from './utils/d2Converter.js';
+import { convertD3ToExcalidraw } from './utils/d3Converter.js';
 import { runAllOverlapChecks } from './utils/overlapChecks.js';
 
 // Load environment variables
@@ -736,23 +737,13 @@ app.post('/api/elements/from-mermaid', (req: Request, res: Response) => {
 });
 
 // Convert D2 diagram to Excalidraw elements
+// D2 route — basic D2 converter (original, pre-enhancement)
 app.post('/api/elements/from-d2', async (req: Request, res: Response) => {
   try {
     const { d2Diagram, layout = 'dagre', validate = true } = req.body;
     if (!d2Diagram || typeof d2Diagram !== 'string') {
-      return res.status(400).json({
-        success: false,
-        error: 'D2 diagram definition is required'
-      });
+      return res.status(400).json({ success: false, error: 'D2 diagram definition is required' });
     }
-
-    logger.info('Received D2 conversion request', {
-      diagramLength: d2Diagram.length,
-      layout,
-      validate
-    });
-
-    // Optional: validate syntax using d2 CLI if installed
     if (validate) {
       try {
         const tmpIn = path.join(os.tmpdir(), `d2-validate-${Date.now()}.d2`);
@@ -760,22 +751,51 @@ app.post('/api/elements/from-d2', async (req: Request, res: Response) => {
         execSync(`d2 --check ${tmpIn}`, { stdio: 'pipe' });
         fs.unlinkSync(tmpIn);
       } catch (err: any) {
-        // d2 CLI not installed or syntax error — log but don't block
         const stderr = err.stderr?.toString() ?? '';
         if (stderr.includes('syntax') || stderr.includes('error')) {
-          return res.status(400).json({
-            success: false,
-            error: 'D2 syntax error',
-            details: stderr || err.message,
-          });
+          return res.status(400).json({ success: false, error: 'D2 syntax error', details: stderr || err.message });
         }
-        // CLI not found — skip validation silently
-        logger.info('d2 CLI not available, skipping validation');
       }
     }
-
-    // Convert D2 syntax → Excalidraw elements + icons
     const result = convertD2ToExcalidraw(d2Diagram);
+    elements.clear();
+    broadcast({ type: 'canvas_cleared', timestamp: new Date().toISOString() });
+    for (const el of result.elements) {
+      elements.set(el.id, { ...el, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), version: 1 });
+    }
+    if (result.files.length > 0) {
+      for (const f of result.files) { files.set(f.id, { id: f.id, dataURL: f.dataURL, mimeType: f.mimeType, created: Date.now() }); }
+      broadcast({ type: 'files_added', files: result.files } as any);
+    }
+    broadcast({ type: 'd2_convert', elements: result.elements, timestamp: new Date().toISOString() } as any);
+    res.json({ success: true, elementCount: result.elements.length, ...result.stats });
+  } catch (error) {
+    logger.error('Error processing D2 diagram:', error);
+    res.status(400).json({ success: false, error: (error as Error).message });
+  }
+});
+
+// D3 route — enhanced converter with layout engine, arrow routing, crossing avoidance
+app.post('/api/elements/from-d3', async (req: Request, res: Response) => {
+  try {
+    const { d3Diagram, layout = 'dagre', validate = true } = req.body;
+    if (!d3Diagram || typeof d3Diagram !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'D3 diagram definition is required'
+      });
+    }
+
+    logger.info('Received D3 conversion request', {
+      diagramLength: d3Diagram.length,
+      layout,
+      validate
+    });
+
+    // D3 skips d2 CLI validation — our syntax has diverged from standard D2
+
+    // Convert D3 syntax → Excalidraw elements + icons
+    const result = convertD3ToExcalidraw(d3Diagram);
 
     // Upload icon files to server storage
     for (const f of result.files) {
@@ -802,7 +822,7 @@ app.post('/api/elements/from-d2', async (req: Request, res: Response) => {
       broadcast({ type: 'files_added', files: result.files } as any);
     }
     broadcast({
-      type: 'd2_convert',
+      type: 'd3_convert',
       elements: result.elements,
       timestamp: new Date().toISOString()
     } as any);
@@ -821,9 +841,8 @@ app.post('/api/elements/from-d2', async (req: Request, res: Response) => {
         appState: { viewBackgroundColor: '#ffffff' },
       };
 
-      // Detect version folder from D2 content or request
-      // Look for diagrams/vN/ pattern in the D2 comments or nearby context
-      const versionMatch = d2Diagram.match(/[—-]\s*v(\d+)/i);
+      // Detect version folder from D3 content
+      const versionMatch = d3Diagram.match(/[—-]\s*v(\d+)/i);
       const diagramsDir = path.resolve(process.cwd(), 'diagrams');
 
       let savedDir: string;
@@ -893,10 +912,10 @@ app.post('/api/elements/from-d2', async (req: Request, res: Response) => {
         summary: overlapReport.summary,
       },
       positions: result.positions,
-      message: `D2 diagram built: ${result.stats.containers} containers, ${result.stats.nodes} nodes, ${result.stats.arrows} arrows, ${result.stats.badges} badges.`
+      message: `D3 diagram built: ${result.stats.containers} containers, ${result.stats.nodes} nodes, ${result.stats.arrows} arrows, ${result.stats.badges} badges.`
     });
   } catch (error) {
-    logger.error('Error processing D2 diagram:', error);
+    logger.error('Error processing D3 diagram:', error);
     res.status(400).json({
       success: false,
       error: (error as Error).message

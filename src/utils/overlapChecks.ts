@@ -944,7 +944,7 @@ function checkIconWrongContainer(elements: Elem[]): OverlapIssue[] {
               type: 'ICON_WRONG_CONTAINER',
               severity: 'error',
               message: `Icon '${ic.id}' is visually inside container '${c.id}' but doesn't belong to it. Move the icon outside this container or fix its nesting.`,
-              fix: `Move icon outside container '${c.id}' bounds, or change the D2 nesting so the icon is a child of this container.`,
+              fix: `Move icon outside container '${c.id}' bounds, or change the D3 nesting so the icon is a child of this container.`,
             });
           }
         }

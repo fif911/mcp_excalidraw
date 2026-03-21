@@ -5,19 +5,19 @@ a diagram ready for delivery.
 
 ---
 
-## Layer 0: D2 Structural Compliance
+## Layer 0: D3 Structural Compliance
 
-Before any visual checks, verify the canvas matches `diagram.d2`:
+Before any visual checks, verify the canvas matches `diagram.d3`:
 
-- [ ] Every leaf node in `diagram.d2` has a corresponding icon+label on canvas
-- [ ] Every container in `diagram.d2` has a corresponding rectangle on canvas
-- [ ] Every connection in `diagram.d2` has a corresponding arrow on canvas
-- [ ] No extra elements on canvas not present in `diagram.d2`
-- [ ] Every arrow in `diagram.d2` is present — correct source, target, direction, and badge number
-- [ ] No arrows on canvas that are NOT in `diagram.d2`
-- [ ] **Standalone elements have zero arrows** — elements in the "Standalone Elements" section of `diagram.d2` must not be the source or target of any arrow on canvas
-- [ ] Every leaf node in `diagram.d2` accounted for in exactly one of: numbered arrows, unlabeled arrows, or standalone elements
-- [ ] Every connection in `diagram.d2` verified against reference image before build (Phase 0)
+- [ ] Every leaf node in `diagram.d3` has a corresponding icon+label on canvas
+- [ ] Every container in `diagram.d3` has a corresponding rectangle on canvas
+- [ ] Every connection in `diagram.d3` has a corresponding arrow on canvas
+- [ ] No extra elements on canvas not present in `diagram.d3`
+- [ ] Every arrow in `diagram.d3` is present — correct source, target, direction, and badge number
+- [ ] No arrows on canvas that are NOT in `diagram.d3`
+- [ ] **Standalone elements have zero arrows** — elements in the "Standalone Elements" section of `diagram.d3` must not be the source or target of any arrow on canvas
+- [ ] Every leaf node in `diagram.d3` accounted for in exactly one of: numbered arrows, unlabeled arrows, or standalone elements
+- [ ] Every connection in `diagram.d3` verified against reference image before build (Phase 0)
 - [ ] No external arrows — every arrow start/end point is on a real element, never in empty canvas space or at the diagram edge
 - [ ] No internal stub arrows — no arrows drawn purely inside a container going to its own border (these are ghost stubs; cross-container exits start FROM the border)
 
@@ -43,11 +43,11 @@ Before any visual checks, verify the canvas matches `diagram.d2`:
 ### Cross-Container Arrow Rule
 - [ ] Arrows entering a nested container end at the container's BORDER — not inside it
 - [ ] No arrow pierces through a container to reach an internal service icon
-- [ ] Every cross-container arrow has explicit `waypoints` in `diagram.d2` for clean L-shape routing
+- [ ] Every cross-container arrow has explicit `waypoints` in `diagram.d3` for clean L-shape routing
 - [ ] Badges are auto-placed by the tool — only add `badge_pos:` override if validation flags a border overlap
 
 ### Container Hierarchy
-- [ ] Nested containers reflect logical grouping from `diagram.d2`
+- [ ] Nested containers reflect logical grouping from `diagram.d3`
 - [ ] Every icon+label pair shares a `groupIds` entry
 - [ ] Container labels don't overlap child elements
 - [ ] No element sits partially inside and partially outside a container
@@ -111,7 +111,7 @@ assert len(issues) == 0, f"Validation failed: {issues}"
 
 ### Numbered Badges
 - [ ] All badges use the same style: color, shape (`circle` vs `square`), size
-- [ ] Badge shape matches `diagram.d2` (dark circle vs blue square)
+- [ ] Badge shape matches `diagram.d3` (dark circle vs blue square)
 - [ ] Numbers are centered and readable inside badges
 - [ ] Badges do not touch or overlap arrow lines (offset ≥ `CIRCLE_R + 5` px)
 - [ ] Badges are on the arrow body — not at endpoints
@@ -163,8 +163,8 @@ assert len(issues) == 0, f"Validation failed: {issues}"
 
 | Failure | Layer | Detection method |
 |---------|-------|-----------------|
-| Node in `diagram.d2` missing from canvas | L0 | D2 compliance check |
-| Arrow in `diagram.d2` missing | L0 | D2 compliance check |
+| Node in `diagram.d3` missing from canvas | L0 | D3 compliance check |
+| Arrow in `diagram.d3` missing | L0 | D3 compliance check |
 | Cross-container arrow pierces container interior | L1+L2 | Arrow endpoint check + visual crop |
 | External actor uses architecture (colored) icon | L1+L2 | Icon type check |
 | External actor position wrong (inside vs outside) | L1+L2 | Reference image comparison |

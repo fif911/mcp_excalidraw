@@ -2,20 +2,20 @@
 name: excalidraw-diagramming
 description: >
   Build AWS/cloud architecture diagrams on Excalidraw. Planner writes a text plan,
-  Main translates it into D2 and builds with create_from_d2.
+  Main translates it into D3 and builds with create_from_d3.
 ---
 
 # Excalidraw Diagramming Skill
 
-Two-phase workflow: **Planner** writes a text plan describing the diagram, **Main** translates it into D2 code, builds, and iterates with Critic feedback.
+Two-phase workflow: **Planner** writes a text plan describing the diagram, **Main** translates it into D3 code, builds, and iterates with Critic feedback.
 
 ---
 
-## D2 Syntax Reference (Main agent)
+## D3 Syntax Reference (Main agent)
 
 ### Containers (nested braces)
 
-```d2
+```d3
 aws_cloud: AWS Cloud {
   customer_account: Customer's AWS Account {
     cognito: Amazon Cognito
@@ -26,7 +26,7 @@ aws_cloud: AWS Cloud {
 
 ### Dashed sub-boundaries
 
-```d2
+```d3
 auth: Authentication {
   style.stroke-dash: 5
   cognito: Amazon Cognito
@@ -36,7 +36,7 @@ auth: Authentication {
 
 ### Connections with numbered badges
 
-```d2
+```d3
 cognito -> appsync: 2
 appsync -> lambda: 4
 appsync <-> lambda: 3
@@ -45,14 +45,14 @@ cloudfront -> s3
 
 ### Standalone elements
 
-```d2
+```d3
 user: User
 # standalone: true
 ```
 
 ### Colored containers
 
-```d2
+```d3
 step_functions: AWS Step Functions workflow {
   style.stroke: "#E7157B"
   lambda_sf: AWS Lambda
@@ -64,7 +64,7 @@ step_functions: AWS Step Functions workflow {
 
 Check the reference — actors may be outside all containers, inside AWS Cloud but outside accounts, etc. Place at correct nesting level:
 
-```d2
+```d3
 user: User
 
 aws_cloud: AWS Cloud {
@@ -77,7 +77,7 @@ aws_cloud: AWS Cloud {
 
 ### Icon hint attributes
 
-```d2
+```d3
 user: User {
   icon_type: resource
   icon_variant: Light
@@ -96,7 +96,7 @@ ecr_docker: ECR Docker image {
 
 ### Arrow style (global)
 
-```d2
+```d3
 arrow_style {
   stroke_color: "#545B64"
   badge_bg: "#232F3E"
@@ -117,7 +117,7 @@ All badges in a diagram must use the same style — never mix.
 
 ### Layout hints
 
-```d2
+```d3
 managed_account: AWS Managed Account {
   pos: "1230,100,680,860"
   layout: "2x3"
@@ -131,7 +131,7 @@ Values: `"NxM"` (cols × rows), `row`, `col`, `layers`. Tool auto-detects grid i
 
 **`layout: layers`** — arranges children as left-to-right columns. Each direct child is an invisible "layer" (no borders). Elements within each layer stack vertically. Use this for containers with complex multi-column arrangements:
 
-```d2
+```d3
 customer_account: Customer's AWS Account {
   layout: layers
 
@@ -171,7 +171,7 @@ The tool calculates all column widths, heights, and positions. No `pos:` needed 
 
 ## Phase 1: Planner (structure & reference interpretation)
 
-The Planner reads the reference image and writes `plan.md` — a structured description of every element, container, connection, and styling, with approximate positions estimated from the reference. No D2 code.
+The Planner reads the reference image and writes `plan.md` — a structured description of every element, container, connection, and styling, with approximate positions estimated from the reference. No D3 code.
 
 ### Planner output
 
@@ -266,26 +266,26 @@ The plan must contain these sections in order:
 
 ### Planner does NOT do
 
-- Do NOT write D2 code — Main does that
+- Do NOT write D3 code — Main does that
 - Do NOT specify pixel positions — Main handles all `pos:` values
 - Do NOT read previous diagram versions from `diagram_building/`
 - Do NOT read `skills/diagram-review/` files — those are for the Critic only
 
 ---
 
-## Phase 2: Main (D2 coding, building, iterating)
+## Phase 2: Main (D3 coding, building, iterating)
 
-Main reads `plan.md` and the reference image, writes `diagram.d2`, then does exactly 2 builds. **Critic talks directly to Main** — no routing through Planner for visual/positional fixes.
+Main reads `plan.md` and the reference image, writes `diagram.d3`, then does exactly 2 builds. **Critic talks directly to Main** — no routing through Planner for visual/positional fixes.
 
 ### Main responsibilities — EXACTLY two builds, no more
 
 **Build 1: Structure + layout, NO arrows refinement**
-1. Write `diagram.d2` from `plan.md` — first line must be `# Diagram Name — v{N}` (e.g., `# Data Transfer Hub — v1`) so the tool saves `.excalidraw` to the correct version folder
+1. Write `diagram.d3` from `plan.md` — first line must be `# Diagram Name — v{N}` (e.g., `# Data Transfer Hub — v1`) so the tool saves `.excalidraw` to the correct version folder
 2. Use `layout: layers` for complex containers — describe which elements go in which column
 3. Use `layout: row`, `col`, `"NxM"` for sub-containers with regular patterns
 4. Add `pos:` ONLY to top-level containers (AWS Cloud, account containers) — everything inside uses layout
 5. Do NOT add `waypoints:` yet — let the tool auto-route. **NEVER write `badge_pos:` — the tool auto-places badges on the longest arrow segment with 25px perpendicular offset.**
-5. Call `create_from_d2` ONCE
+5. Call `create_from_d3` ONCE
 6. **STOP. Read the ELEMENT POSITIONS output.** Write down the icon_center and borders values you need.
 
 **Build 2: Fix ALL issues from Build 1 output**
@@ -296,8 +296,8 @@ Main reads `plan.md` and the reference image, writes `diagram.d2`, then does exa
 8. Then calculate arrows using exact positions from Build 1:
    - `waypoints:` using exact `icon_center` Y values
    - Do NOT write `badge_pos:` — badges are auto-placed by the tool
-9. Update `diagram.d2` with ALL fixes
-10. Call `create_from_d2` ONCE more
+9. Update `diagram.d3` with ALL fixes
+10. Call `create_from_d3` ONCE more
 11. Verify visually with `get_canvas_screenshot`
 
 **HARD RULE: Maximum 2 builds before Critic review.** Do not iterate endlessly. Build 1 gets the structure right, Build 2 gets the arrows right. If there are still issues, the Critic will tell you what to fix specifically.
@@ -397,9 +397,9 @@ Only structural issues (missing elements, wrong connections) route back to Plann
 
 ### Main does NOT do
 
-- Do NOT call `search_aws_icons` — the tool resolves icons automatically inside `create_from_d2`
+- Do NOT call `search_aws_icons` — the tool resolves icons automatically inside `create_from_d3`
 - Do NOT set `icon:` with file paths — use `icon_type`, `icon_variant`, `icon_hint` to describe what you need. The ONLY exception is truly custom icons not in the AWS library.
 - Do NOT add `pos:` to any element inside a `layout:` container — tool positions everything
 - Do NOT add `pos:` to leaf nodes — only top-level containers get `pos:`
-- Do NOT create files other than `diagram.d2`
+- Do NOT create files other than `diagram.d3`
 - Do NOT use `header_bg_color`
