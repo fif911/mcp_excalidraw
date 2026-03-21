@@ -284,7 +284,7 @@ Main reads `plan.md` and the reference image, writes `diagram.d2`, then does exa
 2. Use `layout: layers` for complex containers — describe which elements go in which column
 3. Use `layout: row`, `col`, `"NxM"` for sub-containers with regular patterns
 4. Add `pos:` ONLY to top-level containers (AWS Cloud, account containers) — everything inside uses layout
-5. Do NOT add `waypoints:` or `badge_pos:` yet — let the tool auto-route
+5. Do NOT add `waypoints:` yet — let the tool auto-route. **NEVER write `badge_pos:` — the tool auto-places badges on the longest arrow segment with 25px perpendicular offset.**
 5. Call `create_from_d2` ONCE
 6. **STOP. Read the ELEMENT POSITIONS output.** Write down the icon_center and borders values you need.
 
@@ -295,7 +295,7 @@ Main reads `plan.md` and the reference image, writes `diagram.d2`, then does exa
    - If icons are outside their container → the container is too small, expand it
 8. Then calculate arrows using exact positions from Build 1:
    - `waypoints:` using exact `icon_center` Y values
-   - `badge_pos:` using exact `borders` values (gap midpoint = `(container1.right + container2.left) / 2`)
+   - Do NOT write `badge_pos:` — badges are auto-placed by the tool
 9. Update `diagram.d2` with ALL fixes
 10. Call `create_from_d2` ONCE more
 11. Verify visually with `get_canvas_screenshot`
@@ -321,7 +321,7 @@ Each icon+label takes ~160×136px. Header height is 108px. **Calculate container
 
 **Do NOT add `pos:` to any element inside a layout container.** The tool positions everything.
 
-**For Build 2**, use the exact positions returned by Build 1 for `waypoints:` and `badge_pos:` only.
+**For Build 2**, use the exact positions returned by Build 1 for `waypoints:` only. **Never write `badge_pos:`** — badges are auto-placed by the tool.
 
 ### What the tool handles automatically (don't override unless Critic flags issues)
 
@@ -337,7 +337,7 @@ Each icon+label takes ~160×136px. Header height is 108px. **Calculate container
 ### Main hard rules
 
 1. **Cross-container arrows need `waypoints` in Build 2** — use exact positions from Build 1 output
-2. **Cross-container badges need `badge_pos` in Build 2** — calculate gap midpoint from container borders
+2. **Do NOT write `badge_pos` by default** — the tool auto-places badges. Only add `badge_pos:` to fix overlaps flagged by validation (e.g., badge on a container border)
 3. **One waypoint per turn** — no redundant tiny segments
 4. **Container sizing must fit all children** — check validation for overflow
 
@@ -353,7 +353,7 @@ Elements connected by horizontal arrows must share the same Y position. Identify
 - **Never approach from below** — arrows entering icons should come from left, right, or top. Bottom approach crosses the label text.
 - **Horizontal lanes for 10+ arrows** — assign each flow a Y lane
 - **Route vertical segments through gaps** — not through container bodies
-- **Standalone badges in tight gaps** — use `badge_pos` when auto-position overlaps
+- **Badge positions are auto-calculated** — only add `badge_pos:` to fix validation-flagged overlaps
 
 ### Element placement rules
 
@@ -387,7 +387,7 @@ The tool resolves ALL icons automatically from labels and hint attributes. Main 
 ### Main receives Critic feedback directly
 
 - Overlapping elements → fix positions or layout hints
-- Badge on border → fix `badge_pos`
+- Badge on border → add `badge_pos:` override to move it off the border
 - Arrow crosses text → fix `waypoints`
 - Container overflow → expand `pos` or split labels with `\n`
 - Diagonal segment → fix waypoints

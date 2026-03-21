@@ -44,7 +44,7 @@ Before any visual checks, verify the canvas matches `diagram.d2`:
 - [ ] Arrows entering a nested container end at the container's BORDER — not inside it
 - [ ] No arrow pierces through a container to reach an internal service icon
 - [ ] Every cross-container arrow has explicit `waypoints` in `diagram.d2` for clean L-shape routing
-- [ ] Every cross-container arrow badge has explicit `badge_pos` in `diagram.d2` — no auto-positioning near borders
+- [ ] Badges are auto-placed by the tool — only add `badge_pos:` override if validation flags a border overlap
 
 ### Container Hierarchy
 - [ ] Nested containers reflect logical grouping from `diagram.d2`
@@ -189,4 +189,4 @@ assert len(issues) == 0, f"Validation failed: {issues}"
 | Wrong icon type (Arch_ vs Res_) | L2 | External actors or generic concepts showing colored branded square instead of dark outline |
 | Wrong container header icon | L2 | Header icon doesn't match reference — verify every container including dashed sub-boundaries |
 | Cross-container arrow missing waypoints | L2 | Diagonal arrow crossing container boundary — needs explicit waypoints for L-shape |
-| Cross-container badge on border | L2 | Badge overlaps container border — needs explicit badge_pos in gap between containers |
+| Cross-container badge on border | L2 | Badge overlaps container border — add `badge_pos:` override to move it off the border |

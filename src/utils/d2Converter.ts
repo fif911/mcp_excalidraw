@@ -2155,10 +2155,28 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
     if (conn.label && /^\d+$/.test(conn.label)) {
       badgeCount++;
       let badgeCx: number, badgeCy: number;
-      if (conn.badgePos && conn.badgePos.length === 2 && conn.waypoints && conn.waypoints.length > 0) {
-        // Only use explicit badge_pos when waypoints were kept (not stale)
-        badgeCx = Math.round(conn.badgePos[0]!);
-        badgeCy = Math.round(conn.badgePos[1]!);
+      // Check if explicit badge_pos is near the actual arrow path (not stale)
+      let useBadgePos = false;
+      if (conn.badgePos && conn.badgePos.length === 2) {
+        const bpx = conn.badgePos[0]!, bpy = conn.badgePos[1]!;
+        // Check distance to nearest segment — if > 50px away, it's stale
+        let minDist = Infinity;
+        for (let si = 0; si < allPts.length - 1; si++) {
+          const sx = allPts[si]![0]!, sy = allPts[si]![1]!;
+          const ex2 = allPts[si + 1]![0]!, ey2 = allPts[si + 1]![1]!;
+          const sdx = ex2 - sx, sdy = ey2 - sy;
+          const slen = Math.sqrt(sdx * sdx + sdy * sdy);
+          if (slen > 0) {
+            const t = Math.max(0, Math.min(1, ((bpx - sx) * sdx + (bpy - sy) * sdy) / (slen * slen)));
+            const px = sx + t * sdx, py = sy + t * sdy;
+            minDist = Math.min(minDist, Math.sqrt((bpx - px) ** 2 + (bpy - py) ** 2));
+          }
+        }
+        useBadgePos = minDist <= 50;
+      }
+      if (useBadgePos) {
+        badgeCx = Math.round(conn.badgePos![0]!);
+        badgeCy = Math.round(conn.badgePos![1]!);
       } else {
         const labelOffset = 25; // perpendicular gap from arrow to badge center
         const mid = pathMidpoint(allPts);

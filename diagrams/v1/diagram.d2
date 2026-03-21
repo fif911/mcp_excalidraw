@@ -1,0 +1,109 @@
+# Data Transfer Hub Architecture Diagram
+
+arrow_style {
+  stroke_color: "#545B64"
+  badge_bg: "#232F3E"
+  badge_color: "#ffffff"
+  badge_shape: circle
+}
+
+# External actor — outside AWS Cloud
+user: User {
+  icon_type: resource
+  icon_variant: Light
+  pos: "70,960"
+}
+
+aws_cloud: AWS Cloud {
+  pos: "30,30,1920,920"
+
+  # External actor inside AWS Cloud but outside accounts
+  dth_ui: Data Transfer\nHub UI {
+    icon: "aws-icons-official/Resource-Icons_01302026/Res_General-Icons/Res_48_Light/Res_Client_48_Light.svg"
+    pos: "70,580,160,136"
+  }
+
+  customer_account: Customer's AWS Account {
+    pos: "270,90,880,830"
+
+    auth: Authentication {
+      style.stroke-dash: 5
+      pos: "300,210,420,250"
+      layout: row
+
+      cognito: Amazon Cognito
+      openid: OpenID\nConnect {
+        icon: "custom/icons8-openid.svg"
+      }
+    }
+
+    dynamodb: Amazon DynamoDB {
+      pos: "750,220,160,136"
+    }
+
+    appsync: AWS AppSync {
+      pos: "350,580,160,136"
+    }
+
+    lambda_mid: AWS Lambda {
+      pos: "590,580,160,136"
+    }
+
+    sfn: AWS Step Functions\nworkflow {
+      style.stroke: "#E7157B"
+      pos: "810,220,300,440"
+      layout: col
+
+      lambda_sfn: AWS Lambda
+      # standalone: true
+      cloudformation: AWS CloudFormation
+    }
+
+    cloudfront: Amazon CloudFront {
+      pos: "360,800,160,136"
+    }
+
+    s3_cust: Amazon S3 {
+      pos: "590,800,160,136"
+    }
+
+    fargate: AWS Fargate {
+      pos: "840,800,160,136"
+    }
+  }
+
+  managed_account: AWS Managed Account {
+    pos: "1280,90,640,830"
+    layout: "2x3"
+
+    s3_repl: S3 replication\ncomponent template {
+      icon_hint: "CloudFormation Template Orange"
+    }
+    dynamodb_repl: DynamoDB replication\ncomponent template {
+      icon_hint: "CloudFormation Template Orange"
+    }
+    s3_managed: Amazon S3
+    ecr_repl: ECR replication\ncomponent template {
+      icon_hint: "CloudFormation Template Orange"
+    }
+    ecr: Amazon ECR
+    ecr_docker: ECR replication\nDocker image {
+      icon_hint: "Elastic Container Registry Image"
+      icon_type: resource
+    }
+  }
+}
+
+# Numbered arrows
+aws_cloud.dth_ui -> aws_cloud.customer_account.cloudfront: 1
+aws_cloud.dth_ui -> aws_cloud.customer_account.appsync: 2
+user -> aws_cloud.dth_ui: 3
+aws_cloud.customer_account.appsync -> aws_cloud.customer_account.lambda_mid: 4
+aws_cloud.customer_account.lambda_mid -> aws_cloud.customer_account.sfn: 5
+aws_cloud.managed_account.s3_managed -> aws_cloud.customer_account.sfn: 6
+aws_cloud.managed_account.ecr -> aws_cloud.customer_account.fargate: 7
+aws_cloud.customer_account.auth -> aws_cloud.customer_account.dynamodb: 8
+
+# Unlabeled arrows
+aws_cloud.customer_account.sfn.cloudformation -> aws_cloud.customer_account.fargate
+aws_cloud.customer_account.cloudfront -> aws_cloud.customer_account.s3_cust
