@@ -1925,12 +1925,13 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
         // Start: use direction to first waypoint if waypoints exist, otherwise overall target
         // End: use segment direction (snap to the edge the arrow actually approaches from)
         if (isStartPoint) {
-          if (allPts.length > 2) {
-            // Has waypoints — snap toward first waypoint
-            dx = neighbor[0]! - centerX;
-            dy = neighbor[1]! - centerY;
+          // Use original waypoint direction if D2 specified waypoints,
+          // otherwise use overall source→target direction.
+          // Don't use allPts.length — crossing avoidance may have added points.
+          if (conn.waypoints && conn.waypoints.length > 0) {
+            dx = conn.waypoints[0]![0]! - centerX;
+            dy = conn.waypoints[0]![1]! - centerY;
           } else {
-            // No waypoints — use overall direction for clean L-shape exit
             dx = overallTargetX - centerX;
             dy = overallTargetY - centerY;
           }
