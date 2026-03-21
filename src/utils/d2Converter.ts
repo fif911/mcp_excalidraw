@@ -2045,6 +2045,33 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
     if (cleaned.length < 2) allPts = [[cx1, cy1], [cx2, cy2]];
     else allPts = cleaned;
 
+    // Exit stub: 20px straight segment in exit direction before turning
+    if (fromIsLeaf && allPts.length >= 2) {
+      const s = allPts[0]!;
+      const n = allPts[1]!;
+      const eDx = s[0]! - cx1;
+      const eDy = s[1]! - cy1;
+      const hExit = Math.abs(eDx) > Math.abs(eDy);
+      const segDx = n[0]! - s[0]!;
+      const segDy = n[1]! - s[1]!;
+      const segPerp = hExit
+        ? (Math.abs(segDy) > Math.abs(segDx) + 1)
+        : (Math.abs(segDx) > Math.abs(segDy) + 1);
+      if (segPerp) {
+        const STUB = 20;
+        if (hExit) {
+          const stubPt = [s[0]! + (eDx > 0 ? STUB : -STUB), s[1]!];
+          // L-shape bend to connect stub to next point orthogonally
+          const bendPt = [stubPt[0]!, n[1]!];
+          allPts.splice(1, 0, stubPt, bendPt);
+        } else {
+          const stubPt = [s[0]!, s[1]! + (eDy > 0 ? STUB : -STUB)];
+          const bendPt = [n[0]!, stubPt[1]!];
+          allPts.splice(1, 0, stubPt, bendPt);
+        }
+      }
+    }
+
     // Ensure final segment ≥ 30px (prevents small arrowheads in Excalidraw)
     if (allPts.length >= 3) {
       const last = allPts.length - 1;
