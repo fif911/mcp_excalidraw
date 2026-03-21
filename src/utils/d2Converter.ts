@@ -1471,6 +1471,9 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
 
     // Enforce orthogonal segments: NO diagonal arrows allowed.
     // Any segment with both dx > 0 and dy > 0 becomes an L-shape.
+    // Direction chosen so the arrow enters the target from the dominant axis:
+    // - Target mostly to the right/left → vertical first, then horizontal (enters from side)
+    // - Target mostly above/below → horizontal first, then vertical (enters from top/bottom)
     const ortho: number[][] = [allPts[0]!];
     for (let k = 1; k < allPts.length; k++) {
       const prev = ortho[ortho.length - 1]!;
@@ -1478,8 +1481,13 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       const adx = Math.abs(cur[0]! - prev[0]!);
       const ady = Math.abs(cur[1]! - prev[1]!);
       if (adx > 1 && ady > 1) {
-        // Diagonal — always split into L-shape (horizontal first, then vertical)
-        ortho.push([cur[0]!, prev[1]!]);
+        if (adx >= ady) {
+          // Target is primarily horizontal → vertical first, enter from side
+          ortho.push([prev[0]!, cur[1]!]);
+        } else {
+          // Target is primarily vertical → horizontal first, enter from top/bottom
+          ortho.push([cur[0]!, prev[1]!]);
+        }
       }
       ortho.push(cur);
     }
