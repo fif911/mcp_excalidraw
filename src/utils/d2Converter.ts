@@ -1764,6 +1764,7 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
               break;
             }
           }
+
           if (firstSegCrossesObstacle) {
             // Check if flipped direction also crosses
             const altBendPt = goHorizontalFirst ? [prev[0]!, cur[1]!] : [cur[0]!, prev[1]!];
@@ -1782,7 +1783,6 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
               goHorizontalFirst = !goHorizontalFirst; // flip works
             } else {
               // Both directions cross — add 3-segment route around the obstacle
-              // Go perpendicular first to clear both obstacles, then route to target
               const margin = 20;
               if (goHorizontalFirst) {
                 // Both horiz and vert first cross — go below/above obstacle then route
@@ -1869,45 +1869,36 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       return true;
     }
 
-    // Crossing avoidance — disabled for now, causes complex reroutes that conflict
-    // with endpoint snapping. The validation will flag crossings for the agent to fix.
-    if (false && elements.length > 5) {
+    // Crossing avoidance: reroute segments that cross obstacles (icons, header labels)
+    {
       const obstacles = getObstacleBboxes();
-      let rerouted = false;
-      for (let attempt = 0; attempt < 3 && !rerouted; attempt++) {
-        let needsReroute = false;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        let fixed = false;
         for (let si = 0; si < allPts.length - 1; si++) {
-          const [sx, sy] = allPts[si]!;
-          const [ex, ey] = allPts[si + 1]!;
+          const sx = allPts[si]![0]!, sy = allPts[si]![1]!;
+          const ex = allPts[si + 1]![0]!, ey = allPts[si + 1]![1]!;
           for (const obs of obstacles) {
-            if (segmentCrossesBox(sx!, sy!, ex!, ey!, obs)) {
-              needsReroute = true;
-              // Route around: for horizontal segment, go above or below
-              // For vertical segment, go left or right
-              const isHoriz = Math.abs(ey! - sy!) < Math.abs(ex! - sx!);
-              if (isHoriz) {
-                // Try routing above the obstacle
-                const aboveY = obs.y1 - AVOID_MARGIN;
-                const belowY = obs.y2 + AVOID_MARGIN;
-                // Pick the side closer to the segment's current Y
-                const routeY = Math.abs(sy! - aboveY) < Math.abs(sy! - belowY) ? aboveY : belowY;
-                // Insert 3-segment route: horizontal to obs edge, vertical past obs, horizontal to end
-                allPts.splice(si + 1, 0, [sx!, routeY], [ex!, routeY]);
-                rerouted = true;
-              } else {
-                // Try routing left or right of the obstacle
-                const leftX = obs.x1 - AVOID_MARGIN;
-                const rightX = obs.x2 + AVOID_MARGIN;
-                const routeX = Math.abs(sx! - leftX) < Math.abs(sx! - rightX) ? leftX : rightX;
-                allPts.splice(si + 1, 0, [routeX, sy!], [routeX, ey!]);
-                rerouted = true;
-              }
-              break;
+            if (!segmentCrossesBox(sx, sy, ex, ey, obs)) continue;
+            const isHoriz = Math.abs(ey - sy) < Math.abs(ex - sx);
+            if (isHoriz) {
+              // Horizontal segment crosses obstacle — route above or below
+              const aboveY = obs.y1 - AVOID_MARGIN;
+              const belowY = obs.y2 + AVOID_MARGIN;
+              const routeY = Math.abs(sy - aboveY) <= Math.abs(sy - belowY) ? aboveY : belowY;
+              allPts.splice(si + 1, 0, [sx, routeY], [ex, routeY]);
+            } else {
+              // Vertical segment crosses obstacle — route left or right
+              const leftX = obs.x1 - AVOID_MARGIN;
+              const rightX = obs.x2 + AVOID_MARGIN;
+              const routeX = Math.abs(sx - leftX) <= Math.abs(sx - rightX) ? leftX : rightX;
+              allPts.splice(si + 1, 0, [routeX, sy], [routeX, ey]);
             }
+            fixed = true;
+            break; // restart segment scan after splice
           }
-          if (rerouted) break;
+          if (fixed) break;
         }
-        if (!needsReroute) break;
+        if (!fixed) break; // no more crossings
       }
     }
 
