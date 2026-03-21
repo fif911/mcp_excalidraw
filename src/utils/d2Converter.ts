@@ -2059,13 +2059,9 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
         if (mergedDx < 2 || mergedDy < 2) {
           // Merge stays orthogonal — safe
           allPts.splice(last - 1, 1);
-        } else {
-          // Can't merge without diagonal — extend endpoint INTO icon
-          const MIN_FINAL_SEG = 35;
-          const extendBy = MIN_FINAL_SEG - flen;
-          end[0] = end[0]! + (fdx / flen) * extendBy;
-          end[1] = end[1]! + (fdy / flen) * extendBy;
         }
+        // Otherwise keep the short segment — Excalidraw renders arrowheads
+        // at fixed size based on strokeWidth, not segment length
       }
     }
 
