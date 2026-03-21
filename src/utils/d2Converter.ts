@@ -591,6 +591,72 @@ export function layoutD2Graph(graph: D2Graph): { layout: Record<string, LayoutNo
       }
 
       contentW = Math.max(0, contentW - H_GAP); // remove trailing gap
+
+      // ── Row-index alignment across columns ──
+      // Collect items by row index across all layers, align to the max Y per row
+      const layerItemsByRow: Map<number, Array<{ id: string; layerId: string }>> = new Map();
+      for (const childId of shape.children) {
+        const layerShape = graph.shapes[childId];
+        if (!layerShape || layerShape.children.length === 0) continue;
+        for (let rowIdx = 0; rowIdx < layerShape.children.length; rowIdx++) {
+          const itemId = layerShape.children[rowIdx]!;
+          if (!layerItemsByRow.has(rowIdx)) layerItemsByRow.set(rowIdx, []);
+          layerItemsByRow.get(rowIdx)!.push({ id: itemId, layerId: childId });
+        }
+      }
+
+      // For each row index, find the max Y (bottom edge) and align all items to start at the same Y
+      for (const [_rowIdx, items] of layerItemsByRow) {
+        let maxY = 0;
+        for (const item of items) {
+          const node = layout[item.id];
+          if (node) maxY = Math.max(maxY, node.y);
+        }
+        // Shift all items in this row to the max Y
+        for (const item of items) {
+          const node = layout[item.id];
+          if (node && node.y < maxY) {
+            const shift = maxY - node.y;
+            node.y = maxY;
+            layout[item.id] = node;
+            // Also shift all items below this one in the same layer
+            const layerShape = graph.shapes[item.layerId];
+            if (layerShape) {
+              const itemIdx = layerShape.children.indexOf(item.id);
+              for (let si = itemIdx + 1; si < layerShape.children.length; si++) {
+                const belowId = layerShape.children[si]!;
+                const belowNode = layout[belowId];
+                if (belowNode) {
+                  belowNode.y += shift;
+                  layout[belowId] = belowNode;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Recalculate maxLayerH after alignment
+      maxLayerH = 0;
+      for (const childId of shape.children) {
+        const layerNode = layout[childId];
+        if (!layerNode) continue;
+        const layerShape = graph.shapes[childId];
+        if (!layerShape || layerShape.children.length === 0) {
+          maxLayerH = Math.max(maxLayerH, layerNode.h);
+          continue;
+        }
+        let bottomY = layerStartY;
+        for (const itemId of layerShape.children) {
+          const n = layout[itemId];
+          if (n) bottomY = Math.max(bottomY, n.y + n.h);
+        }
+        const newH = bottomY - layerStartY;
+        layerNode.h = newH;
+        layout[childId] = layerNode;
+        maxLayerH = Math.max(maxLayerH, newH);
+      }
+
       contentH = maxLayerH;
 
       // Auto-expand for header text
