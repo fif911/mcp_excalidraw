@@ -1574,7 +1574,32 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
         } else {
           // True diagonal — L-shape direction based on source exit
           const isFirstSegment = (k === 1);
-          const goHorizontalFirst = isFirstSegment ? sourceExitsHorizontally : (adx >= ady);
+          let goHorizontalFirst = isFirstSegment ? sourceExitsHorizontally : (adx >= ady);
+
+          // Check if default direction's first segment would cross an icon
+          const bendPt = goHorizontalFirst ? [cur[0]!, prev[1]!] : [prev[0]!, cur[1]!];
+          const segStartX = prev[0]!, segStartY = prev[1]!;
+          const segEndX = bendPt[0]!, segEndY = bendPt[1]!;
+          const segMinX = Math.min(segStartX, segEndX), segMaxX = Math.max(segStartX, segEndX);
+          const segMinY = Math.min(segStartY, segEndY), segMaxY = Math.max(segStartY, segEndY);
+
+          // Check against placed icons (not source/target)
+          let firstSegCrossesIcon = false;
+          for (const el of elements) {
+            if (el.type !== 'image') continue;
+            const elId = el.id as string;
+            if (elId.includes(conn.from.replace(/\./g, '_')) || elId.includes(conn.to.replace(/\./g, '_'))) continue;
+            const ex = el.x as number, ey = el.y as number;
+            const ew = (el.width as number) || 0, eh = (el.height as number) || 0;
+            if (segMaxX > ex && segMinX < ex + ew && segMaxY > ey && segMinY < ey + eh) {
+              firstSegCrossesIcon = true;
+              break;
+            }
+          }
+          if (firstSegCrossesIcon) {
+            goHorizontalFirst = !goHorizontalFirst; // flip direction
+          }
+
           if (goHorizontalFirst) {
             ortho.push([cur[0]!, prev[1]!]); // horizontal first
           } else {
