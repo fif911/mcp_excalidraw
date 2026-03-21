@@ -845,24 +845,38 @@ app.post('/api/elements/from-d2', async (req: Request, res: Response) => {
         logger.info(`Auto-saved test .excalidraw to ${savePath}`);
       }
 
-      // Auto-export PNG — trigger internal export after a short delay for frontend sync
-      setTimeout(async () => {
-        try {
-          const pngName = versionMatch ? 'diagram.png' : `diagram_test.png`;
-          const pngPath = path.resolve(savedDir, pngName);
-          // Use the export endpoint internally
-          const exportResp = await fetch(`http://localhost:${PORT}/api/export/image`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ format: 'png', filePath: pngPath, background: true }),
-          });
-          if (exportResp.ok) {
-            logger.info(`Auto-exported PNG to ${pngPath}`);
+      // Auto-export PNG — retry with increasing delays for frontend to render
+      (async () => {
+        const pngName = versionMatch ? 'diagram.png' : `diagram_test.png`;
+        const pngPath = path.resolve(savedDir, pngName);
+        const delays = [2000, 3000, 5000]; // retry up to 3 times
+        for (const delay of delays) {
+          await new Promise(r => setTimeout(r, delay));
+          try {
+            if (clients.size === 0) {
+              logger.info('No frontend connected for PNG export — skipping');
+              break;
+            }
+            const exportResp = await fetch(`http://localhost:${PORT}/api/export/image`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ format: 'png', filePath: pngPath, background: true }),
+            });
+            if (exportResp.ok) {
+              const exportResult = await exportResp.json() as any;
+              if (exportResult.data) {
+                // Save PNG from base64 data
+                const pngBuf = Buffer.from(exportResult.data.replace(/^data:image\/png;base64,/, ''), 'base64');
+                fs.writeFileSync(pngPath, pngBuf);
+                logger.info(`Auto-exported PNG to ${pngPath} (${Math.round(pngBuf.length / 1024)}KB)`);
+                break; // success
+              }
+            }
+          } catch (pngErr) {
+            logger.warn(`PNG export attempt failed (delay=${delay}ms):`, pngErr);
           }
-        } catch (pngErr) {
-          logger.warn('Failed to auto-export PNG:', pngErr);
         }
-      }, 2000); // Wait 2s for frontend to render
+      })();
     } catch (saveErr) {
       logger.warn('Failed to auto-save .excalidraw:', saveErr);
     }

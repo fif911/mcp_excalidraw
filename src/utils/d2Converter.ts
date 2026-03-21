@@ -1685,6 +1685,7 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       } else {
         // Waypoints are stale/wrong — ignore them, use straight line
         allPts = [[cx1, cy1], [cx2, cy2]];
+        conn.waypoints = []; // clear so snap doesn't use stale waypoints for direction
         validationIssues.push(`WAYPOINTS_DISCARDED: arrow "${conn.from} -> ${conn.to}" waypoints were stale (elements moved by layout). Remove waypoints from D2 or recalculate using ELEMENT POSITIONS output.`);
       }
     } else {
