@@ -1743,6 +1743,14 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
           const isFirstSegment = (k === 1);
           let goHorizontalFirst = isFirstSegment ? sourceExitsHorizontally : (adx >= ady);
 
+          // When targeting a container border, prefer vertical-first so the arrow
+          // enters the container straight from the side (not running along the border)
+          if (goHorizontalFirst && !toIsLeaf && k === allPts.length - 1) {
+            // The horizontal segment would end at the container border X
+            // Flip to vertical-first: go up/down first, then enter horizontally
+            goHorizontalFirst = false;
+          }
+
           // Check if default direction's first segment would cross an obstacle
           const bendPt = goHorizontalFirst ? [cur[0]!, prev[1]!] : [prev[0]!, cur[1]!];
           const segMinX = Math.min(prev[0]!, bendPt[0]!), segMaxX = Math.max(prev[0]!, bendPt[0]!);
