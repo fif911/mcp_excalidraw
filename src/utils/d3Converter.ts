@@ -2172,7 +2172,9 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
             minDist = Math.min(minDist, Math.sqrt((bpx - px) ** 2 + (bpy - py) ** 2));
           }
         }
-        useBadgePos = minDist <= 50;
+        // Only use explicit badge_pos if it's at the expected perpendicular distance (15-40px)
+        // If it's on the arrow (<15px) or too far (>40px), it's stale — auto-place instead
+        useBadgePos = minDist >= 15 && minDist <= 40;
       }
       if (useBadgePos) {
         badgeCx = Math.round(conn.badgePos![0]!);
@@ -2219,7 +2221,20 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
             const ey = el.y as number;
             const ew = (el.width as number) || 0;
             const eh = (el.height as number) || 0;
-            // Check if badge circle overlaps element bbox
+            // For containers (large rectangles): check if badge is near a BORDER line
+            // Badges can be inside containers, just not overlapping the border itself
+            if (el.type === 'rectangle' && ew > 200 && eh > 200) {
+              const nearLeft = Math.abs(cx - ex) < badgeR;
+              const nearRight = Math.abs(cx - (ex + ew)) < badgeR;
+              const nearTop = Math.abs(cy - ey) < badgeR;
+              const nearBottom = Math.abs(cy - (ey + eh)) < badgeR;
+              const insideY = cy > ey - badgeR && cy < ey + eh + badgeR;
+              const insideX = cx > ex - badgeR && cx < ex + ew + badgeR;
+              if ((nearLeft || nearRight) && insideY) return true;
+              if ((nearTop || nearBottom) && insideX) return true;
+              continue;
+            }
+            // For small elements (icons, labels): check bbox overlap
             if (cx + badgeR > ex && cx - badgeR < ex + ew &&
                 cy + badgeR > ey && cy - badgeR < ey + eh) {
               return true;
