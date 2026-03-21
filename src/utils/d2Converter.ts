@@ -1685,7 +1685,6 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       } else {
         // Waypoints are stale/wrong — ignore them, use straight line
         allPts = [[cx1, cy1], [cx2, cy2]];
-        conn.waypoints = []; // clear so snap doesn't use stale waypoints for direction
         validationIssues.push(`WAYPOINTS_DISCARDED: arrow "${conn.from} -> ${conn.to}" waypoints were stale (elements moved by layout). Remove waypoints from D2 or recalculate using ELEMENT POSITIONS output.`);
       }
     } else {
@@ -1926,13 +1925,12 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
         // Start: use direction to first waypoint if waypoints exist, otherwise overall target
         // End: use segment direction (snap to the edge the arrow actually approaches from)
         if (isStartPoint) {
-          // Use original waypoint direction if D2 specified waypoints,
-          // otherwise use overall source→target direction.
-          // Don't use allPts.length — crossing avoidance may have added points.
-          if (conn.waypoints && conn.waypoints.length > 0) {
-            dx = conn.waypoints[0]![0]! - centerX;
-            dy = conn.waypoints[0]![1]! - centerY;
+          if (allPts.length > 2) {
+            // Has waypoints — snap toward first waypoint
+            dx = neighbor[0]! - centerX;
+            dy = neighbor[1]! - centerY;
           } else {
+            // No waypoints — use overall direction for clean L-shape exit
             dx = overallTargetX - centerX;
             dy = overallTargetY - centerY;
           }
@@ -2012,46 +2010,6 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       snapEndpoint(last, last - 1, !!toIsLeaf, cx2, cy2, toTextH, false, cx2, cy2, cx1, cy1);
     }
 
-    // ── Exit/entry stub: add a short straight segment in the exit direction before turning ──
-    // This prevents arrows from immediately turning at the icon edge, creating a cleaner look.
-    const STUB_LEN = 18;
-    if (fromIsLeaf && allPts.length >= 2) {
-      const start = allPts[0]!;
-      const next = allPts[1]!;
-      const exitDx = start[0]! - cx1; // positive = right exit, negative = left
-      const exitDy = start[1]! - cy1; // positive = bottom exit, negative = top
-      const isHorizExit = Math.abs(exitDx) > Math.abs(exitDy);
-      const nextIsPerp = isHorizExit
-        ? Math.abs(next[1]! - start[1]!) > Math.abs(next[0]! - start[0]!)  // next goes vertical
-        : Math.abs(next[0]! - start[0]!) > Math.abs(next[1]! - start[1]!); // next goes horizontal
-      if (nextIsPerp) {
-        // Insert stub extending in exit direction
-        if (isHorizExit) {
-          allPts.splice(1, 0, [start[0]! + (exitDx > 0 ? STUB_LEN : -STUB_LEN), start[1]!]);
-        } else {
-          allPts.splice(1, 0, [start[0]!, start[1]! + (exitDy > 0 ? STUB_LEN : -STUB_LEN)]);
-        }
-      }
-    }
-    if (toIsLeaf && allPts.length >= 2) {
-      const last = allPts.length - 1;
-      const end = allPts[last]!;
-      const prev = allPts[last - 1]!;
-      const entryDx = end[0]! - cx2;
-      const entryDy = end[1]! - cy2;
-      const isHorizEntry = Math.abs(entryDx) > Math.abs(entryDy);
-      const prevIsPerp = isHorizEntry
-        ? Math.abs(prev[1]! - end[1]!) > Math.abs(prev[0]! - end[0]!)
-        : Math.abs(prev[0]! - end[0]!) > Math.abs(prev[1]! - end[1]!);
-      if (prevIsPerp) {
-        if (isHorizEntry) {
-          allPts.splice(last, 0, [end[0]! + (entryDx > 0 ? STUB_LEN : -STUB_LEN), end[1]!]);
-        } else {
-          allPts.splice(last, 0, [end[0]!, end[1]! + (entryDy > 0 ? STUB_LEN : -STUB_LEN)]);
-        }
-      }
-    }
-
     // Post-snap orthogonal fix: endpoint snapping may have created new diagonals
     // between the snapped endpoint and the first/last waypoint. Fix them.
     const preFixCount = allPts.length;
@@ -2102,21 +2060,9 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
         if (mergedDx < 2 || mergedDy < 2) {
           // Merge stays orthogonal — safe
           allPts.splice(last - 1, 1);
-        } else if (flen < 15 && allPts.length >= 3) {
-          // Very short final segment (<15px) — absorb into the previous segment
-          // by shifting the perpendicular segment to match the endpoint coordinate
-          if (Math.abs(fdx) < 2) {
-            // Final is vertical — shift preceding horizontal segment's Y to endpoint Y
-            prev[1] = end[1]!;
-            if (allPts.length >= 4) allPts[last - 2]![1] = end[1]!;
-            allPts.pop(); // remove redundant endpoint (now same as prev)
-          } else if (Math.abs(fdy) < 2) {
-            // Final is horizontal — shift preceding vertical segment's X to endpoint X
-            prev[0] = end[0]!;
-            if (allPts.length >= 4) allPts[last - 2]![0] = end[0]!;
-            allPts.pop();
-          }
         }
+        // Otherwise keep the short segment — Excalidraw renders arrowheads
+        // at fixed size based on strokeWidth, not segment length
       }
     }
 
