@@ -1403,27 +1403,17 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       allPts = [[cx1, cy1], [cx2, cy2]];
     }
 
-    // Enforce orthogonal segments: fix any diagonal by inserting an L-shape bend.
-    // Only split into L-shape if the segment is significantly diagonal —
-    // small differences (< 30px) on the minor axis should be straightened instead.
+    // Enforce orthogonal segments: NO diagonal arrows allowed.
+    // Any segment with both dx > 0 and dy > 0 becomes an L-shape.
     const ortho: number[][] = [allPts[0]!];
     for (let k = 1; k < allPts.length; k++) {
       const prev = ortho[ortho.length - 1]!;
       const cur = allPts[k]!;
       const adx = Math.abs(cur[0]! - prev[0]!);
       const ady = Math.abs(cur[1]! - prev[1]!);
-      if (adx > 30 && ady > 30) {
-        // Truly diagonal — split into L-shape (horizontal first, then vertical)
+      if (adx > 1 && ady > 1) {
+        // Diagonal — always split into L-shape (horizontal first, then vertical)
         ortho.push([cur[0]!, prev[1]!]);
-      } else if (adx > 1 && ady > 1) {
-        // Slightly off-axis — straighten by snapping minor axis
-        if (adx < ady) {
-          // Mostly vertical — snap X to match
-          cur[0] = prev[0]!;
-        } else {
-          // Mostly horizontal — snap Y to match
-          cur[1] = prev[1]!;
-        }
       }
       ortho.push(cur);
     }
