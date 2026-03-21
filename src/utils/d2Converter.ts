@@ -1885,13 +1885,13 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
               const aboveY = obs.y1 - AVOID_MARGIN;
               const belowY = obs.y2 + AVOID_MARGIN;
               const routeY = Math.abs(sy - aboveY) <= Math.abs(sy - belowY) ? aboveY : belowY;
-              allPts.splice(si + 1, 0, [sx, routeY], [ex, routeY]);
+              allPts.splice(si + 1, 1, [sx, routeY], [ex, routeY]);
             } else {
               // Vertical segment crosses obstacle — route left or right
               const leftX = obs.x1 - AVOID_MARGIN;
               const rightX = obs.x2 + AVOID_MARGIN;
               const routeX = Math.abs(sx - leftX) <= Math.abs(sx - rightX) ? leftX : rightX;
-              allPts.splice(si + 1, 0, [routeX, sy], [routeX, ey]);
+              allPts.splice(si + 1, 1, [routeX, sy], [routeX, ey]);
             }
             fixed = true;
             break; // restart segment scan after splice
