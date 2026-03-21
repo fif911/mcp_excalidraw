@@ -1750,6 +1750,7 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
 
     // Post-snap orthogonal fix: endpoint snapping may have created new diagonals
     // between the snapped endpoint and the first/last waypoint. Fix them.
+    const preFixCount = allPts.length;
     const postSnapOrtho: number[][] = [allPts[0]!];
     for (let k = 1; k < allPts.length; k++) {
       const prev = postSnapOrtho[postSnapOrtho.length - 1]!;
@@ -1757,7 +1758,6 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       const adx = Math.abs(cur[0]! - prev[0]!);
       const ady = Math.abs(cur[1]! - prev[1]!);
       if (adx > 1 && ady > 1) {
-        // Diagonal created by snap — fix with L-shape
         if (adx >= ady) {
           postSnapOrtho.push([cur[0]!, prev[1]!]);
         } else {
@@ -1767,6 +1767,9 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       postSnapOrtho.push(cur);
     }
     allPts = postSnapOrtho;
+    if (allPts.length !== preFixCount) {
+      validationIssues.push(`ARROW_REROUTED: arrow "${conn.from} -> ${conn.to}" had ${allPts.length - preFixCount} extra bend(s) added to fix diagonal segments. Update waypoints in D2 if needed.`);
+    }
 
     // Collapse degenerate segments (< 3px)
     const cleaned: number[][] = [allPts[0]!];
