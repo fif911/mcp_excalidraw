@@ -1935,8 +1935,17 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
             dy = overallTargetY - centerY;
           }
         } else {
-          dx = pt[0]! - neighbor[0]!;
-          dy = pt[1]! - neighbor[1]!;
+          // End point: use segment direction, but fall back to overall direction
+          // when the last segment is short (e.g., after crossing avoidance rerouting)
+          const segLen = Math.sqrt((pt[0]! - neighbor[0]!) ** 2 + (pt[1]! - neighbor[1]!) ** 2);
+          if (segLen < 50) {
+            // Short last segment — use overall source→target direction
+            dx = overallTargetX - overallSourceX;
+            dy = overallTargetY - overallSourceY;
+          } else {
+            dx = pt[0]! - neighbor[0]!;
+            dy = pt[1]! - neighbor[1]!;
+          }
         }
       } else {
         // Container: use segment direction
