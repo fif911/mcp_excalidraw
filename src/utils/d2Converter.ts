@@ -1522,7 +1522,24 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
     let allPts: number[][];
 
     if (conn.waypoints && conn.waypoints.length > 0) {
-      allPts = [[cx1, cy1], ...conn.waypoints, [cx2, cy2]];
+      // Validate waypoints: check if they create a reasonable path
+      // If any waypoint is farther from the target than the source, discard all waypoints
+      const srcToTarget = Math.sqrt((cx2 - cx1) ** 2 + (cy2 - cy1) ** 2);
+      let waypointsValid = true;
+      for (const wp of conn.waypoints) {
+        const wpToTarget = Math.sqrt((cx2 - wp[0]!) ** 2 + (cy2 - wp[1]!) ** 2);
+        const wpToSource = Math.sqrt((cx1 - wp[0]!) ** 2 + (cy1 - wp[1]!) ** 2);
+        if (wpToTarget > srcToTarget * 1.5 && wpToSource > srcToTarget * 0.5) {
+          waypointsValid = false;
+          break;
+        }
+      }
+      if (waypointsValid) {
+        allPts = [[cx1, cy1], ...conn.waypoints, [cx2, cy2]];
+      } else {
+        // Waypoints are stale/wrong — ignore them, use straight line
+        allPts = [[cx1, cy1], [cx2, cy2]];
+      }
     } else {
       // No waypoints — straight line. Edge snapping handles endpoints.
       allPts = [[cx1, cy1], [cx2, cy2]];
