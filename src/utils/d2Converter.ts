@@ -1707,11 +1707,18 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
         return;
       }
 
-      // Leaf node: determine approach side from segment direction
+      // Leaf node: determine approach side
       const absDx = Math.abs(dx);
       const absDy = Math.abs(dy);
 
-      if (absDx >= absDy) {
+      // For START points: prefer horizontal exit (creates cleaner L-shapes)
+      // Only exit vertically when target is nearly directly above/below (absDx < 15% of absDy)
+      // For END points: use standard dominant axis
+      const useHorizontal = isStartPoint
+        ? (absDx > 1 && (absDx >= absDy || absDx > absDy * 0.15))
+        : (absDx >= absDy);
+
+      if (useHorizontal) {
         // Horizontal approach → stop at left or right icon edge, centered vertically
         // For start: dx>0 means going right, snap to right edge (+1)
         // For end: dx>0 means approach FROM left, snap to left edge (-1)... wait:
