@@ -1469,11 +1469,9 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       allPts = [[cx1, cy1], [cx2, cy2]];
     }
 
-    // Enforce orthogonal segments: NO diagonal arrows allowed.
-    // Any segment with both dx > 0 and dy > 0 becomes an L-shape.
-    // Direction chosen so the arrow enters the target from the dominant axis:
-    // - Target mostly to the right/left → vertical first, then horizontal (enters from side)
-    // - Target mostly above/below → horizontal first, then vertical (enters from top/bottom)
+    // Enforce orthogonal segments: straighten near-straight lines, L-shape true diagonals.
+    // If the minor axis difference is small (< 20% of major axis), straighten it.
+    // Otherwise create an L-shape entering from the dominant direction.
     const ortho: number[][] = [allPts[0]!];
     for (let k = 1; k < allPts.length; k++) {
       const prev = ortho[ortho.length - 1]!;
@@ -1481,12 +1479,21 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       const adx = Math.abs(cur[0]! - prev[0]!);
       const ady = Math.abs(cur[1]! - prev[1]!);
       if (adx > 1 && ady > 1) {
-        if (adx >= ady) {
-          // Target is primarily horizontal → vertical first, enter from side
-          ortho.push([prev[0]!, cur[1]!]);
+        const minorRatio = Math.min(adx, ady) / Math.max(adx, ady);
+        if (minorRatio < 0.2) {
+          // Nearly straight — snap the minor axis to make it perfectly straight
+          if (adx < ady) {
+            cur[0] = prev[0]!; // mostly vertical, snap X
+          } else {
+            cur[1] = prev[1]!; // mostly horizontal, snap Y
+          }
         } else {
-          // Target is primarily vertical → horizontal first, enter from top/bottom
-          ortho.push([cur[0]!, prev[1]!]);
+          // True diagonal — L-shape entering from dominant direction
+          if (adx >= ady) {
+            ortho.push([prev[0]!, cur[1]!]); // vertical first, enter from side
+          } else {
+            ortho.push([cur[0]!, prev[1]!]); // horizontal first, enter from top/bottom
+          }
         }
       }
       ortho.push(cur);
