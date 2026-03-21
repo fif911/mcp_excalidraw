@@ -2010,6 +2010,46 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       snapEndpoint(last, last - 1, !!toIsLeaf, cx2, cy2, toTextH, false, cx2, cy2, cx1, cy1);
     }
 
+    // ── Exit/entry stub: add a short straight segment in the exit direction before turning ──
+    // This prevents arrows from immediately turning at the icon edge, creating a cleaner look.
+    const STUB_LEN = 18;
+    if (fromIsLeaf && allPts.length >= 2) {
+      const start = allPts[0]!;
+      const next = allPts[1]!;
+      const exitDx = start[0]! - cx1; // positive = right exit, negative = left
+      const exitDy = start[1]! - cy1; // positive = bottom exit, negative = top
+      const isHorizExit = Math.abs(exitDx) > Math.abs(exitDy);
+      const nextIsPerp = isHorizExit
+        ? Math.abs(next[1]! - start[1]!) > Math.abs(next[0]! - start[0]!)  // next goes vertical
+        : Math.abs(next[0]! - start[0]!) > Math.abs(next[1]! - start[1]!); // next goes horizontal
+      if (nextIsPerp) {
+        // Insert stub extending in exit direction
+        if (isHorizExit) {
+          allPts.splice(1, 0, [start[0]! + (exitDx > 0 ? STUB_LEN : -STUB_LEN), start[1]!]);
+        } else {
+          allPts.splice(1, 0, [start[0]!, start[1]! + (exitDy > 0 ? STUB_LEN : -STUB_LEN)]);
+        }
+      }
+    }
+    if (toIsLeaf && allPts.length >= 2) {
+      const last = allPts.length - 1;
+      const end = allPts[last]!;
+      const prev = allPts[last - 1]!;
+      const entryDx = end[0]! - cx2;
+      const entryDy = end[1]! - cy2;
+      const isHorizEntry = Math.abs(entryDx) > Math.abs(entryDy);
+      const prevIsPerp = isHorizEntry
+        ? Math.abs(prev[1]! - end[1]!) > Math.abs(prev[0]! - end[0]!)
+        : Math.abs(prev[0]! - end[0]!) > Math.abs(prev[1]! - end[1]!);
+      if (prevIsPerp) {
+        if (isHorizEntry) {
+          allPts.splice(last, 0, [end[0]! + (entryDx > 0 ? STUB_LEN : -STUB_LEN), end[1]!]);
+        } else {
+          allPts.splice(last, 0, [end[0]!, end[1]! + (entryDy > 0 ? STUB_LEN : -STUB_LEN)]);
+        }
+      }
+    }
+
     // Post-snap orthogonal fix: endpoint snapping may have created new diagonals
     // between the snapped endpoint and the first/last waypoint. Fix them.
     const preFixCount = allPts.length;
