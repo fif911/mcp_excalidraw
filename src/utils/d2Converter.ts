@@ -2072,6 +2072,32 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       }
     }
 
+    // ── Universal backward jog removal ──
+    // Walk triplets: if point B reverses direction from A→B to B→C on any axis, remove B.
+    // Repeat until no more reversals found.
+    for (let pass = 0; pass < 5; pass++) {
+      let removed = false;
+      for (let i = 1; i < allPts.length - 1; i++) {
+        const a = allPts[i - 1]!;
+        const b = allPts[i]!;
+        const c = allPts[i + 1]!;
+        const dxAB = b[0]! - a[0]!;
+        const dxBC = c[0]! - b[0]!;
+        const dyAB = b[1]! - a[1]!;
+        const dyBC = c[1]! - b[1]!;
+        // Reversal on X: goes right then left (or left then right)
+        // Reversal on Y: goes down then up (or up then down)
+        const xReversal = (dxAB > 5 && dxBC < -5) || (dxAB < -5 && dxBC > 5);
+        const yReversal = (dyAB > 5 && dyBC < -5) || (dyAB < -5 && dyBC > 5);
+        if (xReversal || yReversal) {
+          allPts.splice(i, 1);
+          removed = true;
+          break; // restart scan
+        }
+      }
+      if (!removed) break;
+    }
+
     // Ensure final segment ≥ 30px (prevents small arrowheads in Excalidraw)
     if (allPts.length >= 3) {
       const last = allPts.length - 1;
