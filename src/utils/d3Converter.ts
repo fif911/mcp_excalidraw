@@ -2235,8 +2235,28 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
           if (!overlapsElement(altCx, altCy)) {
             candidateCx = altCx;
             candidateCy = altCy;
+          } else {
+            // Both sides overlap at midpoint — slide along the segment to find free space
+            const segLen = Math.sqrt(mid.dx * mid.dx + mid.dy * mid.dy);
+            if (segLen > 0) {
+              const ux = mid.dx / segLen, uy = mid.dy / segLen; // unit vector along segment
+              for (let slide = 30; slide < segLen / 2; slide += 20) {
+                for (const dir of [1, -1]) { // try both directions along segment
+                  for (const side of [1, -1]) { // try both perpendicular sides
+                    const sx = Math.round(mid.mx + ux * slide * dir + off.offX * side);
+                    const sy = Math.round(mid.my + uy * slide * dir + off.offY * side);
+                    if (!overlapsElement(sx, sy)) {
+                      candidateCx = sx;
+                      candidateCy = sy;
+                      slide = segLen; // break all loops
+                      break;
+                    }
+                  }
+                  if (candidateCx !== Math.round(mid.mx + off.offX)) break;
+                }
+              }
+            }
           }
-          // If both sides overlap, keep the default — validation will flag it
         }
 
         badgeCx = candidateCx;
