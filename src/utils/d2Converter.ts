@@ -1689,9 +1689,10 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       // This ensures the arrow exits/enters from the correct side regardless of L-shape routing.
       let dx: number, dy: number;
       if (isLeaf) {
-        // Leaf: use overall direction to/from the other endpoint
-        dx = isStartPoint ? (overallTargetX - centerX) : (centerX - overallSourceX);
-        dy = isStartPoint ? (overallTargetY - centerY) : (centerY - overallSourceY);
+        // Start: use overall direction (for clean L-shape exit)
+        // End: use segment direction (snap to the edge the arrow actually approaches from)
+        dx = isStartPoint ? (overallTargetX - centerX) : (pt[0]! - neighbor[0]!);
+        dy = isStartPoint ? (overallTargetY - centerY) : (pt[1]! - neighbor[1]!);
       } else {
         // Container: use segment direction
         dx = isStartPoint ? (neighbor[0]! - pt[0]!) : (pt[0]! - neighbor[0]!);
