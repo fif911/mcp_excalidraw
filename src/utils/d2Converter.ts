@@ -1685,6 +1685,7 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       } else {
         // Waypoints are stale/wrong — ignore them, use straight line
         allPts = [[cx1, cy1], [cx2, cy2]];
+        conn.badgePos = undefined; // also clear stale badge position
         validationIssues.push(`WAYPOINTS_DISCARDED: arrow "${conn.from} -> ${conn.to}" waypoints were stale (elements moved by layout). Remove waypoints from D2 or recalculate using ELEMENT POSITIONS output.`);
       }
     } else {
@@ -2154,11 +2155,12 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
     if (conn.label && /^\d+$/.test(conn.label)) {
       badgeCount++;
       let badgeCx: number, badgeCy: number;
-      if (conn.badgePos && conn.badgePos.length === 2) {
+      if (conn.badgePos && conn.badgePos.length === 2 && conn.waypoints && conn.waypoints.length > 0) {
+        // Only use explicit badge_pos when waypoints were kept (not stale)
         badgeCx = Math.round(conn.badgePos[0]!);
         badgeCy = Math.round(conn.badgePos[1]!);
       } else {
-        const labelOffset = BADGE_SIZE / 2 + 10;
+        const labelOffset = 25; // perpendicular gap from arrow to badge center
         const mid = pathMidpoint(allPts);
         const off = perpOffset(mid.dx, mid.dy, labelOffset);
         // Try default side first
