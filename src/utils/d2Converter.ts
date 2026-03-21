@@ -15,6 +15,7 @@ const H_GAP = 60;
 const V_GAP = 60;
 const CONTAINER_PAD = 40;
 const R = 52; // Arrow endpoint offset from icon center (half icon + gap)
+const CONTAINER_EDGE_GAP = 8; // Gap between arrowhead and container border
 
 // ─── Helvetica text measurement ─────────────────────────────────────────
 
@@ -1562,8 +1563,8 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
         } else {
           clampedY = Math.max(fromPos.y + CONTAINER_PAD, Math.min(targetY, fromPos.y + fromPos.h - CONTAINER_PAD));
         }
-        if (dirX < 0) { cx1 = fromPos.x; cy1 = clampedY; }
-        else { cx1 = fromPos.x + fromPos.w; cy1 = clampedY; }
+        if (dirX < 0) { cx1 = fromPos.x - CONTAINER_EDGE_GAP; cy1 = clampedY; }
+        else { cx1 = fromPos.x + fromPos.w + CONTAINER_EDGE_GAP; cy1 = clampedY; }
       } else {
         // Target is primarily above or below — exit top/bottom border
         const tgtOutsideH = targetX < fromPos.x || targetX > fromPos.x + fromPos.w;
@@ -1575,8 +1576,8 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
         } else {
           clampedX = Math.max(fromPos.x + CONTAINER_PAD, Math.min(targetX, fromPos.x + fromPos.w - CONTAINER_PAD));
         }
-        if (dirY < 0) { cx1 = clampedX; cy1 = fromPos.y; }
-        else { cx1 = clampedX; cy1 = fromPos.y + fromPos.h; }
+        if (dirY < 0) { cx1 = clampedX; cy1 = fromPos.y - CONTAINER_EDGE_GAP; }
+        else { cx1 = clampedX; cy1 = fromPos.y + fromPos.h + CONTAINER_EDGE_GAP; }
       }
     }
 
@@ -1607,8 +1608,8 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
         } else {
           clampedY = Math.max(toPos.y + CONTAINER_PAD, Math.min(srcY, toPos.y + toPos.h - CONTAINER_PAD));
         }
-        if (dirX < 0) { cx2 = toPos.x; cy2 = clampedY; }
-        else { cx2 = toPos.x + toPos.w; cy2 = clampedY; }
+        if (dirX < 0) { cx2 = toPos.x - CONTAINER_EDGE_GAP; cy2 = clampedY; }
+        else { cx2 = toPos.x + toPos.w + CONTAINER_EDGE_GAP; cy2 = clampedY; }
       } else {
         // Source is primarily above or below — enter top/bottom border
         const srcOutsideH = srcX < toPos.x || srcX > toPos.x + toPos.w;
@@ -1620,8 +1621,8 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
         } else {
           clampedX = Math.max(toPos.x + CONTAINER_PAD, Math.min(srcX, toPos.x + toPos.w - CONTAINER_PAD));
         }
-        if (dirY < 0) { cx2 = clampedX; cy2 = toPos.y; }
-        else { cx2 = clampedX; cy2 = toPos.y + toPos.h; }
+        if (dirY < 0) { cx2 = clampedX; cy2 = toPos.y - CONTAINER_EDGE_GAP; }
+        else { cx2 = clampedX; cy2 = toPos.y + toPos.h + CONTAINER_EDGE_GAP; }
       }
     }
 
