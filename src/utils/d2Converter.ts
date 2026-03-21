@@ -1651,14 +1651,24 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
     function snapEndpoint(
       ptIdx: number, neighborIdx: number, isLeaf: boolean,
       centerX: number, centerY: number, textH: number,
-      isStartPoint: boolean
+      isStartPoint: boolean,
+      overallTargetX: number, overallTargetY: number,
+      overallSourceX: number, overallSourceY: number
     ) {
       const pt = allPts[ptIdx]!;
       const neighbor = allPts[neighborIdx]!;
-      // For start point: approach direction = toward neighbor (neighbor - pt)
-      // For end point: approach direction = from neighbor toward pt (pt - neighbor)
-      const dx = isStartPoint ? (neighbor[0]! - pt[0]!) : (pt[0]! - neighbor[0]!);
-      const dy = isStartPoint ? (neighbor[1]! - pt[1]!) : (pt[1]! - neighbor[1]!);
+      // Use OVERALL source→target direction for snapping, not segment direction.
+      // This ensures the arrow exits/enters from the correct side regardless of L-shape routing.
+      let dx: number, dy: number;
+      if (isLeaf) {
+        // Leaf: use overall direction to/from the other endpoint
+        dx = isStartPoint ? (overallTargetX - centerX) : (centerX - overallSourceX);
+        dy = isStartPoint ? (overallTargetY - centerY) : (centerY - overallSourceY);
+      } else {
+        // Container: use segment direction
+        dx = isStartPoint ? (neighbor[0]! - pt[0]!) : (pt[0]! - neighbor[0]!);
+        dy = isStartPoint ? (neighbor[1]! - pt[1]!) : (pt[1]! - neighbor[1]!);
+      }
 
       if (!isLeaf) {
         // Container: just offset 3px from center toward neighbor
@@ -1701,13 +1711,13 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
 
     // Snap start endpoint (arrow leaves this element)
     if (allPts.length >= 2) {
-      snapEndpoint(0, 1, !!fromIsLeaf, cx1, cy1, fromTextH, true);
+      snapEndpoint(0, 1, !!fromIsLeaf, cx1, cy1, fromTextH, true, cx2, cy2, cx1, cy1);
     }
 
     // Snap end endpoint (arrow arrives at this element)
     if (allPts.length >= 2) {
       const last = allPts.length - 1;
-      snapEndpoint(last, last - 1, !!toIsLeaf, cx2, cy2, toTextH, false);
+      snapEndpoint(last, last - 1, !!toIsLeaf, cx2, cy2, toTextH, false, cx2, cy2, cx1, cy1);
     }
 
     // Collapse degenerate segments (< 3px)
