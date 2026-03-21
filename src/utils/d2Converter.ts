@@ -741,6 +741,65 @@ export function layoutD2Graph(graph: D2Graph): { layout: Record<string, LayoutNo
       for (const cid of containerIds) {
         redistributeLeaves(cid);
       }
+
+      // Cross-container arrow alignment: align grid items to match their
+      // arrow-connected counterparts in sibling containers
+      for (const conn of graph.connections) {
+        const fromShape = graph.shapes[conn.from];
+        const toShape = graph.shapes[conn.to];
+        const fromPos = layout[conn.from];
+        const toPos = layout[conn.to];
+        if (!fromShape || !toShape || !fromPos || !toPos) continue;
+        if (fromShape.children.length > 0 || toShape.children.length > 0) continue;
+
+        // Check if source and target are in different sibling containers
+        const fromTopContainer = containerIds.find(cid => conn.from.startsWith(cid + '.') || conn.from === cid);
+        const toTopContainer = containerIds.find(cid => conn.to.startsWith(cid + '.') || conn.to === cid);
+        if (!fromTopContainer || !toTopContainer || fromTopContainer === toTopContainer) continue;
+
+        // Mostly horizontal arrow — align Y
+        const dx = Math.abs((fromPos.x + fromPos.w / 2) - (toPos.x + toPos.w / 2));
+        const fromTextH = measureText(fromShape.label, FONT_SIZE).height;
+        const toTextH = measureText(toShape.label, FONT_SIZE).height;
+        const fromIconCy = (fromPos.y + fromPos.h / 2) - (8 + fromTextH) / 2;
+        const toIconCy = (toPos.y + toPos.h / 2) - (8 + toTextH) / 2;
+        const dy = Math.abs(fromIconCy - toIconCy);
+
+        if (dx > dy && dy > 5) {
+          // Shift target to match source Y
+          const newY = fromIconCy - toPos.h / 2 + (8 + toTextH) / 2;
+          const shift = newY - toPos.y;
+          toPos.y = newY;
+          layout[conn.to] = toPos;
+
+          // Also shift items in the same grid row within the target container
+          const targetContainer = graph.shapes[toTopContainer];
+          if (targetContainer) {
+            const gridMatch = targetContainer.layout?.match(/^(\d+)x(\d+)$/);
+            if (gridMatch) {
+              const cols = parseInt(gridMatch[1]!);
+              const leafIds = targetContainer.children.filter(cid => {
+                const s = graph.shapes[cid];
+                return s && s.children.length === 0;
+              });
+              const targetIdx = leafIds.indexOf(conn.to);
+              if (targetIdx >= 0) {
+                const targetRow = Math.floor(targetIdx / cols);
+                // Shift all items in the same grid row
+                for (let i = targetRow * cols; i < Math.min((targetRow + 1) * cols, leafIds.length); i++) {
+                  const sibId = leafIds[i]!;
+                  if (sibId === conn.to) continue;
+                  const sibNode = layout[sibId];
+                  if (sibNode) {
+                    sibNode.y += shift;
+                    layout[sibId] = sibNode;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
 
     if (containerIds.length > 0) {
