@@ -1529,9 +1529,15 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
     }
 
     // Enforce orthogonal segments: straighten near-straight lines, L-shape true diagonals.
-    // L-shape direction matches the SOURCE exit direction:
-    // - Source exits horizontally (target primarily left/right) → horizontal first
-    // - Source exits vertically (target primarily above/below) → vertical first
+    // L-shape direction: the FIRST segment matches the source's snapped exit edge.
+    // After snapping, allPts[0] is on an edge of the source icon. Check if it was
+    // snapped to a horizontal edge (left/right → first segment is horizontal) or
+    // vertical edge (top/bottom → first segment is vertical).
+    // We detect this from the snap: if the start point's Y equals the source icon center Y,
+    // the exit is horizontal (left/right edge). If X equals center X, exit is vertical.
+    const startPt = allPts[0]!;
+    const sourceExitsHorizontally = (Math.abs(startPt[1]! - cy1) < 2); // Y unchanged = horizontal exit
+
     const ortho: number[][] = [allPts[0]!];
     for (let k = 1; k < allPts.length; k++) {
       const prev = ortho[ortho.length - 1]!;
@@ -1548,13 +1554,13 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
             cur[1] = prev[1]!;
           }
         } else {
-          // True diagonal — L-shape matching source exit direction
-          if (adx >= ady) {
-            // Target primarily horizontal → exit horizontal first, then vertical
-            ortho.push([cur[0]!, prev[1]!]);
+          // True diagonal — L-shape direction based on source exit
+          const isFirstSegment = (k === 1);
+          const goHorizontalFirst = isFirstSegment ? sourceExitsHorizontally : (adx >= ady);
+          if (goHorizontalFirst) {
+            ortho.push([cur[0]!, prev[1]!]); // horizontal first
           } else {
-            // Target primarily vertical → exit vertical first, then horizontal
-            ortho.push([prev[0]!, cur[1]!]);
+            ortho.push([prev[0]!, cur[1]!]); // vertical first
           }
         }
       }
@@ -1723,6 +1729,26 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
       const last = allPts.length - 1;
       snapEndpoint(last, last - 1, !!toIsLeaf, cx2, cy2, toTextH, false, cx2, cy2, cx1, cy1);
     }
+
+    // Post-snap orthogonal fix: endpoint snapping may have created new diagonals
+    // between the snapped endpoint and the first/last waypoint. Fix them.
+    const postSnapOrtho: number[][] = [allPts[0]!];
+    for (let k = 1; k < allPts.length; k++) {
+      const prev = postSnapOrtho[postSnapOrtho.length - 1]!;
+      const cur = allPts[k]!;
+      const adx = Math.abs(cur[0]! - prev[0]!);
+      const ady = Math.abs(cur[1]! - prev[1]!);
+      if (adx > 1 && ady > 1) {
+        // Diagonal created by snap — fix with L-shape
+        if (adx >= ady) {
+          postSnapOrtho.push([cur[0]!, prev[1]!]);
+        } else {
+          postSnapOrtho.push([prev[0]!, cur[1]!]);
+        }
+      }
+      postSnapOrtho.push(cur);
+    }
+    allPts = postSnapOrtho;
 
     // Collapse degenerate segments (< 3px)
     const cleaned: number[][] = [allPts[0]!];
