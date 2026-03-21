@@ -1597,7 +1597,45 @@ export function convertD2ToExcalidraw(source: string): ConvertResult {
             }
           }
           if (firstSegCrossesIcon) {
-            goHorizontalFirst = !goHorizontalFirst; // flip direction
+            // Check if flipped direction also crosses
+            const altBendPt = goHorizontalFirst ? [prev[0]!, cur[1]!] : [cur[0]!, prev[1]!];
+            const altStartX = prev[0]!, altStartY = prev[1]!;
+            const altEndX = altBendPt[0]!, altEndY = altBendPt[1]!;
+            const altMinX = Math.min(altStartX, altEndX), altMaxX = Math.max(altStartX, altEndX);
+            const altMinY = Math.min(altStartY, altEndY), altMaxY = Math.max(altStartY, altEndY);
+
+            let altCrossesIcon = false;
+            for (const el of elements) {
+              if (el.type !== 'image') continue;
+              const elId = el.id as string;
+              if (elId.includes(conn.from.replace(/\./g, '_')) || elId.includes(conn.to.replace(/\./g, '_'))) continue;
+              const ex = el.x as number, ey = el.y as number;
+              const ew = (el.width as number) || 0, eh = (el.height as number) || 0;
+              if (altMaxX > ex && altMinX < ex + ew && altMaxY > ey && altMinY < ey + eh) {
+                altCrossesIcon = true;
+                break;
+              }
+            }
+
+            if (!altCrossesIcon) {
+              goHorizontalFirst = !goHorizontalFirst; // flip works
+            } else {
+              // Both directions cross — add 3-segment route around the obstacle
+              // Go perpendicular first to clear both obstacles, then route to target
+              const margin = 20;
+              if (goHorizontalFirst) {
+                // Both horiz and vert first cross — go below/above obstacle then route
+                const clearY = cur[1]! > prev[1]! ? prev[1]! - margin : prev[1]! + margin;
+                ortho.push([prev[0]!, clearY]);
+                ortho.push([cur[0]!, clearY]);
+              } else {
+                const clearX = cur[0]! > prev[0]! ? prev[0]! - margin : prev[0]! + margin;
+                ortho.push([clearX, prev[1]!]);
+                ortho.push([clearX, cur[1]!]);
+              }
+              ortho.push(cur);
+              continue; // skip the normal push below
+            }
           }
 
           if (goHorizontalFirst) {
