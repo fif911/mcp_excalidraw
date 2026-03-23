@@ -1609,7 +1609,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
 
             if (pngPath) {
               fs.mkdirSync(pngDir!, { recursive: true });
-              const delays = [3000, 4000, 5000];
+              const delays = [5000, 7000, 10000];
               for (const delay of delays) {
                 await new Promise(r => setTimeout(r, delay));
                 try {
