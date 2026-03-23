@@ -478,6 +478,58 @@ export function layoutD3Graph(graph: D3Graph): { layout: Record<string, LayoutNo
     }
   }
 
+  /** Shift a shape and ALL its descendants by (dx, dy) in the layout map */
+  function shiftSubtree(shapeId: string, dx: number, dy: number) {
+    const node = layout[shapeId];
+    if (node) {
+      node.x += dx;
+      node.y += dy;
+      layout[shapeId] = node;
+    }
+    const shape = graph.shapes[shapeId];
+    if (shape) {
+      for (const childId of shape.children) {
+        shiftSubtree(childId, dx, dy);
+      }
+    }
+  }
+
+  /** Apply placement hints to sibling shapes within a container (or at root level).
+   *  Must be called AFTER initial layout so all shapes have positions.
+   *  Resolves refId relative to the shape's parent scope. */
+  function applyPlacement(shapeIds: string[], parentId?: string) {
+    for (const id of shapeIds) {
+      const shape = graph.shapes[id];
+      if (!shape?.placement) continue;
+      // If shape has explicit pos, pos takes priority — skip placement
+      if (shape.pos) continue;
+      const match = shape.placement.match(/^(right-of|left-of|below|above)\s+(.+)$/);
+      if (!match) continue;
+
+      const direction = match[1];
+      const refLocalId = match[2]!.trim().replace(/\s+/g, '_');
+      // Resolve refId: try fully qualified, then within same parent scope
+      const refId = layout[refLocalId] ? refLocalId
+        : parentId ? `${parentId}.${refLocalId}`
+        : Object.keys(layout).find(k => k.endsWith('.' + refLocalId) || k === refLocalId) ?? refLocalId;
+      const refNode = layout[refId];
+      const thisNode = layout[id];
+      if (!refNode || !thisNode) continue;
+
+      let newX = thisNode.x, newY = thisNode.y;
+      if (direction === 'right-of') { newX = refNode.x + refNode.w + H_GAP; newY = refNode.y; }
+      else if (direction === 'left-of') { newX = refNode.x - thisNode.w - H_GAP; newY = refNode.y; }
+      else if (direction === 'below') { newX = refNode.x; newY = refNode.y + refNode.h + V_GAP; }
+      else if (direction === 'above') { newX = refNode.x; newY = refNode.y - thisNode.h - V_GAP; }
+
+      const dx = newX - thisNode.x;
+      const dy = newY - thisNode.y;
+      if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+        shiftSubtree(id, dx, dy);
+      }
+    }
+  }
+
   let rootX = CONTAINER_PAD;
 
   const layoutShape = (shape: D3Shape, x: number, y: number): LayoutNode => {
@@ -673,6 +725,9 @@ export function layoutD3Graph(graph: D3Graph): { layout: Record<string, LayoutNo
 
       contentH = maxLayerH;
 
+      // Apply placement hints to layer children
+      applyPlacement(shape.children, shape.id);
+
       // Auto-expand for header text
       const headerTextW = measureText(shape.label, FONT_SIZE).width + ICON_SIZE + 20;
       contentW = Math.max(contentW, headerTextW);
@@ -815,6 +870,9 @@ export function layoutD3Graph(graph: D3Graph): { layout: Record<string, LayoutNo
         }
       }
     }
+
+    // Apply placement hints to sibling containers within this parent
+    applyPlacement(containerIds, shape.id);
 
     if (containerIds.length > 0) {
       contentW = childX - (containerX + CONTAINER_PAD) - H_GAP;
@@ -1007,35 +1065,56 @@ export function layoutD3Graph(graph: D3Graph): { layout: Record<string, LayoutNo
     return node;
   };
 
-  // Layout roots: positioned first, then unpositioned to the left
-  const positionedRoots = roots.filter(r => r.pos);
-  const unpositionedRoots = roots.filter(r => !r.pos);
+  // Layout roots: all auto-positioned left-to-right, then apply placement hints
+  const allRoots = roots.slice();
+  let currentX = CONTAINER_PAD;
 
-  for (const root of positionedRoots) {
-    layoutShape(root, rootX, CONTAINER_PAD);
+  // Leaf roots (external actors) without pos — handled in third pass
+  const leafRootsNeedingAlign: D3Shape[] = [];
+  // Non-leaf roots that were positioned (for Y-align reference)
+  const positionedNonLeafRoots: D3Shape[] = [];
+
+  // First pass: layout all roots left-to-right
+  for (const root of allRoots) {
+    if (root.pos) {
+      // Explicit pos — use it (backward compat)
+      layoutShape(root, currentX, CONTAINER_PAD);
+      const node = layout[root.id];
+      if (node) currentX = node.x + node.w + H_GAP;
+      positionedNonLeafRoots.push(root);
+    } else if (root.children.length > 0) {
+      // Container without pos — auto-position
+      const node = layoutShape(root, currentX, CONTAINER_PAD);
+      currentX = node.x + node.w + H_GAP;
+      positionedNonLeafRoots.push(root);
+    } else {
+      // Leaf root without pos — external actor, defer to third pass
+      leafRootsNeedingAlign.push(root);
+    }
   }
 
-  if (positionedRoots.length > 0 && unpositionedRoots.length > 0) {
-    // Place unpositioned roots (external actors) to the left of positioned content
-    const minPosX = Math.min(...positionedRoots.map(r => {
-      const p = r.pos!.split(',').map(s => parseFloat(s.trim()));
-      return p[0]!;
-    }));
+  // Second pass: apply placement hints (roots)
+  applyPlacement(allRoots.map(r => r.id), undefined);
+
+  // Third pass: external actors (leaf roots without pos) — layout and Y-align
+  if (leafRootsNeedingAlign.length > 0 && positionedNonLeafRoots.length > 0) {
+    // Place external actors to the left of positioned content
+    const allPosNodes = positionedNonLeafRoots.map(r => layout[r.id]).filter(Boolean) as LayoutNode[];
+    const minPosX = Math.min(...allPosNodes.map(n => n.x));
     const extX = Math.max(CONTAINER_PAD, minPosX - NODE_W - H_GAP * 2);
 
-    // First pass: lay out at default positions
+    // Layout at default positions
     let extY = CONTAINER_PAD;
-    for (const root of unpositionedRoots) {
+    for (const root of leafRootsNeedingAlign) {
       const node = layoutShape(root, extX, extY);
       extY += node.h + V_GAP;
     }
 
-    // Second pass: Y-align each external actor to its connected target's icon center
-    for (const root of unpositionedRoots) {
+    // Y-align each external actor to its connected target's icon center
+    for (const root of leafRootsNeedingAlign) {
       const rootNode = layout[root.id];
       if (!rootNode) continue;
 
-      // Find all targets this root connects to
       const targetYs: number[] = [];
       for (const conn of graph.connections) {
         let targetId: string | null = null;
@@ -1047,7 +1126,6 @@ export function layoutD3Graph(graph: D3Graph): { layout: Record<string, LayoutNo
             const tShape = graph.shapes[targetId];
             const tTextH = tShape ? measureText(tShape.label, FONT_SIZE).height : 0;
             const isLeaf = tShape && tShape.children.length === 0;
-            // Use icon center Y (top of node, not label)
             const iconCy = isLeaf
               ? (tl.y + tl.h / 2) - (8 + tTextH) / 2
               : tl.y + tl.h / 2;
@@ -1057,17 +1135,15 @@ export function layoutD3Graph(graph: D3Graph): { layout: Record<string, LayoutNo
       }
 
       if (targetYs.length > 0) {
-        // Align to average target Y (centered on icon, not label)
         const avgY = targetYs.reduce((a, b) => a + b, 0) / targetYs.length;
         const rootTextH = measureText(root.label, FONT_SIZE).height;
-        const rootIconCy = avgY;
-        rootNode.y = rootIconCy - rootNode.h / 2 + (8 + rootTextH) / 2;
+        rootNode.y = avgY - rootNode.h / 2 + (8 + rootTextH) / 2;
         layout[root.id] = rootNode;
       } else {
-        // Standalone actor (no connections) — center vertically relative to positioned content
+        // Standalone actor — center vertically relative to positioned content
         let maxH = 0;
         let minY = Infinity;
-        for (const pr of positionedRoots) {
+        for (const pr of positionedNonLeafRoots) {
           const pn = layout[pr.id];
           if (pn) {
             minY = Math.min(minY, pn.y);
@@ -1081,10 +1157,11 @@ export function layoutD3Graph(graph: D3Graph): { layout: Record<string, LayoutNo
         }
       }
     }
-  } else {
-    for (const root of unpositionedRoots) {
-      const node = layoutShape(root, rootX, CONTAINER_PAD);
-      rootX += node.w + H_GAP;
+  } else if (leafRootsNeedingAlign.length > 0) {
+    // No positioned roots — lay out leaf roots left-to-right
+    for (const root of leafRootsNeedingAlign) {
+      const node = layoutShape(root, currentX, CONTAINER_PAD);
+      currentX = node.x + node.w + H_GAP;
     }
   }
 

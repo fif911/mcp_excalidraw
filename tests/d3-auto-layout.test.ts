@@ -106,3 +106,103 @@ describe('parser: route attribute on arrows', () => {
     expect(graph.shapes['box']?.children).toEqual([]);
   });
 });
+
+describe('layout: auto-position containers', () => {
+  it('places two unpositioned root containers side by side', () => {
+    const graph = parseD3(`
+      a: Container A {
+        x: Item X
+        y: Item Y
+      }
+      b: Container B {
+        z: Item Z
+      }
+    `);
+    const { layout } = layoutD3Graph(graph);
+    const aNode = layout['a'];
+    const bNode = layout['b'];
+    expect(aNode).toBeDefined();
+    expect(bNode).toBeDefined();
+    expect(bNode!.x).toBeGreaterThan(aNode!.x + aNode!.w);
+    expect(bNode!.y).toBeCloseTo(aNode!.y, -1);
+  });
+
+  it('respects placement: right-of on root shapes', () => {
+    const graph = parseD3(`
+      left_box: Left {
+        a: Item A
+      }
+      right_box: Right {
+        placement: right-of left_box
+        b: Item B
+      }
+    `);
+    const { layout } = layoutD3Graph(graph);
+    expect(layout['right_box']!.x).toBeGreaterThan(layout['left_box']!.x + layout['left_box']!.w);
+  });
+
+  it('respects placement: right-of on NON-root sibling containers', () => {
+    const graph = parseD3(`
+      cloud: Cloud {
+        account: Account {
+          svc: Service A
+        }
+        managed: Managed {
+          placement: right-of account
+          svc2: Service B
+        }
+      }
+    `);
+    const { layout } = layoutD3Graph(graph);
+    const acc = layout['cloud.account']!;
+    const man = layout['cloud.managed']!;
+    expect(acc).toBeDefined();
+    expect(man).toBeDefined();
+    expect(man.x).toBeGreaterThanOrEqual(acc.x + acc.w);
+    // Children should have moved with the container
+    const svc2 = layout['cloud.managed.svc2']!;
+    expect(svc2).toBeDefined();
+    expect(svc2.x).toBeGreaterThanOrEqual(man.x);
+    expect(svc2.x + svc2.w).toBeLessThanOrEqual(man.x + man.w + 5);
+  });
+
+  it('auto-positions even when no pos is provided anywhere', () => {
+    const graph = parseD3(`
+      aws: AWS Cloud {
+        account: Account {
+          svc1: Service One
+          svc2: Service Two
+        }
+        managed: Managed {
+          svc3: Service Three
+        }
+      }
+    `);
+    const { layout } = layoutD3Graph(graph);
+    expect(layout['aws']).toBeDefined();
+    expect(layout['aws.account']).toBeDefined();
+    expect(layout['aws.managed']).toBeDefined();
+    const acc = layout['aws.account']!;
+    const man = layout['aws.managed']!;
+    expect(man.x).toBeGreaterThanOrEqual(acc.x + acc.w);
+  });
+
+  it('shifts all descendants when placement repositions a container', () => {
+    const graph = parseD3(`
+      parent: Parent {
+        a: Left Box {
+          child1: Deep Child
+        }
+        b: Right Box {
+          placement: right-of a
+          child2: Deep Child 2
+        }
+      }
+    `);
+    const { layout } = layoutD3Graph(graph);
+    const b = layout['parent.b']!;
+    const child2 = layout['parent.b.child2']!;
+    expect(child2.x).toBeGreaterThanOrEqual(b.x);
+    expect(child2.x + child2.w).toBeLessThanOrEqual(b.x + b.w + 5);
+  });
+});
