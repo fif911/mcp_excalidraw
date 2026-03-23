@@ -35,21 +35,14 @@ function computeLeafSize(node: D4Node): { width: number; height: number } {
   return { width: Math.round(width), height: Math.round(height) };
 }
 
-// ─── Flat-inside-containers graph builder ────────────────────────────────────
+// ─── Full hierarchy ELK graph builder ────────────────────────────────────────
 
-/** Recursively collect all leaf (non-group) nodes from the hierarchy */
-function collectLeafNodes(nodeIds: string[], allNodes: Record<string, D4Node>): D4Node[] {
-  const leaves: D4Node[] = [];
-  for (const id of nodeIds) {
-    const node = allNodes[id];
-    if (!node) continue;
-    if (node.isGroup && node.children.length > 0) {
-      leaves.push(...collectLeafNodes(node.children, allNodes));
-    } else {
-      leaves.push(node);
-    }
-  }
-  return leaves;
+interface ElkChild {
+  id: string;
+  width?: number;
+  height?: number;
+  children?: ElkChild[];
+  layoutOptions?: Record<string, string>;
 }
 
 /** Resolve a node ID to a leaf ID — if it's a container, return its first leaf descendant */
@@ -60,65 +53,35 @@ function resolveToLeaf(nodeId: string, allNodes: Record<string, D4Node>): string
   return resolveToLeaf(node.children[0]!, allNodes);
 }
 
-interface ElkChild {
-  id: string;
-  width?: number;
-  height?: number;
-  children?: ElkChild[];
-  layoutOptions?: Record<string, string>;
-}
-
 /**
- * Build ELK children with a "shallow hierarchy" approach:
- * - When a container has sibling containers (other containers at the same level),
- *   keep those containers as ELK compound nodes to prevent overlap.
- * - Inside each compound node, flatten ALL descendants to leaves (no deeper nesting).
- * - When a container has no sibling containers, flatten it away entirely.
- *
- * This gives ELK just enough hierarchy to prevent container overlaps while keeping
- * the layout mostly flat for clean edge routing.
+ * Build the FULL ELK hierarchy — every D4 container becomes an ELK compound node.
+ * ELK handles all sizing, spacing, and overlap prevention natively.
  */
-function buildShallowElkChildren(
+function buildFullElkTree(
   nodeIds: string[],
   allNodes: Record<string, D4Node>,
 ): ElkChild[] {
-  // Check if there are multiple sibling containers at this level
-  const siblingContainers = nodeIds.filter(id => {
-    const n = allNodes[id];
-    return n?.isGroup && n.children.length > 0;
-  });
-  const hasSiblingContainers = siblingContainers.length > 1;
-
   const result: ElkChild[] = [];
   for (const id of nodeIds) {
     const node = allNodes[id];
     if (!node) continue;
 
     if (node.isGroup && node.children.length > 0) {
-      if (hasSiblingContainers) {
-        // Keep this container as a compound node — flatten all descendants inside
-        const leaves = collectLeafNodes(node.children, allNodes);
-        const headerH = detectHeaderHeight(node.label);
-        const elkNode: ElkChild = {
-          id,
-          children: leaves.map(leaf => {
-            const size = computeLeafSize(leaf);
-            return { id: leaf.id, width: size.width, height: size.height };
-          }),
-          layoutOptions: {
-            'elk.algorithm': 'layered',
-            'elk.direction': 'RIGHT',
-            'elk.padding': `[top=${headerH + CONTAINER_PAD},left=${CONTAINER_PAD},bottom=${CONTAINER_PAD + 40},right=${CONTAINER_PAD}]`,
-            'elk.layered.spacing.nodeNodeBetweenLayers': '100',
-            'elk.spacing.nodeNode': '50',
-            'elk.layered.edgeRouting': 'ORTHOGONAL',
-          },
-        };
-        result.push(elkNode);
-      } else {
-        // Only one container (or none) at this level — recurse to find sibling groups deeper
-        result.push(...buildShallowElkChildren(node.children, allNodes));
-      }
+      // Compound node — recurse into children
+      const headerH = detectHeaderHeight(node.label);
+      const elkNode: ElkChild = {
+        id,
+        children: buildFullElkTree(node.children, allNodes),
+        layoutOptions: {
+          'elk.algorithm': 'layered',
+          'elk.direction': 'RIGHT',
+          'elk.padding': `[top=${headerH + CONTAINER_PAD},left=${CONTAINER_PAD},bottom=${CONTAINER_PAD + 40},right=${CONTAINER_PAD}]`,
+          'elk.layered.spacing.nodeNodeBetweenLayers': '100',
+          'elk.spacing.nodeNode': '50',
+          'elk.layered.edgeRouting': 'ORTHOGONAL',
+        },
+      };
+      result.push(elkNode);
     } else {
       // Leaf node
       const size = computeLeafSize(node);
@@ -139,7 +102,7 @@ const SYNTHETIC_EDGE_PREFIX = '_synthetic_';
  * all land in layer 0 and stack vertically. Synthetic edges chain them together
  * so ELK assigns them to successive layers, producing a wider horizontal layout.
  *
- * Only adds synthetic edges inside compound nodes where disconnected leaves exist.
+ * Recurses into all compound nodes at every level of the hierarchy.
  */
 function generateSyntheticEdges(
   elkChildren: ElkChild[],
@@ -154,24 +117,35 @@ function generateSyntheticEdges(
     for (const t of e.targets) connectedLeaves.add(t);
   }
 
-  for (const elkChild of elkChildren) {
-    if (!elkChild.children || elkChild.children.length < 2) continue;
+  function walkTree(children: ElkChild[]) {
+    for (const elkChild of children) {
+      if (!elkChild.children || elkChild.children.length < 2) {
+        // Still recurse into single-child compounds
+        if (elkChild.children) walkTree(elkChild.children);
+        continue;
+      }
 
-    // Find disconnected leaves inside this compound node
-    const disconnected = elkChild.children.filter(c => !connectedLeaves.has(c.id));
-    if (disconnected.length < 2) continue;
+      // Find disconnected leaves (direct children only, not sub-compounds)
+      const disconnected = elkChild.children.filter(
+        c => !c.children && !connectedLeaves.has(c.id),
+      );
+      if (disconnected.length >= 2) {
+        // Chain disconnected nodes: a -> b -> c -> ...
+        for (let i = 0; i < disconnected.length - 1; i++) {
+          synthetic.push({
+            id: `${SYNTHETIC_EDGE_PREFIX}${elkChild.id}_${i}`,
+            sources: [disconnected[i]!.id],
+            targets: [disconnected[i + 1]!.id],
+          });
+        }
+      }
 
-    // Chain disconnected nodes: a -> b -> c -> ...
-    // This spreads them across successive layers instead of all stacking in layer 0.
-    for (let i = 0; i < disconnected.length - 1; i++) {
-      synthetic.push({
-        id: `${SYNTHETIC_EDGE_PREFIX}${elkChild.id}_${i}`,
-        sources: [disconnected[i]!.id],
-        targets: [disconnected[i + 1]!.id],
-      });
+      // Recurse into sub-compounds
+      walkTree(elkChild.children);
     }
   }
 
+  walkTree(elkChildren);
   return synthetic;
 }
 
@@ -213,25 +187,14 @@ function clampEndpointToNodeBorder(
   }
 }
 
-/** Check if nodeId is a descendant of ancestorId in the D4 graph hierarchy */
-function isDescendantOf(nodeId: string, ancestorId: string, allNodes: Record<string, D4Node>): boolean {
-  let current = allNodes[nodeId];
-  while (current?.parent) {
-    if (current.parent === ancestorId) return true;
-    current = allNodes[current.parent];
-  }
-  return false;
-}
-
 export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
   // Find root-level nodes (no parent)
   const rootNodeIds = Object.keys(graph.nodes).filter(id => !graph.nodes[id]!.parent);
 
-  // ─── 1. Build FLAT ELK graph with sibling container separation ────────
-  // All leaf nodes flat, BUT sibling containers (e.g., customer_account and
-  // managed_account) are kept as ELK compound nodes to prevent overlap.
-  // Inside each compound node, all descendants are flattened to leaves.
-  const elkChildren = buildShallowElkChildren(rootNodeIds, graph.nodes);
+  // ─── 1. Build FULL ELK hierarchy ───────────────────────────────────────
+  // Every D4 container becomes an ELK compound node with proper padding
+  // for headers. ELK handles all sizing, spacing, and overlap prevention.
+  const elkChildren = buildFullElkTree(rootNodeIds, graph.nodes);
 
   // Resolve edge endpoints: if an edge connects to a container, redirect to
   // its first leaf descendant so ELK can route it.
@@ -242,8 +205,6 @@ export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
   }));
 
   // Generate synthetic edges to spread disconnected nodes across layers.
-  // With INCLUDE_CHILDREN, disconnected nodes inside compounds all land in layer 0.
-  // Chaining them with invisible edges forces ELK to assign successive layers.
   const syntheticEdges = generateSyntheticEdges(elkChildren, elkEdges);
 
   const elkGraph = {
@@ -265,7 +226,8 @@ export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
   const result = await elk.layout(elkGraph as any);
 
   // ─── 2. Extract positions from ELK result ──────────────────────────────
-  // Walk the shallow ELK tree to get absolute positions for all nodes.
+  // Walk the full ELK tree to get absolute positions for ALL nodes
+  // (both compound and leaf). ELK sizes everything — no post-processing needed.
   const nodes: Record<string, D4LayoutNode> = {};
   function collectPositions(elkChildren: any[], offsetX: number, offsetY: number) {
     for (const child of elkChildren) {
@@ -285,97 +247,11 @@ export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
   }
   collectPositions(result.children ?? [], 0, 0);
 
-  // ─── 3. Compute bounding boxes for containers NOT in the ELK tree ──────
-  // ELK only knows about "sibling group" containers. Other containers
-  // (single-child wrappers like aws_cloud, or sub-containers like auth/sfn)
-  // need their bounds computed from descendant positions.
-  function computeContainerBounds(containerId: string): D4LayoutNode | null {
-    // If ELK already positioned this container, use that
-    if (nodes[containerId]) return nodes[containerId];
-
-    const container = graph.nodes[containerId];
-    if (!container || !container.isGroup) return null;
-
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-
-    for (const childId of container.children) {
-      const childNode = graph.nodes[childId];
-      if (!childNode) continue;
-
-      if (childNode.isGroup) {
-        const childBounds = computeContainerBounds(childId);
-        if (childBounds) {
-          minX = Math.min(minX, childBounds.x);
-          minY = Math.min(minY, childBounds.y);
-          maxX = Math.max(maxX, childBounds.x + childBounds.w);
-          maxY = Math.max(maxY, childBounds.y + childBounds.h);
-        }
-      } else {
-        const leafPos = nodes[childId];
-        if (leafPos) {
-          const labelH = measureText(childNode.label, FONT_SIZE).height + 8;
-          const labelW = measureText(childNode.label, FONT_SIZE).width;
-          const nodeRight = leafPos.x + Math.max(leafPos.w, labelW);
-          const nodeBottom = leafPos.y + leafPos.h + labelH;
-          minX = Math.min(minX, leafPos.x);
-          minY = Math.min(minY, leafPos.y);
-          maxX = Math.max(maxX, nodeRight);
-          maxY = Math.max(maxY, nodeBottom);
-        }
-      }
-    }
-
-    if (minX === Infinity) return null;
-
-    const headerH = detectHeaderHeight(container.label);
-    const pad = CONTAINER_PAD;
-    const bounds: D4LayoutNode = {
-      id: containerId,
-      x: minX - pad,
-      y: minY - headerH - pad,
-      w: (maxX - minX) + pad * 2,
-      h: (maxY - minY) + headerH + pad * 2,
-    };
-
-    nodes[containerId] = bounds;
-    return bounds;
-  }
-
-  // Walk all containers and compute bounds for those not already positioned by ELK
-  function ensureAllContainers(nodeIds: string[]) {
-    for (const id of nodeIds) {
-      const node = graph.nodes[id];
-      if (node?.isGroup) {
-        ensureAllContainers(node.children);
-        computeContainerBounds(id);
-      }
-    }
-  }
-  ensureAllContainers(rootNodeIds);
-
-  // ─── 4. Extract edges ──────────────────────────────────────────────────
-  // With INCLUDE_CHILDREN + shallow hierarchy, edges may be at root or inside
-  // a compound node. Walk the full ELK tree to find all edges and apply offsets.
-  //
-  // ELK with INCLUDE_CHILDREN hoists all edges to the root. Cross-compound edges
-  // get absolute (root-relative) coordinates, but intra-compound edges retain
-  // coordinates relative to their compound node. We detect the latter by checking
-  // if both source and target are inside the same compound child, and add the
-  // compound node's absolute position as offset.
+  // ─── 3. Extract edges ──────────────────────────────────────────────────
+  // With INCLUDE_CHILDREN + full hierarchy, ELK hoists all edges to the
+  // lowest common ancestor. Walk the full tree to find edges and compute
+  // absolute coordinates by accumulating parent offsets.
   const elkEdgeMap = new Map<string, { elkEdge: any; offsetX: number; offsetY: number }>();
-
-  // Build a map: leaf node ID → compound ELK child ID (for root-level compound nodes)
-  const leafToCompound = new Map<string, string>();
-  // Build a map: compound ID → absolute {x, y} from the ELK result
-  const compoundPositions = new Map<string, { x: number; y: number }>();
-  for (const child of result.children ?? []) {
-    if (child.children) {
-      compoundPositions.set(child.id, { x: child.x ?? 0, y: child.y ?? 0 });
-      for (const leaf of child.children ?? []) {
-        leafToCompound.set(leaf.id, child.id);
-      }
-    }
-  }
 
   function collectEdgesFromTree(elkNode: any, offsetX: number, offsetY: number) {
     const nodeOffsetX = elkNode.id === 'root' ? 0 : (elkNode.x ?? 0);
@@ -384,26 +260,7 @@ export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
     const absY = offsetY + nodeOffsetY;
     if (elkNode.edges) {
       for (const e of elkNode.edges) {
-        let edgeOffsetX = absX;
-        let edgeOffsetY = absY;
-
-        // Fix for INCLUDE_CHILDREN: intra-compound edges at root level have
-        // coordinates relative to their compound node, not to root.
-        if (elkNode.id === 'root') {
-          const srcId = e.sources?.[0] ?? '';
-          const tgtId = e.targets?.[0] ?? '';
-          const srcCompound = leafToCompound.get(srcId);
-          const tgtCompound = leafToCompound.get(tgtId);
-          if (srcCompound && srcCompound === tgtCompound) {
-            const pos = compoundPositions.get(srcCompound);
-            if (pos) {
-              edgeOffsetX = pos.x;
-              edgeOffsetY = pos.y;
-            }
-          }
-        }
-
-        elkEdgeMap.set(e.id, { elkEdge: e, offsetX: edgeOffsetX, offsetY: edgeOffsetY });
+        elkEdgeMap.set(e.id, { elkEdge: e, offsetX: absX, offsetY: absY });
       }
     }
     if (elkNode.children) {
