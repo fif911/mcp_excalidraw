@@ -18,6 +18,8 @@
     "dev:server": "npx tsc --watch",
     "production": "npm run build && npm run canvas",
     "prepublishOnly": "npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "type-check": "npx tsc --noEmit"
   },
   "dependencies": {
@@ -47,7 +49,8 @@
     "@vitejs/plugin-react": "^4.6.0",
     "concurrently": "^9.2.0",
     "typescript": "^5.8.3",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "vitest": "^4.1.0"
   },
   "keywords": [
     "mcp",
