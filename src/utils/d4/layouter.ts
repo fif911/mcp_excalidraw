@@ -110,6 +110,53 @@ function buildShallowElkChildren(
   return result;
 }
 
+// ─── Synthetic edge generation for layer spreading ──────────────────────────
+
+const SYNTHETIC_EDGE_PREFIX = '_synthetic_';
+
+/**
+ * Generate synthetic (invisible) edges to spread disconnected nodes across layers.
+ *
+ * With ELK's INCLUDE_CHILDREN mode, disconnected nodes inside compound containers
+ * all land in layer 0 and stack vertically. Synthetic edges chain them together
+ * so ELK assigns them to successive layers, producing a wider horizontal layout.
+ *
+ * Only adds synthetic edges inside compound nodes where disconnected leaves exist.
+ */
+function generateSyntheticEdges(
+  elkChildren: ElkChild[],
+  realEdges: Array<{ sources: string[]; targets: string[] }>,
+): Array<{ id: string; sources: string[]; targets: string[] }> {
+  const synthetic: Array<{ id: string; sources: string[]; targets: string[] }> = [];
+
+  // Build set of all leaf IDs that participate in real edges
+  const connectedLeaves = new Set<string>();
+  for (const e of realEdges) {
+    for (const s of e.sources) connectedLeaves.add(s);
+    for (const t of e.targets) connectedLeaves.add(t);
+  }
+
+  for (const elkChild of elkChildren) {
+    if (!elkChild.children || elkChild.children.length < 2) continue;
+
+    // Find disconnected leaves inside this compound node
+    const disconnected = elkChild.children.filter(c => !connectedLeaves.has(c.id));
+    if (disconnected.length < 2) continue;
+
+    // Chain disconnected nodes: a -> b -> c -> ...
+    // This spreads them across successive layers instead of all stacking in layer 0.
+    for (let i = 0; i < disconnected.length - 1; i++) {
+      synthetic.push({
+        id: `${SYNTHETIC_EDGE_PREFIX}${elkChild.id}_${i}`,
+        sources: [disconnected[i]!.id],
+        targets: [disconnected[i + 1]!.id],
+      });
+    }
+  }
+
+  return synthetic;
+}
+
 /**
  * If an edge endpoint falls inside a node, snap it to the nearest node border.
  * This fixes rare ELK cases where edge start/end points land inside icons.
@@ -176,6 +223,11 @@ export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
     targets: [resolveToLeaf(e.to, graph.nodes)],
   }));
 
+  // Generate synthetic edges to spread disconnected nodes across layers.
+  // With INCLUDE_CHILDREN, disconnected nodes inside compounds all land in layer 0.
+  // Chaining them with invisible edges forces ELK to assign successive layers.
+  const syntheticEdges = generateSyntheticEdges(elkChildren, elkEdges);
+
   const elkGraph = {
     id: 'root',
     layoutOptions: {
@@ -189,7 +241,7 @@ export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
       'elk.spacing.nodeNode': '60',
     },
     children: elkChildren,
-    edges: elkEdges,
+    edges: [...elkEdges, ...syntheticEdges],
   };
 
   const result = await elk.layout(elkGraph as any);
@@ -286,7 +338,27 @@ export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
   // ─── 4. Extract edges ──────────────────────────────────────────────────
   // With INCLUDE_CHILDREN + shallow hierarchy, edges may be at root or inside
   // a compound node. Walk the full ELK tree to find all edges and apply offsets.
+  //
+  // ELK with INCLUDE_CHILDREN hoists all edges to the root. Cross-compound edges
+  // get absolute (root-relative) coordinates, but intra-compound edges retain
+  // coordinates relative to their compound node. We detect the latter by checking
+  // if both source and target are inside the same compound child, and add the
+  // compound node's absolute position as offset.
   const elkEdgeMap = new Map<string, { elkEdge: any; offsetX: number; offsetY: number }>();
+
+  // Build a map: leaf node ID → compound ELK child ID (for root-level compound nodes)
+  const leafToCompound = new Map<string, string>();
+  // Build a map: compound ID → absolute {x, y} from the ELK result
+  const compoundPositions = new Map<string, { x: number; y: number }>();
+  for (const child of result.children ?? []) {
+    if (child.children) {
+      compoundPositions.set(child.id, { x: child.x ?? 0, y: child.y ?? 0 });
+      for (const leaf of child.children ?? []) {
+        leafToCompound.set(leaf.id, child.id);
+      }
+    }
+  }
+
   function collectEdgesFromTree(elkNode: any, offsetX: number, offsetY: number) {
     const nodeOffsetX = elkNode.id === 'root' ? 0 : (elkNode.x ?? 0);
     const nodeOffsetY = elkNode.id === 'root' ? 0 : (elkNode.y ?? 0);
@@ -294,7 +366,26 @@ export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
     const absY = offsetY + nodeOffsetY;
     if (elkNode.edges) {
       for (const e of elkNode.edges) {
-        elkEdgeMap.set(e.id, { elkEdge: e, offsetX: absX, offsetY: absY });
+        let edgeOffsetX = absX;
+        let edgeOffsetY = absY;
+
+        // Fix for INCLUDE_CHILDREN: intra-compound edges at root level have
+        // coordinates relative to their compound node, not to root.
+        if (elkNode.id === 'root') {
+          const srcId = e.sources?.[0] ?? '';
+          const tgtId = e.targets?.[0] ?? '';
+          const srcCompound = leafToCompound.get(srcId);
+          const tgtCompound = leafToCompound.get(tgtId);
+          if (srcCompound && srcCompound === tgtCompound) {
+            const pos = compoundPositions.get(srcCompound);
+            if (pos) {
+              edgeOffsetX = pos.x;
+              edgeOffsetY = pos.y;
+            }
+          }
+        }
+
+        elkEdgeMap.set(e.id, { elkEdge: e, offsetX: edgeOffsetX, offsetY: edgeOffsetY });
       }
     }
     if (elkNode.children) {
