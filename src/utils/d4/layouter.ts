@@ -153,13 +153,34 @@ export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
   const nodes: Record<string, D4LayoutNode> = {};
   collectAbsolutePositions(result.children ?? [], 0, 0, nodes);
 
-  // Extract edge routes
+  // Extract edge routes — ELK may place edges at any level in the hierarchy
+  // when using INCLUDE_CHILDREN, so we must walk the entire result tree
+  const elkEdgeMap = new Map<string, { elkEdge: any; offsetX: number; offsetY: number }>();
+  function collectEdges(elkNode: any, offsetX: number, offsetY: number) {
+    const nodeOffsetX = elkNode.id === 'root' ? 0 : (elkNode.x ?? 0);
+    const nodeOffsetY = elkNode.id === 'root' ? 0 : (elkNode.y ?? 0);
+    const absX = offsetX + nodeOffsetX;
+    const absY = offsetY + nodeOffsetY;
+
+    if (elkNode.edges) {
+      for (const elkEdge of elkNode.edges) {
+        elkEdgeMap.set(elkEdge.id, { elkEdge, offsetX: absX, offsetY: absY });
+      }
+    }
+    if (elkNode.children) {
+      for (const child of elkNode.children) {
+        collectEdges(child, absX, absY);
+      }
+    }
+  }
+  collectEdges(result, 0, 0);
+
   const edges: D4LayoutEdge[] = [];
-  const resultEdges = (result as any).edges ?? [];
-  for (let i = 0; i < graph.edges.length; i++) {
-    const d4Edge = graph.edges[i]!;
-    const elkEdge = resultEdges[i];
-    const points = elkEdge ? extractEdgePoints([elkEdge], 0, 0) : [];
+  for (const d4Edge of graph.edges) {
+    const entry = elkEdgeMap.get(d4Edge.id);
+    const points = entry
+      ? extractEdgePoints([entry.elkEdge], entry.offsetX, entry.offsetY)
+      : [];
 
     edges.push({
       id: d4Edge.id,

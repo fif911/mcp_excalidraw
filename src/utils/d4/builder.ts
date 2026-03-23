@@ -372,13 +372,82 @@ export function buildD4Elements(graph: D4Graph, layout: D4Layout): D4Result {
       continue;
     }
 
-    const pts = layoutEdge.points;
+    let pts = layoutEdge.points;
     if (!pts || pts.length < 2) {
       validationIssues.push(`Edge ${layoutEdge.id} has fewer than 2 points`);
       continue;
     }
 
     arrowCount++;
+
+    // ELK places arrow endpoints at node BORDERS, but we want arrows to reach
+    // icon edges (the visual element inside the node box). Extend endpoints
+    // from ELK border to icon center for leaf nodes.
+    const fromPos = layout.nodes[layoutEdge.from];
+    const toPos = layout.nodes[layoutEdge.to];
+    const fromNode = graph.nodes[layoutEdge.from];
+    const toNode = graph.nodes[layoutEdge.to];
+
+    if (fromPos && fromNode && !fromNode.isGroup) {
+      // Snap start to source icon center
+      const fromCx = fromPos.x + fromPos.w / 2;
+      const fromTextH = measureText(fromNode.label, FONT_SIZE).height;
+      const fromIconCy = fromPos.y + fromPos.h / 2 - (8 + fromTextH) / 2;
+      const firstPt = pts[0]!;
+      const nextPt = pts.length > 1 ? pts[1]! : firstPt;
+      // Determine exit direction
+      const dx = nextPt[0]! - firstPt[0]!;
+      const dy = nextPt[1]! - firstPt[1]!;
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        // Horizontal exit — snap to icon edge, centered Y
+        const signX = dx > 0 ? 1 : -1;
+        pts = [[fromCx + signX * (ICON_SIZE / 2 + 5), fromIconCy], ...pts.slice(1)];
+      } else {
+        // Vertical exit — snap to icon top/bottom
+        const signY = dy > 0 ? 1 : -1;
+        pts = [[fromCx, fromIconCy + signY * (ICON_SIZE / 2 + 5)], ...pts.slice(1)];
+      }
+    }
+
+    if (toPos && toNode && !toNode.isGroup) {
+      // Snap end to target icon center
+      const toCx = toPos.x + toPos.w / 2;
+      const toTextH = measureText(toNode.label, FONT_SIZE).height;
+      const toIconCy = toPos.y + toPos.h / 2 - (8 + toTextH) / 2;
+      const lastPt = pts[pts.length - 1]!;
+      const prevPt = pts.length > 1 ? pts[pts.length - 2]! : lastPt;
+      // Determine entry direction
+      const dx = lastPt[0]! - prevPt[0]!;
+      const dy = lastPt[1]! - prevPt[1]!;
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        // Horizontal entry
+        const signX = dx > 0 ? -1 : 1;
+        pts = [...pts.slice(0, -1), [toCx + signX * (ICON_SIZE / 2 + 5), toIconCy]];
+      } else {
+        // Vertical entry
+        const signY = dy > 0 ? -1 : 1;
+        pts = [...pts.slice(0, -1), [toCx, toIconCy + signY * (ICON_SIZE / 2 + 5)]];
+      }
+    }
+
+    // Fix any diagonals created by snapping — insert orthogonal bends
+    const fixedPts: number[][] = [pts[0]!];
+    for (let k = 1; k < pts.length; k++) {
+      const prev = fixedPts[fixedPts.length - 1]!;
+      const cur = pts[k]!;
+      const adx = Math.abs(cur[0]! - prev[0]!);
+      const ady = Math.abs(cur[1]! - prev[1]!);
+      if (adx > 3 && ady > 3) {
+        // Diagonal — insert L-shape bend
+        if (adx >= ady) {
+          fixedPts.push([cur[0]!, prev[1]!]);
+        } else {
+          fixedPts.push([prev[0]!, cur[1]!]);
+        }
+      }
+      fixedPts.push(cur);
+    }
+    pts = fixedPts;
 
     // Convert absolute ELK points to Excalidraw relative format
     const origin = pts[0]!;
