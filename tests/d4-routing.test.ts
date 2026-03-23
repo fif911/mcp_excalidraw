@@ -273,3 +273,102 @@ describe('rendering: newline labels', () => {
     expect(textEls.length).toBeGreaterThanOrEqual(1);
   });
 });
+
+// ── Full diagram stress test ──────────────────────────────────────────
+
+describe('routing: Data Transfer Hub (full diagram)', () => {
+  let result: any;
+  
+  beforeAll(async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const source = fs.readFileSync(
+      path.resolve(import.meta.dirname, 'fixtures/data-transfer-hub.d4'), 'utf-8'
+    );
+    result = await convertD4ToExcalidraw(source);
+  });
+
+  it('no arrow penetrates any icon', () => {
+    const arrows = getArrowAbsolutePoints(result);
+    const allIcons = result.elements
+      .filter((el: any) => el.type === 'image')
+      .map((el: any) => ({
+        id: el.id,
+        x: el.x, y: el.y,
+        w: el.width || 98, h: el.height || 98
+      }));
+
+    const penetrations: string[] = [];
+    for (const arrow of arrows) {
+      for (const pt of arrow.points) {
+        for (const icon of allIcons) {
+          if (pointInsideIcon(pt[0], pt[1], icon, 10)) {
+            penetrations.push(`Arrow ${arrow.id} point (${pt[0].toFixed(0)},${pt[1].toFixed(0)}) inside icon ${icon.id}`);
+          }
+        }
+      }
+    }
+    
+    if (penetrations.length > 0) {
+      console.log('PENETRATIONS FOUND:');
+      for (const p of penetrations) console.log('  ', p);
+    }
+    expect(penetrations).toEqual([]);
+  });
+
+  it('all arrows are orthogonal', () => {
+    const arrows = getArrowAbsolutePoints(result);
+    const diagonals: string[] = [];
+    for (const arrow of arrows) {
+      if (!allOrthogonal(arrow.points)) {
+        diagonals.push(`Arrow ${arrow.id} has diagonal segments`);
+      }
+    }
+    expect(diagonals).toEqual([]);
+  });
+
+  it('no arrows have U-turns', () => {
+    const arrows = getArrowAbsolutePoints(result);
+    const uturns: string[] = [];
+    for (const arrow of arrows) {
+      if (!noUTurns(arrow.points)) {
+        uturns.push(`Arrow ${arrow.id} has U-turn`);
+      }
+    }
+    expect(uturns).toEqual([]);
+  });
+
+  it('no arrow is too short (< 50px span)', () => {
+    const arrows = getArrowAbsolutePoints(result);
+    const short: string[] = [];
+    for (const arrow of arrows) {
+      const pts = arrow.points;
+      const dx = Math.abs(pts[pts.length-1][0] - pts[0][0]);
+      const dy = Math.abs(pts[pts.length-1][1] - pts[0][1]);
+      if (dx < 50 && dy < 50) {
+        short.push(`Arrow ${arrow.id} span=(${dx.toFixed(0)},${dy.toFixed(0)})`);
+      }
+    }
+    expect(short).toEqual([]);
+  });
+
+  it('all children inside their parent containers', () => {
+    const violations: string[] = [];
+    for (const pos of result.positions) {
+      if (pos.type !== 'icon') continue;
+      // Find parent container
+      const parts = pos.id.split('.');
+      if (parts.length < 2) continue;
+      const parentId = parts.slice(0, -1).join('.');
+      const parentPos = result.positions.find((p: any) => p.id === parentId && p.type === 'container');
+      if (!parentPos) continue;
+      
+      if (pos.x < parentPos.x - 5 || pos.y < parentPos.y - 5 ||
+          pos.x + pos.w > parentPos.x + parentPos.w + 5 ||
+          pos.y + pos.h > parentPos.y + parentPos.h + 5) {
+        violations.push(`${pos.label} (${pos.id}) outside parent ${parentId}`);
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+});

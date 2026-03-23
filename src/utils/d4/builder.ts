@@ -473,6 +473,38 @@ export function buildD4Elements(graph: D4Graph, layout: D4Layout): D4Result {
     }
     pts = fixedPts;
 
+    // Remove U-turns: if a point reverses direction from the previous segment, remove it
+    for (let pass = 0; pass < 5; pass++) {
+      let removed = false;
+      for (let i = 1; i < pts.length - 1; i++) {
+        const a = pts[i - 1]!;
+        const b = pts[i]!;
+        const c = pts[i + 1]!;
+        const dxAB = b[0]! - a[0]!;
+        const dxBC = c[0]! - b[0]!;
+        const dyAB = b[1]! - a[1]!;
+        const dyBC = c[1]! - b[1]!;
+        const xRev = (dxAB > 10 && dxBC < -10) || (dxAB < -10 && dxBC > 10);
+        const yRev = (dyAB > 10 && dyBC < -10) || (dyAB < -10 && dyBC > 10);
+        if (xRev || yRev) {
+          pts.splice(i, 1);
+          removed = true;
+          break;
+        }
+      }
+      if (!removed) break;
+    }
+
+    // Collapse near-duplicate points (< 5px apart)
+    const collapsed: number[][] = [pts[0]!];
+    for (let i = 1; i < pts.length; i++) {
+      const prev = collapsed[collapsed.length - 1]!;
+      const cur = pts[i]!;
+      const dist = Math.abs(cur[0]! - prev[0]!) + Math.abs(cur[1]! - prev[1]!);
+      if (dist >= 5) collapsed.push(cur);
+    }
+    if (collapsed.length >= 2) pts = collapsed;
+
     // Convert absolute ELK points to Excalidraw relative format
     const origin = pts[0]!;
     const relPts = pts.map(p => [p[0]! - origin[0]!, p[1]! - origin[1]!]);
