@@ -1920,7 +1920,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
           if (params.format === 'svg') {
             fs.writeFileSync(safeImagePath, result.data, 'utf-8');
           } else {
-            fs.writeFileSync(safeImagePath, Buffer.from(result.data, 'base64'));
+            const rawBase64 = result.data.replace(/^data:image\/\w+;base64,/, '');
+            fs.writeFileSync(safeImagePath, Buffer.from(rawBase64, 'base64'));
           }
           return {
             content: [{
