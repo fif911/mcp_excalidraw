@@ -1449,6 +1449,13 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
 
     } else {
       // ── Leaf node (icon + label) ──
+
+      // Skip invisible spacer elements
+      if (shape.style['opacity'] === '0' ||
+          (shape.style['fill'] === 'transparent' && shape.style['stroke'] === 'transparent')) {
+        continue;
+      }
+
       nodeCount++;
       const groupId = `g-${safeId}`;
       const cx = pos.x + pos.w / 2;

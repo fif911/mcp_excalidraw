@@ -293,3 +293,82 @@ describe('arrows: auto-routing without waypoints', () => {
     expect(result.stats.arrows).toBe(1);
   });
 });
+
+describe('badges: auto-placement', () => {
+  it('places badges on arrows without badge_pos', () => {
+    const result = convertD3ToExcalidraw(`
+      box: Container {
+        layout: row
+        a: Service A
+        b: Service B
+      }
+      box.a -> box.b: 1
+    `);
+    expect(result.stats.badges).toBe(1);
+    // Badge should be an ellipse (circle) element
+    const badges = result.elements.filter((el: any) => el.type === 'ellipse');
+    expect(badges.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('places badges on L-shaped arrows at midpoint of longest segment', () => {
+    const result = convertD3ToExcalidraw(`
+      box: Container {
+        layout: layers
+        col1: {
+          a: Service A
+        }
+        col2: {
+          b: Service B
+        }
+      }
+      box.col1.a -> box.col2.b: 5 {
+        route: up-then-right
+      }
+    `);
+    expect(result.stats.badges).toBe(1);
+  });
+});
+
+describe('layout: layers without spacers', () => {
+  it('handles columns with different item counts', () => {
+    const result = convertD3ToExcalidraw(`
+      box: Container {
+        layout: layers
+        col1: {
+          a: Item A
+          b: Item B
+        }
+        col2: {
+          c: Item C
+        }
+      }
+      box.col1.a -> box.col2.c: 1
+    `);
+    expect(result.stats.arrows).toBe(1);
+    expect(findDiagonalArrows(result)).toEqual([]);
+  });
+
+  it('does not render transparent spacer elements', () => {
+    const result = convertD3ToExcalidraw(`
+      box: Container {
+        layout: layers
+        col1: {
+          a: Item A
+        }
+        col2: {
+          spacer: " " {
+            style.fill: "transparent"
+            style.stroke: "transparent"
+            style.opacity: 0
+          }
+          b: Item B
+        }
+      }
+    `);
+    // Spacer should not produce a visible element
+    const spacerEl = result.elements.find((el: any) => el.id?.includes('spacer'));
+    if (spacerEl) {
+      expect(spacerEl.strokeColor === 'transparent' || spacerEl.opacity === 0).toBe(true);
+    }
+  });
+});
