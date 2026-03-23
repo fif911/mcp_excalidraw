@@ -381,46 +381,70 @@ export function buildD4Elements(graph: D4Graph, layout: D4Layout): D4Result {
     arrowCount++;
 
     // ELK places arrow endpoints at node BORDERS, but we want arrows to reach
-    // icon edges (the visual element inside the node box). Extend endpoints
-    // from ELK border to icon center for leaf nodes.
+    // icon edges (the visual element inside the node box). Snap endpoints
+    // from ELK border positions to icon edges for leaf nodes.
+    //
+    // IMPORTANT: We compute snap directions from the ORIGINAL ELK points before
+    // any snapping, then apply both snaps. Using post-snap coordinates for the
+    // second snap would corrupt the direction when snapping moves a point far
+    // from its original position.
     const fromPos = layout.nodes[layoutEdge.from];
     const toPos = layout.nodes[layoutEdge.to];
     const fromNode = graph.nodes[layoutEdge.from];
     const toNode = graph.nodes[layoutEdge.to];
 
+    // Save original ELK points for direction computation
+    const origPts = pts.map(p => [...p]);
+
     if (fromPos && fromNode && !fromNode.isGroup) {
-      // Snap start to source icon center
+      // Snap start to source icon edge
       const fromCx = fromPos.x + fromPos.w / 2;
       const fromTextH = measureText(fromNode.label, FONT_SIZE).height;
       const fromIconCy = fromPos.y + fromPos.h / 2 - (8 + fromTextH) / 2;
-      const firstPt = pts[0]!;
-      const nextPt = pts.length > 1 ? pts[1]! : firstPt;
-      // Determine exit direction
-      const dx = nextPt[0]! - firstPt[0]!;
-      const dy = nextPt[1]! - firstPt[1]!;
+
+      // Use original ELK points for direction, falling back to target node
+      // center when ELK points don't clearly indicate direction
+      const firstPt = origPts[0]!;
+      const nextPt = origPts.length > 1 ? origPts[1]! : firstPt;
+      let dx = nextPt[0]! - firstPt[0]!;
+      let dy = nextPt[1]! - firstPt[1]!;
+
+      // If ELK points are nearly coincident, use target node center for direction
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && toPos) {
+        dx = (toPos.x + toPos.w / 2) - fromCx;
+        dy = (toPos.y + toPos.h / 2) - fromIconCy;
+      }
+
       if (Math.abs(dx) >= Math.abs(dy)) {
-        // Horizontal exit — snap to icon edge, centered Y
         const signX = dx > 0 ? 1 : -1;
         pts = [[fromCx + signX * (ICON_SIZE / 2 + 5), fromIconCy], ...pts.slice(1)];
       } else {
-        // Vertical exit — snap to icon top/bottom
         const signY = dy > 0 ? 1 : -1;
         pts = [[fromCx, fromIconCy + signY * (ICON_SIZE / 2 + 5)], ...pts.slice(1)];
       }
     }
 
     if (toPos && toNode && !toNode.isGroup) {
-      // Snap end to target icon center
+      // Snap end to target icon edge
       const toCx = toPos.x + toPos.w / 2;
       const toTextH = measureText(toNode.label, FONT_SIZE).height;
       const toIconCy = toPos.y + toPos.h / 2 - (8 + toTextH) / 2;
-      const lastPt = pts[pts.length - 1]!;
-      const prevPt = pts.length > 1 ? pts[pts.length - 2]! : lastPt;
-      // Determine entry direction
-      const dx = lastPt[0]! - prevPt[0]!;
-      const dy = lastPt[1]! - prevPt[1]!;
+
+      // Use ORIGINAL ELK points for direction (not post-snap), falling back
+      // to source node center when ELK points are nearly coincident
+      const lastOrigPt = origPts[origPts.length - 1]!;
+      const prevOrigPt = origPts.length > 1 ? origPts[origPts.length - 2]! : lastOrigPt;
+      let dx = lastOrigPt[0]! - prevOrigPt[0]!;
+      let dy = lastOrigPt[1]! - prevOrigPt[1]!;
+
+      // If ELK points are nearly coincident, use source node center for direction
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && fromPos) {
+        dx = toCx - (fromPos.x + fromPos.w / 2);
+        dy = toIconCy - (fromPos.y + fromPos.h / 2);
+      }
+
       if (Math.abs(dx) >= Math.abs(dy)) {
-        // Horizontal entry
+        // Horizontal entry — arrow arrives from the direction of prevPt
         const signX = dx > 0 ? -1 : 1;
         pts = [...pts.slice(0, -1), [toCx + signX * (ICON_SIZE / 2 + 5), toIconCy]];
       } else {

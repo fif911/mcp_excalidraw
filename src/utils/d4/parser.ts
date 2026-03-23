@@ -154,7 +154,7 @@ export function parseD4(source: string): D4Graph {
         id: generateId(),
         from: actualFrom,
         to: actualTo,
-        label,
+        label: unescapeLabel(label),
         bidirectional,
         style: {},
       };
@@ -216,7 +216,7 @@ export function parseD4(source: string): D4Graph {
       const fullId = getFullId(localId.replace(/\s+/g, '_'));
       const node = ensureNode(fullId);
       if (attr === 'icon') node.icon = value.replace(/^["']|["']$/g, '');
-      else if (attr === 'label') node.label = value;
+      else if (attr === 'label') node.label = unescapeLabel(value);
       else node.style[attr.replace('style.', '')] = value;
       i++;
       continue;
