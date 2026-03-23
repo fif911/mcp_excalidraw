@@ -32,6 +32,7 @@ import fs from 'fs';
 import os from 'os';
 import { convertD2ToExcalidraw } from './utils/d2Converter.js';
 import { convertD3ToExcalidraw } from './utils/d3Converter.js';
+import { convertD4ToExcalidraw } from './utils/d4/index.js';
 import { runAllOverlapChecks } from './utils/overlapChecks.js';
 
 // Load environment variables
@@ -954,6 +955,54 @@ app.post('/api/elements/from-d3', async (req: Request, res: Response) => {
       success: false,
       error: (error as Error).message
     });
+  }
+});
+
+// D4 route — ELK-based auto-layout (no coordinates needed)
+app.post('/api/elements/from-d4', async (req: Request, res: Response) => {
+  try {
+    const { d4Diagram } = req.body;
+    if (!d4Diagram || typeof d4Diagram !== 'string') {
+      return res.status(400).json({ success: false, error: 'Missing d4Diagram string' });
+    }
+
+    const result = await convertD4ToExcalidraw(d4Diagram);
+
+    // Clear and store elements
+    elements.clear();
+    for (const el of result.elements) {
+      elements.set(el.id, {
+        ...el,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        version: 1,
+      } as any);
+    }
+
+    // Upload icon files
+    for (const file of result.files) {
+      files.set(file.id, file as any);
+    }
+
+    // Broadcast to WebSocket clients
+    broadcast({
+      type: 'd4_convert',
+      elements: result.elements,
+      files: result.files,
+      timestamp: new Date().toISOString(),
+    } as any);
+
+    res.json({
+      success: true,
+      elementCount: result.elements.length,
+      ...result.stats,
+      iconsMissing: result.iconsMissing,
+      validationIssues: result.validationIssues,
+      positions: result.positions,
+    });
+  } catch (error: any) {
+    logger.error('D4 conversion error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

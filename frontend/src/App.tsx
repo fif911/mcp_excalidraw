@@ -836,6 +836,26 @@ function App(): JSX.Element {
           }
           break
 
+        case 'd4_convert':
+          console.log('Received d4_convert result from server')
+          if (data.elements && data.elements.length > 0) {
+            try {
+              const cleanedElements = data.elements.map(cleanElementForExcalidraw)
+              const validatedElements = validateAndFixBindings(cleanedElements)
+              const allElements = [...currentElements, ...validatedElements] as any[]
+              const rawConverted = convertToExcalidrawElements(allElements, { regenerateIds: false })
+              const convertedElements = restoreBindings(rawConverted, allElements)
+              excalidrawAPI.updateScene({
+                elements: convertedElements,
+                captureUpdate: CaptureUpdateAction.IMMEDIATELY
+              })
+              console.log('d4_convert diagram rendered:', data.elements.length, 'elements')
+            } catch (error) {
+              console.error('Error rendering d4_convert diagram from WebSocket:', error)
+            }
+          }
+          break
+
         default:
           console.log('Unknown WebSocket message type:', data.type)
       }
