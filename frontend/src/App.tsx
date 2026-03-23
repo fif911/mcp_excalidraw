@@ -259,39 +259,6 @@ const normalizeImageElement = (element: Partial<ExcalidrawElement>): Partial<Exc
   }
 }
 
-// Helper: restore startBinding/endBinding/boundElements after convertToExcalidrawElements strips them
-const restoreBindings = (
-  convertedElements: readonly any[],
-  originalElements: Partial<ExcalidrawElement>[]
-): any[] => {
-  const originalMap = new Map<string, any>();
-  for (const el of originalElements) {
-    if (el.id) originalMap.set(el.id, el);
-  }
-
-  return convertedElements.map((el: any) => {
-    const orig = originalMap.get(el.id);
-    if (!orig) return el;
-
-    const patched = { ...el };
-
-    if (orig.startBinding && !el.startBinding) {
-      patched.startBinding = orig.startBinding;
-    }
-    if (orig.endBinding && !el.endBinding) {
-      patched.endBinding = orig.endBinding;
-    }
-    if (orig.boundElements && (!el.boundElements || el.boundElements.length === 0)) {
-      patched.boundElements = orig.boundElements;
-    }
-    if (orig.elbowed !== undefined && el.elbowed === undefined) {
-      patched.elbowed = orig.elbowed;
-    }
-
-    return patched;
-  });
-};
-
 const convertElementsPreservingImageProps = (
   elements: Partial<ExcalidrawElement>[]
 ): Partial<ExcalidrawElement>[] => {

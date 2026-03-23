@@ -24,8 +24,6 @@ import {
   InitialElementsMessage,
   Snapshot,
   normalizeFontFamily,
-  ExcalidrawFile,
-  files
 } from './types.js';
 import { z } from 'zod';
 import WebSocket from 'ws';
