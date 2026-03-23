@@ -89,9 +89,11 @@ function buildShallowElkChildren(
           }),
           layoutOptions: {
             'elk.algorithm': 'layered',
-            'elk.padding': `[top=${headerH + CONTAINER_PAD},left=${CONTAINER_PAD},bottom=${CONTAINER_PAD},right=${CONTAINER_PAD}]`,
-            'elk.layered.spacing.nodeNodeBetweenLayers': '120',
-            'elk.spacing.nodeNode': '60',
+            'elk.direction': 'RIGHT',
+            'elk.padding': `[top=${headerH + CONTAINER_PAD},left=${CONTAINER_PAD},bottom=${CONTAINER_PAD + 40},right=${CONTAINER_PAD}]`,
+            'elk.layered.spacing.nodeNodeBetweenLayers': '100',
+            'elk.spacing.nodeNode': '50',
+            'elk.layered.edgeRouting': 'ORTHOGONAL',
           },
         };
         result.push(elkNode);
@@ -160,7 +162,10 @@ export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
   // Find root-level nodes (no parent)
   const rootNodeIds = Object.keys(graph.nodes).filter(id => !graph.nodes[id]!.parent);
 
-  // ─── 1. Build shallow-hierarchy ELK graph ──────────────────────────────
+  // ─── 1. Build FLAT ELK graph with sibling container separation ────────
+  // All leaf nodes flat, BUT sibling containers (e.g., customer_account and
+  // managed_account) are kept as ELK compound nodes to prevent overlap.
+  // Inside each compound node, all descendants are flattened to leaves.
   const elkChildren = buildShallowElkChildren(rootNodeIds, graph.nodes);
 
   // Resolve edge endpoints: if an edge connects to a container, redirect to
@@ -190,9 +195,8 @@ export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
   const result = await elk.layout(elkGraph as any);
 
   // ─── 2. Extract positions from ELK result ──────────────────────────────
-  // Walk the (shallow) ELK tree to get absolute positions for all nodes
+  // Walk the shallow ELK tree to get absolute positions for all nodes.
   const nodes: Record<string, D4LayoutNode> = {};
-
   function collectPositions(elkChildren: any[], offsetX: number, offsetY: number) {
     for (const child of elkChildren) {
       const absX = offsetX + (child.x ?? 0);
@@ -280,87 +284,46 @@ export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
   ensureAllContainers(rootNodeIds);
 
   // ─── 4. Extract edges ──────────────────────────────────────────────────
-  // With INCLUDE_CHILDREN, ELK may place edges at root level even when both
-  // endpoints are inside a container. The edge coordinates are relative to the
-  // container that holds the source node (the LCA of source/target in ELK's tree).
-  // We need to find each ELK compound node's absolute position to offset edges.
-
-  // Build a map of ELK compound node absolute positions
-  const elkContainerPositions = new Map<string, { x: number; y: number }>();
-  function collectContainerPositions(elkChildren: any[], offsetX: number, offsetY: number) {
-    for (const child of elkChildren) {
-      const absX = offsetX + (child.x ?? 0);
-      const absY = offsetY + (child.y ?? 0);
-      if (child.children && child.children.length > 0) {
-        elkContainerPositions.set(child.id, { x: absX, y: absY });
-        collectContainerPositions(child.children, absX, absY);
-      }
-    }
-  }
-  collectContainerPositions(result.children ?? [], 0, 0);
-
-  // Collect all edges from the ELK result tree
-  const allElkEdges: any[] = [];
-  function collectEdges(elkNode: any) {
+  // With INCLUDE_CHILDREN + shallow hierarchy, edges may be at root or inside
+  // a compound node. Walk the full ELK tree to find all edges and apply offsets.
+  const elkEdgeMap = new Map<string, { elkEdge: any; offsetX: number; offsetY: number }>();
+  function collectEdgesFromTree(elkNode: any, offsetX: number, offsetY: number) {
+    const nodeOffsetX = elkNode.id === 'root' ? 0 : (elkNode.x ?? 0);
+    const nodeOffsetY = elkNode.id === 'root' ? 0 : (elkNode.y ?? 0);
+    const absX = offsetX + nodeOffsetX;
+    const absY = offsetY + nodeOffsetY;
     if (elkNode.edges) {
-      for (const e of elkNode.edges) allElkEdges.push(e);
+      for (const e of elkNode.edges) {
+        elkEdgeMap.set(e.id, { elkEdge: e, offsetX: absX, offsetY: absY });
+      }
     }
     if (elkNode.children) {
-      for (const child of elkNode.children) collectEdges(child);
-    }
-  }
-  collectEdges(result);
-
-  // With INCLUDE_CHILDREN, ELK uses two coordinate systems:
-  // - Edges where BOTH endpoints are in the same ELK compound node:
-  //   coordinates are relative to that compound node.
-  // - Cross-container edges (endpoints in different containers or at root):
-  //   coordinates are absolute (root-relative).
-  // We detect which case applies and offset accordingly.
-
-  function findElkContainer(leafId: string): string | null {
-    // Find the ELK compound node that directly contains this leaf
-    for (const [containerId] of elkContainerPositions) {
-      if (isDescendantOf(leafId, containerId, graph.nodes)) {
-        return containerId;
+      for (const child of elkNode.children) {
+        collectEdgesFromTree(child, absX, absY);
       }
     }
-    return null;
   }
-
-  function computeEdgeOffset(fromId: string, toId: string): { x: number; y: number } {
-    const fromContainer = findElkContainer(fromId);
-    const toContainer = findElkContainer(toId);
-
-    // Both in the same ELK compound node — coordinates are container-relative
-    if (fromContainer && fromContainer === toContainer) {
-      return elkContainerPositions.get(fromContainer) ?? { x: 0, y: 0 };
-    }
-
-    // Different containers or root level — coordinates are absolute
-    return { x: 0, y: 0 };
-  }
+  collectEdgesFromTree(result, 0, 0);
 
   const edges: D4LayoutEdge[] = [];
   for (const d4Edge of graph.edges) {
-    const elkEdge = allElkEdges.find((e: any) => e.id === d4Edge.id);
+    const entry = elkEdgeMap.get(d4Edge.id);
     const points: number[][] = [];
 
-    if (elkEdge && elkEdge.sections) {
-      const resolvedFrom = resolveToLeaf(d4Edge.from, graph.nodes);
-      const resolvedTo = resolveToLeaf(d4Edge.to, graph.nodes);
-      const offset = computeEdgeOffset(resolvedFrom, resolvedTo);
-
-      for (const section of elkEdge.sections) {
-        if (section.startPoint) points.push([offset.x + section.startPoint.x, offset.y + section.startPoint.y]);
-        if (section.bendPoints) {
-          for (const bp of section.bendPoints) points.push([offset.x + bp.x, offset.y + bp.y]);
+    if (entry) {
+      const { elkEdge, offsetX, offsetY } = entry;
+      if (elkEdge.sections) {
+        for (const section of elkEdge.sections) {
+          if (section.startPoint) points.push([offsetX + section.startPoint.x, offsetY + section.startPoint.y]);
+          if (section.bendPoints) {
+            for (const bp of section.bendPoints) points.push([offsetX + bp.x, offsetY + bp.y]);
+          }
+          if (section.endPoint) points.push([offsetX + section.endPoint.x, offsetY + section.endPoint.y]);
         }
-        if (section.endPoint) points.push([offset.x + section.endPoint.x, offset.y + section.endPoint.y]);
       }
     }
 
-    // Clamp endpoints to node borders if they fall inside the source/target node
+    // Clamp endpoints to node borders if ELK placed them inside
     if (points.length >= 2) {
       const resolvedFrom = resolveToLeaf(d4Edge.from, graph.nodes);
       const resolvedTo = resolveToLeaf(d4Edge.to, graph.nodes);
