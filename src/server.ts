@@ -864,7 +864,7 @@ app.post('/api/elements/from-d3', async (req: Request, res: Response) => {
         logger.info(`Auto-saved test .excalidraw to ${savePath}`);
       }
 
-      // Auto-export PNG — retry with increasing delays for frontend to render
+      // Auto-export PNG — fit viewport first, then export
       (async () => {
         const pngName = versionMatch ? 'diagram.png' : `diagram_test.png`;
         const pngPath = path.resolve(savedDir, pngName);
@@ -876,6 +876,13 @@ app.post('/api/elements/from-d3', async (req: Request, res: Response) => {
               logger.info('No frontend connected for PNG export — skipping');
               break;
             }
+            // Fit all elements in viewport before export
+            await fetch(`http://localhost:${PORT}/api/viewport`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ scrollToContent: true }),
+            });
+            await new Promise(r => setTimeout(r, 500)); // let viewport settle
             const exportResp = await fetch(`http://localhost:${PORT}/api/export/image`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
