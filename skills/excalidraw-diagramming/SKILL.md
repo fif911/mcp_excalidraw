@@ -11,6 +11,10 @@ Two-phase workflow: **Planner** writes a text plan describing the diagram, **Mai
 
 ---
 
+## D3 Reference Diagrams
+
+Before writing D3 code, check `skills/excalidraw-diagramming/references/d3_references/` for working examples. These are verified D3 files that produce correct diagrams — use them as templates for structure, layout hints, arrow syntax, and styling patterns.
+
 ## D3 Syntax Reference (Main agent)
 
 ### Containers (nested braces)
@@ -364,25 +368,28 @@ Elements connected by horizontal arrows must share the same Y position. Identify
 
 The tool resolves ALL icons automatically from labels and hint attributes. Main NEVER searches for icons or sets file paths.
 
+**CRITICAL: `icon_hint` is MANDATORY on every element.** The auto-resolution from labels is unreliable and picks wrong icons between rebuilds (e.g., "AWS Cloud" resolving to "Billing Conductor"). Always specify `icon_hint` to lock in the correct icon. This applies to:
+- **Every container** (header icons)
+- **Every service node** (service icons)
+- The only exception is elements with `icon:` pointing to a custom file path
+
 | Planner says | D2 attribute |
 |---|---|
-| "architecture icon" (default) | none needed — auto-resolves from label |
-| "resource icon" | `icon_type: resource` |
-| "Light/outline variant" | `icon_type: resource` + `icon_variant: Light` |
+| "architecture icon" (default) | `icon_hint: "exact service name"` |
+| "resource icon" | `icon_type: resource` + `icon_hint: "exact name"` |
+| "Light/outline variant" | `icon_type: resource` + `icon_variant: Light` + `icon_hint: "exact name"` |
 | "orange CloudFormation Template" | `icon_hint: "CloudFormation Template Orange"` |
 | "custom OpenID icon" | `icon: "custom/icons8-openid.svg"` |
 
 **If the tool picks the wrong icon, make the description more specific** — refine `icon_hint` text, add `icon_type` or `icon_variant`. The only exception for `icon:` with a file path is truly custom icons that don't exist in the AWS icon library (e.g., OpenID).
 
-**Container header icon mapping (auto-detected):**
+**Container header icon hints (REQUIRED on every container):**
 
-| Container label | Header icon | Border color |
+The only guaranteed mapping is `AWS Cloud` → `"AWS Cloud logo"`. For all other containers, visually inspect the reference image and use `search_aws_icons` with `icon_type: "group"` to find the correct icon name. Do not assume — icons may change between AWS icon pack versions.
+
+| Container label | Known `icon_hint` | Border color |
 |---|---|---|
-| `AWS Cloud` | AWS Cloud logo | `#232F3E` |
-| Contains `Account` | AWS Cloud icon | `#232F3E` |
-| Contains `Region` | Region icon | `#147EBA` |
-| Contains `VPC` | VPC icon | `#248814` |
-| Contains `Step Functions` | Step Functions icon | `#E7157B` |
+| `AWS Cloud` | `"AWS Cloud logo"` | `#232F3E` |
 
 ### Main receives Critic feedback directly
 
