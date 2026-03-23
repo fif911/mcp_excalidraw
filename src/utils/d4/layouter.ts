@@ -11,10 +11,28 @@ function detectHeaderHeight(label: string): number {
   return AWS_HEADER_PATTERNS.test(label) ? HEADER_HEIGHT : 48;
 }
 
-function computeLeafSize(_node: D4Node): { width: number; height: number } {
-  // Return ICON size so ELK routes arrows directly to icon borders.
-  // Labels are placed as separate text elements below the ELK node.
-  return { width: 98, height: 98 }; // ICON_SIZE x ICON_SIZE
+function computeLeafSize(node: D4Node): { width: number; height: number } {
+  // Node size must account for BOTH the icon AND the label below it.
+  // ELK uses this to space nodes apart — if we only use icon size,
+  // nodes with wide labels will overlap.
+  const ICON = 98;
+  const GAP = 8;
+  const label = node.label || '';
+  const lines = label.split('\n');
+
+  // Width: max of icon width and widest label line (+ padding)
+  let maxLineW = 0;
+  for (const line of lines) {
+    const w = measureText(line, FONT_SIZE).width;
+    if (w > maxLineW) maxLineW = w;
+  }
+  const width = Math.max(ICON, maxLineW + 20);
+
+  // Height: icon + gap + all label lines
+  const labelH = lines.length * FONT_SIZE * 1.25;
+  const height = ICON + GAP + labelH;
+
+  return { width: Math.round(width), height: Math.round(height) };
 }
 
 // ─── Flat-inside-containers graph builder ────────────────────────────────────
