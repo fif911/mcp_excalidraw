@@ -1,6 +1,6 @@
 import ELK from 'elkjs';
 import type { D4Graph, D4Layout, D4LayoutNode, D4LayoutEdge, D4Node } from './types.js';
-import { measureText, NODE_W, NODE_H, FONT_SIZE, HEADER_HEIGHT, CONTAINER_PAD } from './shared.js';
+import { HEADER_HEIGHT, CONTAINER_PAD } from './shared.js';
 
 const elk = new ELK();
 
@@ -11,11 +11,10 @@ function detectHeaderHeight(label: string): number {
   return AWS_HEADER_PATTERNS.test(label) ? HEADER_HEIGHT : 48;
 }
 
-function computeLeafSize(node: D4Node): { width: number; height: number } {
-  const textMeasure = measureText(node.label, FONT_SIZE);
-  const w = Math.max(NODE_W, textMeasure.width + 40);
-  const h = NODE_H;
-  return { width: Math.round(w), height: h };
+function computeLeafSize(_node: D4Node): { width: number; height: number } {
+  // Return ICON size so ELK routes arrows directly to icon borders.
+  // Labels are placed as separate text elements below the ELK node.
+  return { width: 98, height: 98 }; // ICON_SIZE x ICON_SIZE
 }
 
 interface ElkNode {
@@ -49,8 +48,10 @@ function buildElkChildren(
       const headerH = detectHeaderHeight(node.label);
       elkNode.children = buildElkChildren(node.children, allNodes);
       elkNode.layoutOptions = {
-        'elk.padding': `[top=${headerH + CONTAINER_PAD},left=${CONTAINER_PAD},bottom=${CONTAINER_PAD},right=${CONTAINER_PAD}]`,
+        'elk.padding': `[top=${headerH + CONTAINER_PAD},left=${CONTAINER_PAD + 30},bottom=${CONTAINER_PAD + 40},right=${CONTAINER_PAD + 30}]`,
         'elk.algorithm': 'layered',
+        'elk.layered.spacing.nodeNodeBetweenLayers': '120',
+        'elk.spacing.nodeNode': '80',
       };
     } else {
       // Leaf node — fixed dimensions
@@ -140,9 +141,9 @@ export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
       'elk.layered.edgeRouting': 'ORTHOGONAL',
       'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
       'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
-      'elk.layered.spacing.nodeNodeBetweenLayers': '120',
-      'elk.spacing.nodeNode': '80',
-      'elk.layered.spacing.edgeNodeBetweenLayers': '40',
+      'elk.layered.spacing.nodeNodeBetweenLayers': '160',
+      'elk.spacing.nodeNode': '100',
+      'elk.layered.spacing.edgeNodeBetweenLayers': '60',
       'elk.layered.spacing.edgeEdgeBetweenLayers': '30',
     },
     children: buildElkChildren(rootNodeIds, graph.nodes),

@@ -234,10 +234,15 @@ export function buildD4Elements(graph: D4Graph, layout: D4Layout): D4Result {
 
     } else {
       // ── Leaf node (icon + label) ──
+      // ELK node IS the icon (98x98). Place icon at ELK position directly.
+      // Label goes below as a separate text element.
       nodeCount++;
       const groupId = `g-${safeId}`;
-      const cx = pos.x + pos.w / 2;
-      const cy = pos.y + pos.h / 2;
+
+      // Icon position = ELK node position (they are the same size now)
+      const iconX = pos.x;
+      const iconY = pos.y;
+      const iconCx = iconX + ICON_SIZE / 2;
 
       // Try explicit icon path first, then auto-resolve from label
       let resolved: ResolvedIcon | null = null;
@@ -265,12 +270,8 @@ export function buildD4Elements(graph: D4Graph, layout: D4Layout): D4Result {
 
       if (resolved) {
         const fid = uploadIcon(resolved);
-        const { height: textH } = measureText(node.label, FONT_SIZE);
-        const totalH = ICON_SIZE + gap + textH;
-        const iconX = cx - ICON_SIZE / 2;
-        const iconY = cy - totalH / 2;
 
-        // Icon image
+        // Icon image at ELK's position
         elements.push({
           id: `img-${safeId}`,
           type: 'image',
@@ -289,7 +290,7 @@ export function buildD4Elements(graph: D4Graph, layout: D4Layout): D4Result {
         for (let li = 0; li < lines.length; li++) {
           const line = lines[li]!;
           const { width: lineW } = measureText(line, FONT_SIZE);
-          const lineX = cx - lineW / 2;
+          const lineX = iconCx - lineW / 2;
           const lid = li > 0 ? `${safeId}-lbl-${li}` : `${safeId}-lbl`;
           elements.push({
             id: lid,
@@ -303,19 +304,21 @@ export function buildD4Elements(graph: D4Graph, layout: D4Layout): D4Result {
           });
         }
 
-        // Position record
+        // Position record — icon IS the ELK node
         positions.push({
           id: nodeId,
           type: 'icon',
           label: node.label,
           x: pos.x, y: pos.y, w: pos.w, h: pos.h,
-          icon_cx: Math.round(cx),
+          icon_cx: Math.round(iconX + ICON_SIZE / 2),
           icon_cy: Math.round(iconY + ICON_SIZE / 2),
         });
 
       } else {
         // No icon found — bordered rectangle with centered text
         iconsMissing.push(node.label);
+        const cx = pos.x + pos.w / 2;
+        const cy = pos.y + pos.h / 2;
         elements.push({
           id: safeId,
           type: 'rectangle',
@@ -355,6 +358,63 @@ export function buildD4Elements(graph: D4Graph, layout: D4Layout): D4Result {
     }
   }
 
+  // ── Helpers for arrow point adjustment ──────────────────────────────
+
+  // Collect all icon bounding boxes for bend-point nudging
+  const iconBboxes: Array<{ id: string; x: number; y: number; w: number; h: number }> = [];
+  for (const pos of positions) {
+    if (pos.type === 'icon') {
+      iconBboxes.push({ id: pos.id, x: pos.x, y: pos.y, w: pos.w, h: pos.h });
+    }
+  }
+
+  // Nudge a bend point out of any icon it penetrates (excluding source/target)
+  function nudgePointOutOfIcons(
+    px: number, py: number,
+    sourceId: string, targetId: string,
+  ): [number, number] {
+    const margin = 5;
+    for (const icon of iconBboxes) {
+      if (icon.id === sourceId || icon.id === targetId) continue;
+      if (px > icon.x && px < icon.x + icon.w && py > icon.y && py < icon.y + icon.h) {
+        const dLeft = px - icon.x;
+        const dRight = (icon.x + icon.w) - px;
+        const dTop = py - icon.y;
+        const dBottom = (icon.y + icon.h) - py;
+        const minD = Math.min(dLeft, dRight, dTop, dBottom);
+        if (minD === dLeft) return [icon.x - margin, py];
+        if (minD === dRight) return [icon.x + icon.w + margin, py];
+        if (minD === dTop) return [px, icon.y - margin];
+        return [px, icon.y + icon.h + margin];
+      }
+    }
+    return [px, py];
+  }
+
+  // Extend an endpoint from inside a node to its nearest border.
+  // ELK may place startPoint/endPoint slightly inside the node (port position).
+  // We push the point to the actual border so arrows visually connect at icon edges.
+  function extendToNodeBorder(
+    px: number, py: number,
+    nodePos: { x: number; y: number; w: number; h: number },
+  ): [number, number] {
+    // If point is already outside the node, leave it
+    if (px <= nodePos.x || px >= nodePos.x + nodePos.w ||
+        py <= nodePos.y || py >= nodePos.y + nodePos.h) {
+      return [px, py];
+    }
+    // Find the nearest border edge and project to it
+    const dLeft = px - nodePos.x;
+    const dRight = (nodePos.x + nodePos.w) - px;
+    const dTop = py - nodePos.y;
+    const dBottom = (nodePos.y + nodePos.h) - py;
+    const minD = Math.min(dLeft, dRight, dTop, dBottom);
+    if (minD === dLeft) return [nodePos.x, py];
+    if (minD === dRight) return [nodePos.x + nodePos.w, py];
+    if (minD === dTop) return [px, nodePos.y];
+    return [px, nodePos.y + nodePos.h];
+  }
+
   // ── Build arrows ──────────────────────────────────────────────────────
 
   const ARROW_STROKE = graph.arrowStyle.strokeColor;
@@ -380,81 +440,27 @@ export function buildD4Elements(graph: D4Graph, layout: D4Layout): D4Result {
 
     arrowCount++;
 
-    // ELK places arrow endpoints at node BORDERS, but we want arrows to reach
-    // icon edges (the visual element inside the node box). Snap endpoints
-    // from ELK border positions to icon edges for leaf nodes.
-    //
-    // IMPORTANT: We compute snap directions from the ORIGINAL ELK points before
-    // any snapping, then apply both snaps. Using post-snap coordinates for the
-    // second snap would corrupt the direction when snapping moves a point far
-    // from its original position.
+    // ELK nodes are ICON-sized (98x98). ELK may place endpoints slightly inside
+    // the node (port positioning). Extend endpoints to the actual node border,
+    // then nudge ALL points that land inside non-source/target icons.
     const fromPos = layout.nodes[layoutEdge.from];
     const toPos = layout.nodes[layoutEdge.to];
-    const fromNode = graph.nodes[layoutEdge.from];
-    const toNode = graph.nodes[layoutEdge.to];
 
-    // Save original ELK points for direction computation
-    const origPts = pts.map(p => [...p]);
-
-    if (fromPos && fromNode && !fromNode.isGroup) {
-      // Snap start to source icon edge
-      const fromCx = fromPos.x + fromPos.w / 2;
-      const fromTextH = measureText(fromNode.label, FONT_SIZE).height;
-      const fromIconCy = fromPos.y + fromPos.h / 2 - (8 + fromTextH) / 2;
-
-      // Use original ELK points for direction, falling back to target node
-      // center when ELK points don't clearly indicate direction
-      const firstPt = origPts[0]!;
-      const nextPt = origPts.length > 1 ? origPts[1]! : firstPt;
-      let dx = nextPt[0]! - firstPt[0]!;
-      let dy = nextPt[1]! - firstPt[1]!;
-
-      // If ELK points are nearly coincident, use target node center for direction
-      if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && toPos) {
-        dx = (toPos.x + toPos.w / 2) - fromCx;
-        dy = (toPos.y + toPos.h / 2) - fromIconCy;
+    pts = pts.map((p, i) => {
+      let [px, py] = [p[0]!, p[1]!];
+      // Extend endpoints to their own node's border
+      if (i === 0 && fromPos) {
+        [px, py] = extendToNodeBorder(px, py, fromPos);
       }
-
-      if (Math.abs(dx) >= Math.abs(dy)) {
-        const signX = dx > 0 ? 1 : -1;
-        pts = [[fromCx + signX * (ICON_SIZE / 2 + 5), fromIconCy], ...pts.slice(1)];
-      } else {
-        const signY = dy > 0 ? 1 : -1;
-        pts = [[fromCx, fromIconCy + signY * (ICON_SIZE / 2 + 5)], ...pts.slice(1)];
+      if (i === pts!.length - 1 && toPos) {
+        [px, py] = extendToNodeBorder(px, py, toPos);
       }
-    }
+      // Nudge any point out of non-source/target icons
+      [px, py] = nudgePointOutOfIcons(px, py, layoutEdge.from, layoutEdge.to);
+      return [px, py];
+    });
 
-    if (toPos && toNode && !toNode.isGroup) {
-      // Snap end to target icon edge
-      const toCx = toPos.x + toPos.w / 2;
-      const toTextH = measureText(toNode.label, FONT_SIZE).height;
-      const toIconCy = toPos.y + toPos.h / 2 - (8 + toTextH) / 2;
-
-      // Use ORIGINAL ELK points for direction (not post-snap), falling back
-      // to source node center when ELK points are nearly coincident
-      const lastOrigPt = origPts[origPts.length - 1]!;
-      const prevOrigPt = origPts.length > 1 ? origPts[origPts.length - 2]! : lastOrigPt;
-      let dx = lastOrigPt[0]! - prevOrigPt[0]!;
-      let dy = lastOrigPt[1]! - prevOrigPt[1]!;
-
-      // If ELK points are nearly coincident, use source node center for direction
-      if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && fromPos) {
-        dx = toCx - (fromPos.x + fromPos.w / 2);
-        dy = toIconCy - (fromPos.y + fromPos.h / 2);
-      }
-
-      if (Math.abs(dx) >= Math.abs(dy)) {
-        // Horizontal entry — arrow arrives from the direction of prevPt
-        const signX = dx > 0 ? -1 : 1;
-        pts = [...pts.slice(0, -1), [toCx + signX * (ICON_SIZE / 2 + 5), toIconCy]];
-      } else {
-        // Vertical entry
-        const signY = dy > 0 ? -1 : 1;
-        pts = [...pts.slice(0, -1), [toCx, toIconCy + signY * (ICON_SIZE / 2 + 5)]];
-      }
-    }
-
-    // Fix any diagonals created by snapping — insert orthogonal bends
+    // Fix any diagonals created by nudging — insert orthogonal bends
     const fixedPts: number[][] = [pts[0]!];
     for (let k = 1; k < pts.length; k++) {
       const prev = fixedPts[fixedPts.length - 1]!;
@@ -473,35 +479,13 @@ export function buildD4Elements(graph: D4Graph, layout: D4Layout): D4Result {
     }
     pts = fixedPts;
 
-    // Remove U-turns: if a point reverses direction from the previous segment, remove it
-    for (let pass = 0; pass < 5; pass++) {
-      let removed = false;
-      for (let i = 1; i < pts.length - 1; i++) {
-        const a = pts[i - 1]!;
-        const b = pts[i]!;
-        const c = pts[i + 1]!;
-        const dxAB = b[0]! - a[0]!;
-        const dxBC = c[0]! - b[0]!;
-        const dyAB = b[1]! - a[1]!;
-        const dyBC = c[1]! - b[1]!;
-        const xRev = (dxAB > 10 && dxBC < -10) || (dxAB < -10 && dxBC > 10);
-        const yRev = (dyAB > 10 && dyBC < -10) || (dyAB < -10 && dyBC > 10);
-        if (xRev || yRev) {
-          pts.splice(i, 1);
-          removed = true;
-          break;
-        }
-      }
-      if (!removed) break;
-    }
-
-    // Collapse near-duplicate points (< 5px apart)
+    // Collapse near-duplicate points (< 3px apart)
     const collapsed: number[][] = [pts[0]!];
     for (let i = 1; i < pts.length; i++) {
       const prev = collapsed[collapsed.length - 1]!;
       const cur = pts[i]!;
       const dist = Math.abs(cur[0]! - prev[0]!) + Math.abs(cur[1]! - prev[1]!);
-      if (dist >= 5) collapsed.push(cur);
+      if (dist >= 3) collapsed.push(cur);
     }
     if (collapsed.length >= 2) pts = collapsed;
 
