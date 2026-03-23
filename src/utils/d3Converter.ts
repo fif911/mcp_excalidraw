@@ -1642,24 +1642,18 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
     // Near-straight vertical (within 15% X deviation) → straight line
     if (dx < dy * 0.15) return [[x1, y1], [x1, y2]]; // snap to source X
 
-    // True diagonal — need L-shape. Choose direction based on relative positions.
-    // Prefer horizontal-first when dx >= dy (natural LTR reading flow)
-    if (dx >= dy) {
-      // Horizontal-dominant: go horizontal to target X, then vertical to target Y
-      // Check for obstacles at corner (x2, y1)
+    // True diagonal — L-shape needed
+    // Prefer horizontal-first for left-to-right flow
+    const targetIsRight = x2 > x1;
+    const preferHorizontalFirst = targetIsRight || dx >= dy;
+
+    if (preferHorizontalFirst) {
       const cornerObstacle = findObstacleAt(x2, y1, conn, _graph, _layout);
-      if (!cornerObstacle) {
-        return [[x1, y1], [x2, y1], [x2, y2]];
-      }
-      // Try vertical-first instead
+      if (!cornerObstacle) return [[x1, y1], [x2, y1], [x2, y2]];
       return [[x1, y1], [x1, y2], [x2, y2]];
     } else {
-      // Vertical-dominant: go vertical to target Y, then horizontal to target X
       const cornerObstacle = findObstacleAt(x1, y2, conn, _graph, _layout);
-      if (!cornerObstacle) {
-        return [[x1, y1], [x1, y2], [x2, y2]];
-      }
-      // Try horizontal-first instead
+      if (!cornerObstacle) return [[x1, y1], [x1, y2], [x2, y2]];
       return [[x1, y1], [x2, y1], [x2, y2]];
     }
   }
@@ -1796,6 +1790,7 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
 
     // Build full path at centers first, then offset endpoints by R
     let allPts: number[][];
+    let pathFromWaypoints = false;
 
     if (conn.waypoints && conn.waypoints.length > 0) {
       // Validate waypoints: check if they create a reasonable path
@@ -1850,6 +1845,7 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
       }
       if (waypointsValid) {
         allPts = [[cx1, cy1], ...conn.waypoints, [cx2, cy2]];
+        pathFromWaypoints = true;
       } else {
         // Waypoints are stale/wrong — ignore them, use straight line
         allPts = [[cx1, cy1], [cx2, cy2]];
@@ -1864,15 +1860,24 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
       allPts = autoRoutePath(cx1, cy1, cx2, cy2, conn, graph, layout);
     }
 
-    // Enforce orthogonal segments: straighten near-straight lines, L-shape true diagonals.
-    // L-shape direction: the FIRST segment matches the source's snapped exit edge.
-    // After snapping, allPts[0] is on an edge of the source icon. Check if it was
-    // snapped to a horizontal edge (left/right → first segment is horizontal) or
-    // vertical edge (top/bottom → first segment is vertical).
-    // We detect this from the snap: if the start point's Y equals the source icon center Y,
-    // the exit is horizontal (left/right edge). If X equals center X, exit is vertical.
-    const startPt = allPts[0]!;
-    const sourceExitsHorizontally = (Math.abs(startPt[1]! - cy1) < 2); // Y unchanged = horizontal exit
+    // Detect source exit direction for orthogonal enforcement.
+    // For auto-routed and route-hint paths: check the first segment direction,
+    // since the start point is at icon center and the segment direction indicates exit.
+    // For waypoint paths: use the old center-relative check, since waypoints may have
+    // diagonal first segments that get L-shaped by the ortho pass.
+    let sourceExitsHorizontally: boolean;
+    if (pathFromWaypoints) {
+      // Waypoint paths: Y unchanged from center = horizontal exit (original logic)
+      const startPt = allPts[0]!;
+      sourceExitsHorizontally = (Math.abs(startPt[1]! - cy1) < 2);
+    } else if (allPts.length >= 2) {
+      // Auto/route paths: detect from first segment direction
+      const segDx = Math.abs(allPts[1]![0]! - allPts[0]![0]!);
+      const segDy = Math.abs(allPts[1]![1]! - allPts[0]![1]!);
+      sourceExitsHorizontally = segDx > segDy;
+    } else {
+      sourceExitsHorizontally = true;
+    }
 
     // Build obstacle list for L-shape crossing check: icons + container header text
     const lShapeObstacles: Array<{ x: number; y: number; w: number; h: number; id: string }> = [];
