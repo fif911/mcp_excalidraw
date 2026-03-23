@@ -8,11 +8,13 @@ import dotenv from 'dotenv';
 import logger from './utils/logger.js';
 import {
   elements,
+  files,
   snapshots,
   generateId,
   EXCALIDRAW_ELEMENT_TYPES,
   ServerElement,
   ExcalidrawElementType,
+  ExcalidrawFile,
   WebSocketMessage,
   ElementCreatedMessage,
   ElementUpdatedMessage,
@@ -22,8 +24,6 @@ import {
   InitialElementsMessage,
   Snapshot,
   normalizeFontFamily,
-  ExcalidrawFile,
-  files
 } from './types.js';
 import { z } from 'zod';
 import WebSocket from 'ws';
@@ -53,6 +53,10 @@ const staticDir = path.join(__dirname, '../dist');
 app.use(express.static(staticDir));
 // Also serve frontend assets
 app.use(express.static(path.join(__dirname, '../dist/frontend')));
+// Serve Excalidraw fonts so the font subsetting worker can fetch them for export
+app.use('/assets/fonts', express.static(
+  path.join(__dirname, '../node_modules/@excalidraw/excalidraw/dist/prod/fonts')
+));
 
 // WebSocket connections
 const clients = new Set<WebSocket>();
@@ -72,11 +76,17 @@ function broadcast(message: WebSocketMessage): void {
   });
 }
 
+function normalizeLineBreakMarkup(text: string): string {
+  return text
+    .replace(/<\s*b\s*r\s*\/?\s*>/gi, '\n')
+    .replace(/\n{3,}/g, '\n\n');
+}
+
 // WebSocket connection handling
 wss.on('connection', (ws: WebSocket) => {
   clients.add(ws);
   logger.info('New WebSocket connection established');
-  
+
   // Send current elements to new client
   const filesObj: Record<string, ExcalidrawFile> = {};
   files.forEach((f, id) => { filesObj[id] = f; });
@@ -86,7 +96,7 @@ wss.on('connection', (ws: WebSocket) => {
     ...(files.size > 0 ? { files: filesObj } : {})
   };
   ws.send(JSON.stringify(initialMessage));
-  
+
   // Send sync status to new client
   const syncMessage: SyncStatusMessage = {
     type: 'sync_status',
@@ -94,12 +104,12 @@ wss.on('connection', (ws: WebSocket) => {
     timestamp: new Date().toISOString()
   };
   ws.send(JSON.stringify(syncMessage));
-  
+
   ws.on('close', () => {
     clients.delete(ws);
     logger.info('WebSocket connection closed');
   });
-  
+
   ws.on('error', (error) => {
     logger.error('WebSocket error:', error);
     clients.delete(ws);
@@ -182,6 +192,7 @@ const UpdateElementSchema = z.object({
   roughness: z.number().optional(),
   opacity: z.number().optional(),
   text: z.string().optional(),
+  originalText: z.string().optional(),
   label: z.object({
     text: z.string(),
     fontSize: z.number().optional(),
@@ -206,7 +217,7 @@ const UpdateElementSchema = z.object({
   startArrowhead: z.string().nullable().optional(),
   endArrowhead: z.string().nullable().optional(),
   elbowed: z.boolean().optional(),
-  // Arrow binding properties
+  // Arrow binding properties (preserved for Excalidraw frontend)
   startBinding: z.object({
     elementId: z.string(),
     focus: z.number().optional(),
@@ -287,7 +298,7 @@ app.post('/api/elements', (req: Request, res: Response) => {
       element: element
     };
     broadcast(message);
-    
+
     res.json({
       success: true,
       element: element
@@ -306,14 +317,14 @@ app.put('/api/elements/:id', (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const updates = UpdateElementSchema.parse({ id, ...req.body });
-    
+
     if (!id) {
       return res.status(400).json({
         success: false,
         error: 'Element ID is required'
       });
     }
-    
+
     const existingElement = elements.get(id);
     if (!existingElement) {
       return res.status(404).json({
@@ -330,15 +341,39 @@ app.put('/api/elements/:id', (req: Request, res: Response) => {
       version: (existingElement.version || 0) + 1
     };
 
+    // Keep Excalidraw text source in sync when clients update text via REST.
+    // If originalText lags behind text, rendered wrapping/position can drift.
+    const hasTextUpdate = Object.prototype.hasOwnProperty.call(req.body, 'text');
+    const hasOriginalTextUpdate = Object.prototype.hasOwnProperty.call(req.body, 'originalText');
+    if (updatedElement.type === EXCALIDRAW_ELEMENT_TYPES.TEXT && hasTextUpdate && !hasOriginalTextUpdate) {
+      const incomingText = updates.text ?? '';
+      const existingText = typeof existingElement.text === 'string' ? existingElement.text : '';
+      const existingOriginalText = typeof existingElement.originalText === 'string'
+        ? existingElement.originalText
+        : '';
+      const existingOriginalHasBr = /<\s*b\s*r\s*\/?\s*>/i.test(existingOriginalText);
+      const normalizedExistingText = normalizeLineBreakMarkup(existingText);
+      const normalizedExistingOriginalText = normalizeLineBreakMarkup(existingOriginalText);
+
+      // Handle common cleanup flow: caller normalizes the rendered text value.
+      // In this case, prefer normalized originalText so words aren't split by stale wraps.
+      if (existingOriginalHasBr && incomingText === normalizedExistingText && normalizedExistingOriginalText) {
+        updatedElement.text = normalizedExistingOriginalText;
+        updatedElement.originalText = normalizedExistingOriginalText;
+      } else {
+        updatedElement.originalText = incomingText;
+      }
+    }
+
     elements.set(id, updatedElement);
-    
+
     // Broadcast to all connected clients
     const message: ElementUpdatedMessage = {
       type: 'element_updated',
       element: updatedElement
     };
     broadcast(message);
-    
+
     res.json({
       success: true,
       element: updatedElement
@@ -383,30 +418,30 @@ app.delete('/api/elements/clear', (req: Request, res: Response) => {
 app.delete('/api/elements/:id', (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    
+
     if (!id) {
       return res.status(400).json({
         success: false,
         error: 'Element ID is required'
       });
     }
-    
+
     if (!elements.has(id)) {
       return res.status(404).json({
         success: false,
         error: `Element with ID ${id} not found`
       });
     }
-    
+
     elements.delete(id);
-    
+
     // Broadcast to all connected clients
     const message: ElementDeletedMessage = {
       type: 'element_deleted',
       elementId: id!
     };
     broadcast(message);
-    
+
     res.json({
       success: true,
       message: `Element ${id} deleted successfully`
@@ -425,12 +460,12 @@ app.get('/api/elements/search', (req: Request, res: Response) => {
   try {
     const { type, ...filters } = req.query;
     let results = Array.from(elements.values());
-    
+
     // Filter by type if specified
     if (type && typeof type === 'string') {
       results = results.filter(element => element.type === type);
     }
-    
+
     // Apply additional filters
     if (Object.keys(filters).length > 0) {
       results = results.filter(element => {
@@ -439,7 +474,7 @@ app.get('/api/elements/search', (req: Request, res: Response) => {
         });
       });
     }
-    
+
     res.json({
       success: true,
       elements: results,
@@ -458,23 +493,23 @@ app.get('/api/elements/search', (req: Request, res: Response) => {
 app.get('/api/elements/:id', (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    
+
     if (!id) {
       return res.status(400).json({
         success: false,
         error: 'Element ID is required'
       });
     }
-    
+
     const element = elements.get(id);
-    
+
     if (!element) {
       return res.status(404).json({
         success: false,
         error: `Element with ID ${id} not found`
       });
     }
-    
+
     res.json({
       success: true,
       element: element
@@ -598,11 +633,10 @@ function resolveArrowBindings(batchElements: ServerElement[]): void {
     el.y = finalStart.y;
     el.points = [[0, 0], [finalEnd.x - finalStart.x, finalEnd.y - finalStart.y]];
 
-    // Remove start/end refs (they were used for computation only)
-    delete (el as any).start;
-    delete (el as any).end;
-
-    // Set binding metadata for Excalidraw
+    // Do NOT delete `start` and `end` here.
+    // Excalidraw's frontend `convertToExcalidrawElements` method looks for these exact properties
+    // to calculate mathematically sound `startBinding`, `endBinding`, `focus`, `gap`, and `boundElements`.
+    // However, also set binding metadata for consumers that don't use convertToExcalidrawElements
     if (startEl) {
       (el as any).startBinding = {
         elementId: startEl.id,
@@ -699,19 +733,19 @@ app.post('/api/elements/batch', (req: Request, res: Response) => {
 app.post('/api/elements/from-mermaid', (req: Request, res: Response) => {
   try {
     const { mermaidDiagram, config } = req.body;
-    
+
     if (!mermaidDiagram || typeof mermaidDiagram !== 'string') {
       return res.status(400).json({
         success: false,
         error: 'Mermaid diagram definition is required'
       });
     }
-    
-    logger.info('Received Mermaid conversion request', { 
+
+    logger.info('Received Mermaid conversion request', {
       diagramLength: mermaidDiagram.length,
-      hasConfig: !!config 
+      hasConfig: !!config
     });
-    
+
     // Broadcast to all WebSocket clients to process the Mermaid diagram
     broadcast({
       type: 'mermaid_convert',
@@ -719,7 +753,7 @@ app.post('/api/elements/from-mermaid', (req: Request, res: Response) => {
       config: config || {},
       timestamp: new Date().toISOString()
     });
-    
+
     // Return the diagram for frontend processing
     res.json({
       success: true,
@@ -927,12 +961,12 @@ app.post('/api/elements/from-d3', async (req: Request, res: Response) => {
 app.post('/api/elements/sync', (req: Request, res: Response) => {
   try {
     const { elements: frontendElements, timestamp } = req.body;
-    
+
     logger.info(`Sync request received: ${frontendElements.length} elements`, {
       timestamp,
       elementCount: frontendElements.length
     });
-    
+
     // Validate input data
     if (!Array.isArray(frontendElements)) {
       return res.status(400).json({
@@ -940,23 +974,23 @@ app.post('/api/elements/sync', (req: Request, res: Response) => {
         error: 'Expected elements to be an array'
       });
     }
-    
+
     // Record element count before sync
     const beforeCount = elements.size;
-    
+
     // 1. Clear existing memory storage
     elements.clear();
     logger.info(`Cleared existing elements: ${beforeCount} elements removed`);
-    
+
     // 2. Batch write new data
     let successCount = 0;
     const processedElements: ServerElement[] = [];
-    
+
     frontendElements.forEach((element: any, index: number) => {
       try {
         // Ensure element has ID, generate one if missing
         const elementId = element.id || generateId();
-        
+
         // Add server metadata
         const processedElement: ServerElement = {
           ...element,
@@ -966,19 +1000,19 @@ app.post('/api/elements/sync', (req: Request, res: Response) => {
           syncTimestamp: timestamp,
           version: 1
         };
-        
+
         // Store to memory
         elements.set(elementId, processedElement);
         processedElements.push(processedElement);
         successCount++;
-        
+
       } catch (elementError) {
         logger.warn(`Failed to process element ${index}:`, elementError);
       }
     });
-    
+
     logger.info(`Sync completed: ${successCount}/${frontendElements.length} elements synced`);
-    
+
     // 3. Broadcast sync event to all WebSocket clients
     broadcast({
       type: 'elements_synced',
@@ -986,7 +1020,7 @@ app.post('/api/elements/sync', (req: Request, res: Response) => {
       timestamp: new Date().toISOString(),
       source: 'manual_sync'
     });
-    
+
     // 4. Return sync results
     res.json({
       success: true,
@@ -996,7 +1030,7 @@ app.post('/api/elements/sync', (req: Request, res: Response) => {
       beforeCount,
       afterCount: elements.size
     });
-    
+
   } catch (error) {
     logger.error('Sync error:', error);
     res.status(500).json({
@@ -1024,6 +1058,7 @@ app.post('/api/files', (req: Request, res: Response) => {
       files.set(f.id, { id: f.id, dataURL: f.dataURL, mimeType: f.mimeType || 'image/png', created: f.created || Date.now() });
     }
   }
+  // Broadcast files to connected clients
   broadcast({ type: 'files_added', files: fileList } as any);
   res.json({ success: true, count: fileList.length });
 });
@@ -1044,6 +1079,8 @@ interface PendingExport {
   resolve: (data: { format: string; data: string }) => void;
   reject: (error: Error) => void;
   timeout: ReturnType<typeof setTimeout>;
+  collectionTimeout: ReturnType<typeof setTimeout> | null;
+  bestResult: { format: string; data: string } | null;
 }
 const pendingExports = new Map<string, PendingExport>();
 
@@ -1069,19 +1106,38 @@ app.post('/api/export/image', (req: Request, res: Response) => {
 
     const exportPromise = new Promise<{ format: string; data: string }>((resolve, reject) => {
       const timeout = setTimeout(() => {
+        const pending = pendingExports.get(requestId);
         pendingExports.delete(requestId);
-        reject(new Error('Export timed out after 30 seconds'));
+        // If we collected any result during the window, use it
+        if (pending?.bestResult) {
+          resolve(pending.bestResult);
+        } else {
+          reject(new Error('Export timed out after 30 seconds'));
+        }
       }, 30000);
 
-      pendingExports.set(requestId, { resolve, reject, timeout });
+      pendingExports.set(requestId, { resolve, reject, timeout, collectionTimeout: null, bestResult: null });
     });
 
+    // Re-broadcast current elements so all connected clients (including stale ones)
+    // sync to the canonical server state before exporting
+    const filesObj: Record<string, ExcalidrawFile> = {};
+    files.forEach((f, id) => { filesObj[id] = f; });
     broadcast({
-      type: 'export_image_request',
-      requestId,
-      format,
-      background: background ?? true
-    });
+      type: 'initial_elements',
+      elements: Array.from(elements.values()),
+      ...(files.size > 0 ? { files: filesObj } : {})
+    } as InitialElementsMessage & { files?: Record<string, ExcalidrawFile> });
+
+    // Give browsers time to process the reload before requesting export
+    setTimeout(() => {
+      broadcast({
+        type: 'export_image_request',
+        requestId,
+        format,
+        background: background ?? true
+      });
+    }, 800);
 
     exportPromise
       .then(result => {
@@ -1126,14 +1182,26 @@ app.post('/api/export/image/result', (req: Request, res: Response) => {
 
     if (error) {
       // Don't reject on error — another WebSocket client may still succeed.
-      // The timeout will handle the case where ALL clients fail.
       logger.warn(`Export error from one client (requestId=${requestId}): ${error}`);
       return res.json({ success: true });
     }
 
-    clearTimeout(pending.timeout);
-    pendingExports.delete(requestId);
-    pending.resolve({ format, data });
+    // Keep the largest response (most complete canvas state wins)
+    if (!pending.bestResult || data.length > pending.bestResult.data.length) {
+      pending.bestResult = { format, data };
+    }
+
+    // Start a short collection window on the first response, then resolve with best
+    if (!pending.collectionTimeout) {
+      pending.collectionTimeout = setTimeout(() => {
+        const p = pendingExports.get(requestId);
+        if (p?.bestResult) {
+          clearTimeout(p.timeout);
+          pendingExports.delete(requestId);
+          p.resolve(p.bestResult);
+        }
+      }, 3000);
+    }
 
     res.json({ success: true });
   } catch (error) {
