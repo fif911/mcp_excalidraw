@@ -1,0 +1,128 @@
+# Data Transfer Hub — v3
+
+arrow_style {
+  stroke_color: "#545B64"
+  badge_bg: "#232F3E"
+  badge_color: "#ffffff"
+  badge_shape: circle
+}
+
+aws_cloud: AWS Cloud {
+  pos: "0,0"
+
+  user: User {
+    icon_type: resource
+    icon_variant: Light
+    pos: "80,568"
+  }
+
+  customer_account: Customer's AWS Account {
+    pos: "200,70"
+    layout: layers
+
+    col1: {
+      auth: Authentication {
+        style.stroke-dash: 5
+        layout: row
+        cognito: Amazon Cognito {
+          # standalone: true
+        }
+        openid: OpenID Connect {
+          icon: "custom/icons8-openid.svg"
+          # standalone: true
+        }
+      }
+      dth_ui: Data Transfer\nHub UI {
+        icon_hint: "client"
+      }
+    }
+
+    col2: {
+      spacer2: " " {
+        style.fill: "transparent"
+        style.stroke: "transparent"
+        style.opacity: 0
+        # standalone: true
+      }
+      appsync: AWS AppSync
+      cloudfront: Amazon CloudFront
+    }
+
+    col3: {
+      dynamodb: Amazon DynamoDB
+      lambda: AWS Lambda
+      s3: Amazon S3
+    }
+
+    col4: {
+      sfn: AWS Step Functions workflow {
+        style.stroke: "#E7157B"
+        lambda_sf: AWS Lambda {
+          # standalone: true
+        }
+      }
+      cloudformation: AWS CloudFormation
+      fargate: AWS Fargate
+    }
+  }
+
+  managed_account: AWS Managed Account {
+    pos: "2020,70"
+    layout: "2x3"
+    s3_repl: S3 replication\ncomponent template {
+      icon_hint: "CloudFormation Template Orange"
+      # standalone: true
+    }
+    dynamodb_repl: DynamoDB replication\ncomponent template {
+      icon_hint: "CloudFormation Template Orange"
+      # standalone: true
+    }
+    s3_managed: Amazon S3
+    ecr_repl: ECR replication\ncomponent template {
+      icon_hint: "CloudFormation Template Orange"
+      # standalone: true
+    }
+    ecr: Amazon ECR
+    ecr_docker: ECR replication\nDocker image {
+      icon_hint: "elastic container registry"
+      # standalone: true
+    }
+  }
+}
+
+# Arrow 1: CloudFront (953,847) -> S3 (1248,847) — horizontal right, same Y
+aws_cloud.customer_account.col2.cloudfront -> aws_cloud.customer_account.col3.s3: 1
+
+# Arrow 2: User (80,549) -> AppSync (953,651) — right then down
+aws_cloud.user -> aws_cloud.customer_account.col2.appsync: 2 {
+  waypoints: "953,549"
+}
+
+# Arrow 3: User (80,549) -> DTH UI (508,636) — right then down
+aws_cloud.user -> aws_cloud.customer_account.col1.dth_ui: 3 {
+  waypoints: "508,549"
+}
+
+# Arrow 4: AppSync (953,651) -> Lambda (1248,651) — horizontal right, same Y
+aws_cloud.customer_account.col2.appsync -> aws_cloud.customer_account.col3.lambda: 4
+
+# Arrow 5: Lambda (1248,651) -> SFN border left — up then right to SFN border
+aws_cloud.customer_account.col3.lambda -> aws_cloud.customer_account.col4.sfn: 5 {
+  waypoints: "1248,570"
+}
+
+# Arrow 6: CloudFormation (1687,651) -> S3 Managed (2179,651) — horizontal right
+aws_cloud.customer_account.col4.cloudformation -> aws_cloud.managed_account.s3_managed: 6
+
+# Arrow 7: Fargate (1687,847) -> ECR (2179,847) — horizontal right
+aws_cloud.customer_account.col4.fargate -> aws_cloud.managed_account.ecr: 7
+
+# Arrow 8: AppSync (953,651) -> DynamoDB (1248,267) — up from AppSync to DynamoDB Y, then right
+aws_cloud.customer_account.col2.appsync -> aws_cloud.customer_account.col3.dynamodb: 8 {
+  waypoints: "953,267"
+}
+
+# Unlabeled: DTH UI (508,636) -> CloudFront (953,847) — down then right (shifted further right to clear label)
+aws_cloud.customer_account.col1.dth_ui -> aws_cloud.customer_account.col2.cloudfront {
+  waypoints: "600,847"
+}
