@@ -1,0 +1,12 @@
+arrow_style {
+  stroke_color: "#FF0000"
+  stroke_width: 4
+}
+
+left_account: Left Account {
+  sender: Sender Service
+}
+right_account: Right Account {
+  receiver: Receiver Service
+}
+sender -> receiver: data

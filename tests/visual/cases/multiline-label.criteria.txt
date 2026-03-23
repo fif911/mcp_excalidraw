@@ -1,0 +1,1 @@
+Two service boxes. The left one has a TWO-LINE label: 'Data Transfer' on one line and 'Hub UI' on the next line. A red arrow connects them. Both labels are fully visible and not clipped.

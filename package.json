@@ -20,6 +20,7 @@
     "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:visual": "npx tsx tests/visual/run-visual-tests.ts",
     "type-check": "npx tsc --noEmit"
   },
   "dependencies": {
@@ -49,6 +50,7 @@
     "@types/ws": "^8.5.10",
     "@vitejs/plugin-react": "^4.6.0",
     "concurrently": "^9.2.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.8.3",
     "vite": "^6.3.5",
     "vitest": "^4.1.0"

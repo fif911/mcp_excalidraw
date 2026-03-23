@@ -1,0 +1,1 @@
+Three service boxes arranged left to right: A, B, C. Two red arrows: A->B labeled '1' and B->C labeled '2'. Arrows connect at icon edges, not through icons. All three icons are visible and not overlapping.

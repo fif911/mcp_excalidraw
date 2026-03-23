@@ -1,0 +1,8 @@
+arrow_style {
+  stroke_color: "#FF0000"
+  stroke_width: 4
+}
+
+a: Service A
+b: Service B
+a -> b: 1

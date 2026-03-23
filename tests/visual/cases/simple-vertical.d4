@@ -1,0 +1,10 @@
+direction down
+
+arrow_style {
+  stroke_color: "#FF0000"
+  stroke_width: 4
+}
+
+a: Top Service
+b: Bottom Service
+a -> b: 1

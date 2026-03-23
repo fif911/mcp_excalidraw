@@ -1,0 +1,1 @@
+Two boxes labeled 'Service A' and 'Service B' arranged left to right. A red arrow connects them horizontally. The arrow starts at the right edge of Service A's icon and ends at the left edge of Service B's icon. The arrow does NOT pass through either icon. A badge with number '1' is visible near the arrow.

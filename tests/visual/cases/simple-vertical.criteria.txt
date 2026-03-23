@@ -1,0 +1,1 @@
+Two boxes arranged top to bottom. A red arrow goes from Top Service downward to Bottom Service. Arrow does NOT pass through icons.

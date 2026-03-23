@@ -1,0 +1,1 @@
+Two containers 'Left Account' and 'Right Account' side by side. Each has one service inside. A red arrow goes from Sender to Receiver, crossing the container boundaries. The arrow is orthogonal (right-angle bends only). Container headers do not overlap children.

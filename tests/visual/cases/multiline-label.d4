@@ -1,0 +1,8 @@
+arrow_style {
+  stroke_color: "#FF0000"
+  stroke_width: 4
+}
+
+dth: Data Transfer\nHub UI
+cf: Amazon CloudFront
+dth -> cf: 1

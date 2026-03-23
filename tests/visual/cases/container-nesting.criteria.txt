@@ -1,0 +1,1 @@
+An 'AWS Cloud' container with a 'VPC' container nested inside. Both have visible borders and header labels. EC2 Instance and RDS Database are inside VPC with icons. A red arrow connects EC2 to RDS. The VPC header does NOT overlap with the EC2/RDS icons. The AWS Cloud header does NOT overlap with the VPC box.
