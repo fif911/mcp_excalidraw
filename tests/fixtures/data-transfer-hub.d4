@@ -1,0 +1,74 @@
+# Data Transfer Hub — D4 (zero coordinates)
+
+arrow_style {
+  stroke_color: "#545B64"
+  badge_bg: "#232F3E"
+  badge_color: "#ffffff"
+  badge_shape: circle
+}
+
+aws_cloud: AWS Cloud {
+
+  user: User {
+    icon_type: resource
+    icon_variant: Light
+  }
+
+  customer_account: Customer's AWS Account {
+
+    auth: Authentication {
+      style.stroke-dash: 5
+      cognito: Amazon Cognito
+      openid: OpenID Connect {
+        icon: "custom/icons8-openid.svg"
+      }
+    }
+
+    dth_ui: Data Transfer Hub UI {
+      icon_hint: "client"
+    }
+
+    appsync: AWS AppSync
+    dynamodb: Amazon DynamoDB
+    lambda: AWS Lambda
+
+    cloudfront: Amazon CloudFront
+    s3: Amazon S3
+
+    sfn: AWS Step Functions workflow {
+      style.stroke: "#E7157B"
+      lambda_sf: AWS Lambda
+    }
+
+    cloudformation: AWS CloudFormation
+    fargate: AWS Fargate
+  }
+
+  managed_account: AWS Managed Account {
+    s3_repl: S3 replication component template {
+      icon_hint: "CloudFormation Template Orange"
+    }
+    dynamodb_repl: DynamoDB replication component template {
+      icon_hint: "CloudFormation Template Orange"
+    }
+    s3_managed: Amazon S3
+    ecr_repl: ECR replication component template {
+      icon_hint: "CloudFormation Template Orange"
+    }
+    ecr: Amazon ECR
+    ecr_docker: ECR replication Docker image {
+      icon_hint: "elastic container registry"
+    }
+  }
+}
+
+# Connections — short names, no coordinates
+user -> appsync: 2
+user -> dth_ui: 3
+appsync -> lambda: 4
+appsync -> dynamodb: 8
+lambda -> sfn: 5
+cloudfront -> s3: 1
+dth_ui -> cloudfront
+cloudformation -> s3_managed: 6
+fargate -> ecr: 7
