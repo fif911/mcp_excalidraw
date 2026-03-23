@@ -358,64 +358,9 @@ export function buildD4Elements(graph: D4Graph, layout: D4Layout): D4Result {
     }
   }
 
-  // ── Helpers for arrow point adjustment ──────────────────────────────
-
-  // Collect all icon bounding boxes for bend-point nudging
-  const iconBboxes: Array<{ id: string; x: number; y: number; w: number; h: number }> = [];
-  for (const pos of positions) {
-    if (pos.type === 'icon') {
-      iconBboxes.push({ id: pos.id, x: pos.x, y: pos.y, w: pos.w, h: pos.h });
-    }
-  }
-
-  // Nudge a bend point out of any icon it penetrates (excluding source/target)
-  function nudgePointOutOfIcons(
-    px: number, py: number,
-    sourceId: string, targetId: string,
-  ): [number, number] {
-    const margin = 5;
-    for (const icon of iconBboxes) {
-      if (icon.id === sourceId || icon.id === targetId) continue;
-      if (px > icon.x && px < icon.x + icon.w && py > icon.y && py < icon.y + icon.h) {
-        const dLeft = px - icon.x;
-        const dRight = (icon.x + icon.w) - px;
-        const dTop = py - icon.y;
-        const dBottom = (icon.y + icon.h) - py;
-        const minD = Math.min(dLeft, dRight, dTop, dBottom);
-        if (minD === dLeft) return [icon.x - margin, py];
-        if (minD === dRight) return [icon.x + icon.w + margin, py];
-        if (minD === dTop) return [px, icon.y - margin];
-        return [px, icon.y + icon.h + margin];
-      }
-    }
-    return [px, py];
-  }
-
-  // Extend an endpoint from inside a node to its nearest border.
-  // ELK may place startPoint/endPoint slightly inside the node (port position).
-  // We push the point to the actual border so arrows visually connect at icon edges.
-  function extendToNodeBorder(
-    px: number, py: number,
-    nodePos: { x: number; y: number; w: number; h: number },
-  ): [number, number] {
-    // If point is already outside the node, leave it
-    if (px <= nodePos.x || px >= nodePos.x + nodePos.w ||
-        py <= nodePos.y || py >= nodePos.y + nodePos.h) {
-      return [px, py];
-    }
-    // Find the nearest border edge and project to it
-    const dLeft = px - nodePos.x;
-    const dRight = (nodePos.x + nodePos.w) - px;
-    const dTop = py - nodePos.y;
-    const dBottom = (nodePos.y + nodePos.h) - py;
-    const minD = Math.min(dLeft, dRight, dTop, dBottom);
-    if (minD === dLeft) return [nodePos.x, py];
-    if (minD === dRight) return [nodePos.x + nodePos.w, py];
-    if (minD === dTop) return [px, nodePos.y];
-    return [px, nodePos.y + nodePos.h];
-  }
-
   // ── Build arrows ──────────────────────────────────────────────────────
+  // PURE ELK: use ELK's edge routing directly. No custom snapping,
+  // no endpoint extension, no nudging. ELK handles all routing.
 
   const ARROW_STROKE = graph.arrowStyle.strokeColor;
   const ARROW_WIDTH = graph.arrowStyle.strokeWidth;
@@ -432,7 +377,7 @@ export function buildD4Elements(graph: D4Graph, layout: D4Layout): D4Result {
       continue;
     }
 
-    let pts = layoutEdge.points;
+    const pts = layoutEdge.points;
     if (!pts || pts.length < 2) {
       validationIssues.push(`Edge ${layoutEdge.id} has fewer than 2 points`);
       continue;
@@ -440,46 +385,10 @@ export function buildD4Elements(graph: D4Graph, layout: D4Layout): D4Result {
 
     arrowCount++;
 
-    // ELK nodes are ICON-sized (98x98). ELK may place endpoints slightly inside
-    // the node (port positioning). Extend endpoints to the actual node border,
-    // then nudge ALL points that land inside non-source/target icons.
-    const fromPos = layout.nodes[layoutEdge.from];
-    const toPos = layout.nodes[layoutEdge.to];
+    // PURE ELK — use points exactly as ELK computed them.
+    // No custom snapping, no endpoint extension, no nudging.
 
-    pts = pts.map((p, i) => {
-      let [px, py] = [p[0]!, p[1]!];
-      // Extend endpoints to their own node's border
-      if (i === 0 && fromPos) {
-        [px, py] = extendToNodeBorder(px, py, fromPos);
-      }
-      if (i === pts!.length - 1 && toPos) {
-        [px, py] = extendToNodeBorder(px, py, toPos);
-      }
-      // Nudge any point out of non-source/target icons
-      [px, py] = nudgePointOutOfIcons(px, py, layoutEdge.from, layoutEdge.to);
-      return [px, py];
-    });
-
-    // Fix any diagonals created by nudging — insert orthogonal bends
-    const fixedPts: number[][] = [pts[0]!];
-    for (let k = 1; k < pts.length; k++) {
-      const prev = fixedPts[fixedPts.length - 1]!;
-      const cur = pts[k]!;
-      const adx = Math.abs(cur[0]! - prev[0]!);
-      const ady = Math.abs(cur[1]! - prev[1]!);
-      if (adx > 3 && ady > 3) {
-        // Diagonal — insert L-shape bend
-        if (adx >= ady) {
-          fixedPts.push([cur[0]!, prev[1]!]);
-        } else {
-          fixedPts.push([prev[0]!, cur[1]!]);
-        }
-      }
-      fixedPts.push(cur);
-    }
-    pts = fixedPts;
-
-    // Collapse near-duplicate points (< 3px apart)
+    // Collapse near-duplicate points (< 3px apart) — only cleanup
     const collapsed: number[][] = [pts[0]!];
     for (let i = 1; i < pts.length; i++) {
       const prev = collapsed[collapsed.length - 1]!;
@@ -487,11 +396,11 @@ export function buildD4Elements(graph: D4Graph, layout: D4Layout): D4Result {
       const dist = Math.abs(cur[0]! - prev[0]!) + Math.abs(cur[1]! - prev[1]!);
       if (dist >= 3) collapsed.push(cur);
     }
-    if (collapsed.length >= 2) pts = collapsed;
+    const finalPts = collapsed.length >= 2 ? collapsed : pts;
 
     // Convert absolute ELK points to Excalidraw relative format
-    const origin = pts[0]!;
-    const relPts = pts.map(p => [p[0]! - origin[0]!, p[1]! - origin[1]!]);
+    const origin = finalPts[0]!;
+    const relPts = finalPts.map(p => [p[0]! - origin[0]!, p[1]! - origin[1]!]);
 
     // Compute bounding box for width/height
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;

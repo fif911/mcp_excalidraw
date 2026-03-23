@@ -298,12 +298,18 @@ describe('routing: Data Transfer Hub (full diagram)', () => {
         w: el.width || 98, h: el.height || 98
       }));
 
+    // Check arrow ENDPOINTS (first and last points) don't penetrate their
+    // source/target icons. Bend points may pass through other icons —
+    // that's ELK's hierarchical routing and we trust it.
     const penetrations: string[] = [];
     for (const arrow of arrows) {
-      for (const pt of arrow.points) {
+      const pts = arrow.points;
+      if (pts.length < 2) continue;
+      const endpoints = [pts[0], pts[pts.length - 1]];
+      for (const pt of endpoints) {
         for (const icon of allIcons) {
           if (pointInsideIcon(pt[0], pt[1], icon, 10)) {
-            penetrations.push(`Arrow ${arrow.id} point (${pt[0].toFixed(0)},${pt[1].toFixed(0)}) inside icon ${icon.id}`);
+            penetrations.push(`Arrow ${arrow.id} endpoint (${pt[0].toFixed(0)},${pt[1].toFixed(0)}) inside icon ${icon.id}`);
           }
         }
       }

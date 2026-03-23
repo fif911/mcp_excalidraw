@@ -54,7 +54,8 @@ function buildElkChildren(
         'elk.spacing.nodeNode': '80',
       };
     } else {
-      // Leaf node — fixed dimensions
+      // Leaf node — fixed dimensions (icon size)
+      // NO port constraints — ELK default routes edges to node borders
       const size = computeLeafSize(node);
       elkNode.width = size.width;
       elkNode.height = size.height;
@@ -141,10 +142,11 @@ export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
       'elk.layered.edgeRouting': 'ORTHOGONAL',
       'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
       'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
-      'elk.layered.spacing.nodeNodeBetweenLayers': '160',
-      'elk.spacing.nodeNode': '100',
-      'elk.layered.spacing.edgeNodeBetweenLayers': '60',
-      'elk.layered.spacing.edgeEdgeBetweenLayers': '30',
+      'elk.layered.spacing.nodeNodeBetweenLayers': '180',
+      'elk.spacing.nodeNode': '120',
+      'elk.layered.spacing.edgeNodeBetweenLayers': '80',
+      'elk.layered.spacing.edgeEdgeBetweenLayers': '40',
+      'elk.spacing.edgeNode': '60',
     },
     children: buildElkChildren(rootNodeIds, graph.nodes),
     edges: elkEdges,
