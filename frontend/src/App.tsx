@@ -581,26 +581,32 @@ function App(): JSX.Element {
                   })
                 })
               } else {
-                // Filter elements with valid dimensions for export
-                const validElements = elements.filter((el: any) =>
-                  el.type === 'arrow' || el.type === 'line' || el.type === 'freedraw' ||
-                  (el.width && el.height && (el.width > 0 || el.height > 0))
-                )
+                // Force scroll-to-content before export to ensure proper bounds
+                excalidrawAPI.scrollToContent(undefined, { fitToContent: true })
+                // Wait a frame for Excalidraw to recompute
+                await new Promise(r => setTimeout(r, 200))
+                // Re-read after scroll (bounds may have changed)
+                const freshElements = excalidrawAPI.getSceneElements()
+                const freshAppState = excalidrawAPI.getAppState()
+                const freshFiles = excalidrawAPI.getFiles()
+                console.log('Export after scroll: elements=', freshElements.length)
                 const blob = await exportToBlob({
-                  elements: validElements.length > 0 ? validElements : elements,
+                  elements: freshElements,
                   appState: {
-                    ...appState,
+                    ...freshAppState,
                     exportBackground: data.background !== false,
                     exportWithDarkMode: false,
                   },
-                  files,
+                  files: freshFiles,
                   mimeType: 'image/png'
                 })
+                console.log('Blob size:', blob.size, 'bytes, type:', blob.type)
                 const reader = new FileReader()
                 reader.onload = async () => {
                   try {
                     const resultString = reader.result as string
                     const base64 = resultString?.split(',')[1]
+                    console.log('Base64 length:', base64?.length, 'chars')
                     if (!base64) {
                       throw new Error('Could not extract base64 data from result')
                     }
