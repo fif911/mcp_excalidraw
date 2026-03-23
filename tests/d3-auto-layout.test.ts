@@ -45,3 +45,64 @@ describe('regression: existing D3 with coordinates', () => {
     expect(result.positions.length).toBeGreaterThanOrEqual(15);
   });
 });
+
+describe('parser: placement attribute', () => {
+  it('parses placement on a shape', () => {
+    const graph = parseD3(`
+      parent: Parent {
+        child_a: Child A
+        child_b: Child B {
+          placement: right-of child_a
+        }
+      }
+    `);
+    expect(graph.shapes['parent.child_b']?.placement).toBe('right-of child_a');
+  });
+
+  it('parses placement with various directions', () => {
+    const graph = parseD3(`
+      a: A {
+        placement: left-of b
+      }
+      b: B {
+        placement: below a
+      }
+    `);
+    expect(graph.shapes['a']?.placement).toBe('left-of b');
+    expect(graph.shapes['b']?.placement).toBe('below a');
+  });
+});
+
+describe('parser: route attribute on arrows', () => {
+  it('parses route hint on arrow', () => {
+    const graph = parseD3(`
+      a: A
+      b: B
+      a -> b: 1 {
+        route: up-then-right
+      }
+    `);
+    expect(graph.connections[0]?.route).toBe('up-then-right');
+  });
+
+  it('parses all route directions', () => {
+    const routes = ['up-then-right', 'up-then-left', 'down-then-right', 'down-then-left',
+                    'right-then-up', 'right-then-down', 'left-then-up', 'left-then-down'];
+    for (const route of routes) {
+      const graph = parseD3(`a: A\nb: B\na -> b {\n  route: ${route}\n}`);
+      expect(graph.connections[0]?.route).toBe(route);
+    }
+  });
+
+  it('handles bidirectional arrows without waypoints', () => {
+    const graph = parseD3(`a: A\nb: B\na <-> b: link`);
+    expect(graph.connections[0]?.bidirectional).toBe(true);
+    expect(graph.connections[0]?.route).toBeUndefined();
+  });
+
+  it('handles empty containers without crashing', () => {
+    const graph = parseD3(`box: Empty Box {\n}`);
+    expect(graph.shapes['box']).toBeDefined();
+    expect(graph.shapes['box']?.children).toEqual([]);
+  });
+});

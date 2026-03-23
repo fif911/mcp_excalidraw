@@ -85,6 +85,7 @@ interface D3Shape {
   iconType?: string;     // "architecture", "resource"
   iconVariant?: string;  // "Light", "Dark"
   iconHint?: string;     // Free-text search hint: "ecr orange"
+  placement?: string;    // "right-of <id>", "left-of <id>", "below <id>", "above <id>"
   children: string[];
 }
 
@@ -101,6 +102,7 @@ interface D3Connection {
   badgeColor?: string;
   badgeSize?: number;
   badgeShape?: string;
+  route?: string;    // "up-then-right", "down-then-left", etc.
 }
 
 interface D3ArrowStyle {
@@ -232,7 +234,7 @@ export function parseD3(source: string): D3Graph {
       continue;
     }
 
-    const connMatch = line.match(/^(.+?)\s*(->|<-|<->|--)\s*(.+?)(?::\s*(.*))?$/);
+    const connMatch = line.match(/^(.+?)\s*(->|<->|<-|--)\s*(.+?)(?::\s*(.*))?$/);
     if (connMatch) {
       const rawFrom = connMatch[1] ?? '';
       const arrow = connMatch[2] ?? '->';
@@ -264,8 +266,10 @@ export function parseD3(source: string): D3Graph {
           const blockLine = lines[i]!.trim();
           const wpMatch = blockLine.match(/^waypoints:\s*(.+)$/);
           const bpMatch = blockLine.match(/^badge_pos:\s*(.+)$/);
+          const routeMatch = blockLine.match(/^route:\s*(.+)$/);
           if (wpMatch) conn.waypoints = parsePointList(wpMatch[1]!);
           else if (bpMatch) conn.badgePos = parsePoint(bpMatch[1]!);
+          else if (routeMatch) conn.route = (routeMatch[1] ?? '').trim().replace(/^["']|["']$/g, '');
           else {
             const kvMatch = blockLine.match(/^(badge_bg|badge_color|badge_size|badge_shape):\s*(.+)$/);
             if (kvMatch) {
@@ -286,7 +290,7 @@ export function parseD3(source: string): D3Graph {
     }
 
     // Bare attribute for current context shape (style.*, pos, icon, layout, icon_type, icon_variant, icon_hint)
-    const bareAttrMatch = line.match(/^(style\.[\w-]+|pos|icon|layout|icon_type|icon_variant|icon_hint):\s*(.+)$/);
+    const bareAttrMatch = line.match(/^(style\.[\w-]+|pos|icon|layout|icon_type|icon_variant|icon_hint|placement):\s*(.+)$/);
     if (bareAttrMatch && contextStack.length > 0) {
       const attr = bareAttrMatch[1]!;
       const value = (bareAttrMatch[2] ?? '').trim().replace(/^["']|["']$/g, '');
@@ -298,6 +302,7 @@ export function parseD3(source: string): D3Graph {
       else if (attr === 'icon_type') shape.iconType = value;
       else if (attr === 'icon_variant') shape.iconVariant = value;
       else if (attr === 'icon_hint') shape.iconHint = value;
+      else if (attr === 'placement') shape.placement = value;
       else if (attr.startsWith('style.')) shape.style[attr.replace('style.', '')] = value;
       i++;
       continue;
