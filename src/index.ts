@@ -1600,6 +1600,37 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
             }
           }
 
+          // Auto-export PNG: wait for frontend to render, fit viewport, capture
+          try {
+            await new Promise(r => setTimeout(r, 2000)); // let frontend render
+            await fetch(`${EXPRESS_SERVER_URL}/api/viewport`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ scrollToContent: true }),
+            });
+            await new Promise(r => setTimeout(r, 500)); // let viewport settle
+            const pngResp = await fetch(`${EXPRESS_SERVER_URL}/api/export/image`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ format: 'png', background: true }),
+            });
+            if (pngResp.ok) {
+              const pngResult = await pngResp.json() as any;
+              if (pngResult.data) {
+                // Detect version from D3 content and save PNG
+                const vMatch = params.d3Diagram.match(/[—-]\s*v(\d+)/i);
+                if (vMatch) {
+                  const pngDir = path.resolve(process.cwd(), 'diagrams', `v${vMatch[1]}`);
+                  fs.mkdirSync(pngDir, { recursive: true });
+                  const pngPath = path.resolve(pngDir, 'diagram.png');
+                  const pngBuf = Buffer.from(pngResult.data.replace(/^data:image\/png;base64,/, ''), 'base64');
+                  fs.writeFileSync(pngPath, pngBuf);
+                  summary += `\n\nPNG exported to ${pngPath} (${Math.round(pngBuf.length / 1024)}KB)`;
+                }
+              }
+            }
+          } catch { /* PNG export is best-effort */ }
+
           return {
             content: [{
               type: 'text',
