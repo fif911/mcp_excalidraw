@@ -1596,6 +1596,82 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
     return shape?.parent;
   }
 
+  /** Build an L-shaped path based on a route hint like "up-then-right".
+   *
+   *  NOTE: The direction names (up/down/left/right) indicate AXIS ORDER, not
+   *  actual compass direction. "up-then-right" means "vertical axis first, then
+   *  horizontal" — the actual direction depends on source/target positions.
+   *  This is intentional: the LLM knows the relative positions and uses the hint
+   *  to specify which axis the arrow should traverse first. */
+  function buildRoutedPath(x1: number, y1: number, x2: number, y2: number, route: string): number[][] {
+    const parts = route.split('-then-');
+    if (parts.length !== 2) return [[x1, y1], [x2, y2]]; // fallback to straight
+
+    const first = parts[0];
+
+    // up/down → vertical axis first → corner at (x1, y2)
+    // left/right → horizontal axis first → corner at (x2, y1)
+    if (first === 'up' || first === 'down') {
+      return [[x1, y1], [x1, y2], [x2, y2]];
+    } else {
+      return [[x1, y1], [x2, y1], [x2, y2]];
+    }
+  }
+
+  /** Auto-determine arrow path when no waypoints or route hint given */
+  function autoRoutePath(
+    x1: number, y1: number, x2: number, y2: number,
+    conn: D3Connection, _graph: D3Graph, _layout: Record<string, LayoutNode>
+  ): number[][] {
+    const dx = Math.abs(x2 - x1);
+    const dy = Math.abs(y2 - y1);
+
+    // Near-straight horizontal (within 15% Y deviation) → straight line
+    if (dy < dx * 0.15) return [[x1, y1], [x2, y1]]; // snap to source Y
+
+    // Near-straight vertical (within 15% X deviation) → straight line
+    if (dx < dy * 0.15) return [[x1, y1], [x1, y2]]; // snap to source X
+
+    // True diagonal — need L-shape. Choose direction based on relative positions.
+    // Prefer horizontal-first when dx >= dy (natural LTR reading flow)
+    if (dx >= dy) {
+      // Horizontal-dominant: go horizontal to target X, then vertical to target Y
+      // Check for obstacles at corner (x2, y1)
+      const cornerObstacle = findObstacleAt(x2, y1, conn, _graph, _layout);
+      if (!cornerObstacle) {
+        return [[x1, y1], [x2, y1], [x2, y2]];
+      }
+      // Try vertical-first instead
+      return [[x1, y1], [x1, y2], [x2, y2]];
+    } else {
+      // Vertical-dominant: go vertical to target Y, then horizontal to target X
+      const cornerObstacle = findObstacleAt(x1, y2, conn, _graph, _layout);
+      if (!cornerObstacle) {
+        return [[x1, y1], [x1, y2], [x2, y2]];
+      }
+      // Try horizontal-first instead
+      return [[x1, y1], [x2, y1], [x2, y2]];
+    }
+  }
+
+  /** Check if a point falls inside any icon/label bounding box */
+  function findObstacleAt(
+    x: number, y: number,
+    conn: D3Connection, _graph: D3Graph, _layout: Record<string, LayoutNode>
+  ): string | null {
+    const MARGIN = 20;
+    for (const [id, node] of Object.entries(_layout)) {
+      if (id === conn.from || id === conn.to) continue;
+      const shape = _graph.shapes[id];
+      if (!shape || shape.children.length > 0) continue; // skip containers
+      if (x >= node.x - MARGIN && x <= node.x + node.w + MARGIN &&
+          y >= node.y - MARGIN && y <= node.y + node.h + MARGIN) {
+        return id;
+      }
+    }
+    return null;
+  }
+
   // ── Build arrows ──────────────────────────────────────────────────────
 
   for (const conn of graph.connections) {
@@ -1770,9 +1846,12 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
         conn.badgePos = undefined; // also clear stale badge position
         validationIssues.push(`WAYPOINTS_DISCARDED: arrow "${conn.from} -> ${conn.to}" waypoints were stale (elements moved by layout). Remove waypoints from D3 or recalculate using ELEMENT POSITIONS output.`);
       }
+    } else if (conn.route) {
+      // Route hint provided — build L-shape in specified direction
+      allPts = buildRoutedPath(cx1, cy1, cx2, cy2, conn.route);
     } else {
-      // No waypoints — straight line. Edge snapping handles endpoints.
-      allPts = [[cx1, cy1], [cx2, cy2]];
+      // Auto-route: determine best path from source/target positions
+      allPts = autoRoutePath(cx1, cy1, cx2, cy2, conn, graph, layout);
     }
 
     // Enforce orthogonal segments: straighten near-straight lines, L-shape true diagonals.

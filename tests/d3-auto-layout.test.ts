@@ -206,3 +206,90 @@ describe('layout: auto-position containers', () => {
     expect(child2.x + child2.w).toBeLessThanOrEqual(b.x + b.w + 5);
   });
 });
+
+describe('arrows: auto-routing without waypoints', () => {
+  it('routes horizontal arrow between same-row nodes', () => {
+    const result = convertD3ToExcalidraw(`
+      box: Container {
+        layout: row
+        a: Service A
+        b: Service B
+      }
+      box.a -> box.b: 1
+    `);
+    expect(findDiagonalArrows(result)).toEqual([]);
+    expect(result.stats.arrows).toBe(1);
+  });
+
+  it('routes L-shape arrow with route hint', () => {
+    const result = convertD3ToExcalidraw(`
+      box: Container {
+        layout: layers
+        col1: {
+          top: Top Service
+        }
+        col2: {
+          bottom: Bottom Service
+        }
+      }
+      box.col1.top -> box.col2.bottom: 1 {
+        route: down-then-right
+      }
+    `);
+    expect(findDiagonalArrows(result)).toEqual([]);
+    expect(result.stats.arrows).toBe(1);
+  });
+
+  it('auto-routes cross-column arrows without waypoints', () => {
+    const result = convertD3ToExcalidraw(`
+      cloud: Cloud {
+        layout: layers
+        col1: {
+          svc_a: Service A
+          svc_b: Service B
+        }
+        col2: {
+          svc_c: Service C
+          svc_d: Service D
+        }
+      }
+      cloud.col1.svc_a -> cloud.col2.svc_c: 1
+      cloud.col1.svc_b -> cloud.col2.svc_d: 2
+    `);
+    expect(findDiagonalArrows(result)).toEqual([]);
+    expect(result.stats.arrows).toBe(2);
+  });
+
+  it('auto-routes arrow between different rows with route hint', () => {
+    const result = convertD3ToExcalidraw(`
+      cloud: Cloud {
+        layout: layers
+        col1: {
+          lower: Lower Service
+        }
+        col2: {
+          upper: Upper Service
+        }
+      }
+      cloud.col1.lower -> cloud.col2.upper: 1 {
+        route: up-then-right
+      }
+    `);
+    expect(findDiagonalArrows(result)).toEqual([]);
+  });
+
+  it('auto-routes cross-container arrows', () => {
+    const result = convertD3ToExcalidraw(`
+      left: Left Account {
+        svc: My Service
+      }
+      right: Right Account {
+        placement: right-of left
+        target: Target Service
+      }
+      left.svc -> right.target: 1
+    `);
+    expect(findDiagonalArrows(result)).toEqual([]);
+    expect(result.stats.arrows).toBe(1);
+  });
+});
