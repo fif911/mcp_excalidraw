@@ -33,13 +33,13 @@ aws_cloud: AWS Cloud {
     }
 
     col2: {
+      dynamodb: Amazon DynamoDB
       appsync: AWS AppSync
       cloudfront: Amazon CloudFront
     }
 
     col3: {
-      dynamodb: Amazon DynamoDB
-      lambda: AWS Lambda
+      lambda_mid: AWS Lambda
       s3: Amazon S3
     }
 
@@ -73,17 +73,18 @@ aws_cloud: AWS Cloud {
   }
 }
 
-# Arrows — no coordinates
+# Arrows — no coordinates needed
+# Row-aligned arrows (same row index across columns) are auto-horizontal
 aws_cloud.customer_account.col2.cloudfront -> aws_cloud.customer_account.col3.s3: 1
 aws_cloud.user -> aws_cloud.customer_account.col2.appsync: 2
 aws_cloud.user -> aws_cloud.customer_account.col1.dth_ui: 3
-aws_cloud.customer_account.col2.appsync -> aws_cloud.customer_account.col3.lambda: 4
-aws_cloud.customer_account.col3.lambda -> aws_cloud.customer_account.col4.sfn: 5 {
+aws_cloud.customer_account.col2.appsync -> aws_cloud.customer_account.col3.lambda_mid: 4
+aws_cloud.customer_account.col3.lambda_mid -> aws_cloud.customer_account.col4.sfn: 5 {
   route: up-then-right
 }
 aws_cloud.customer_account.col4.cloudformation -> aws_cloud.managed_account.s3_managed: 6
 aws_cloud.customer_account.col4.fargate -> aws_cloud.managed_account.ecr: 7
-aws_cloud.customer_account.col2.appsync -> aws_cloud.customer_account.col3.dynamodb: 8 {
+aws_cloud.customer_account.col2.appsync -> aws_cloud.customer_account.col2.dynamodb: 8 {
   route: up-then-right
 }
 aws_cloud.customer_account.col1.dth_ui -> aws_cloud.customer_account.col2.cloudfront {
