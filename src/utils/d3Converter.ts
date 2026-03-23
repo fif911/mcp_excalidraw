@@ -1284,17 +1284,32 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
       // Header icon (for detected AWS containers, not for dashed sub-boundaries)
       if (containerType && !isDashed) {
         let headerResolved: ResolvedIcon | null = null;
-        if (containerType.headerIcon) {
-          // Explicit group icon path
+
+        // Priority 1: icon_hint specified in D3 — search group icons directly
+        if (shape.iconHint) {
+          const sr = searchIcons({ query: shape.iconHint, resolve: true, limit: 5, iconType: 'group' });
+          const candidate = sr.results.find((r: any) => r.absolute_path);
+          if (candidate) {
+            headerResolved = { fileId: candidate.suggested_file_id, absolutePath: candidate.absolute_path! };
+          }
+        }
+
+        // Priority 2: explicit group icon path from pattern table
+        if (!headerResolved && containerType.headerIcon) {
           const iconsDir = path.resolve(process.cwd(), 'icons');
           const fullPath = path.resolve(iconsDir, containerType.headerIcon);
           if (fs.existsSync(fullPath)) {
             headerResolved = { fileId: `file-hdr-${safeId}`, absolutePath: fullPath };
+          } else {
+            logger.warn(`Container header icon not found at: ${fullPath}`);
           }
         }
+
+        // Priority 3: fallback to search by label (with icon_hint if available)
         if (!headerResolved) {
-          // Fallback to search (e.g., Step Functions)
-          headerResolved = resolveIconForLabel(shape.label);
+          headerResolved = resolveIconForLabel(shape.label, {
+            iconHint: shape.iconHint,
+          });
         }
         if (headerResolved) {
           const fid = uploadIcon(headerResolved);
@@ -2439,6 +2454,21 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
         bottom: pos.y + pos.h,
       },
     });
+  }
+
+  // Apply style.opacity to elements — set opacity on all elements belonging to shapes with opacity
+  for (const [shapeId, shape] of Object.entries(graph.shapes)) {
+    const opacity = shape.style['opacity'];
+    if (opacity !== undefined) {
+      const opacityVal = Math.round(parseFloat(opacity) * 100); // Excalidraw uses 0-100
+      const safeId = shapeId.replace(/\./g, '_');
+      for (const el of elements) {
+        const elId = el.id as string;
+        if (elId === safeId || elId.startsWith(safeId + '-') || elId === `img-${safeId}`) {
+          el.opacity = opacityVal;
+        }
+      }
+    }
   }
 
   return {
