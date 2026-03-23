@@ -131,6 +131,7 @@ export interface ServerElement extends Omit<ExcalidrawElementBase, 'id'> {
   source?: string;
   syncTimestamp?: string;
   text?: string;
+  originalText?: string;
   fontSize?: number;
   fontFamily?: string | number;
   label?: {
@@ -184,7 +185,9 @@ export type WebSocketMessageType =
   | 'canvas_cleared'
   | 'export_image_request'
   | 'set_viewport'
-  | 'align_elements_request';
+  | 'align_elements_request'
+  | 'files_added'
+  | 'file_deleted';
 
 export interface InitialElementsMessage extends WebSocketMessage {
   type: 'initial_elements';

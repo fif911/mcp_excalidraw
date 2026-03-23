@@ -388,7 +388,7 @@ const tools: Tool[] = [
         opacity: { type: 'number' },
         text: { type: 'string' },
         fontSize: { type: 'number' },
-        fontFamily: { type: 'string' },
+        fontFamily: { type: ['string', 'number'], description: 'Font family: virgil/hand/handwritten (1), helvetica/sans/sans-serif (2), cascadia/mono/monospace (3), excalifont (5), nunito (6), lilita/lilita one (7), comic shanns/comic (8), or numeric ID' },
         startElementId: { type: 'string', description: 'For arrows: ID of the element to bind the arrow start to. Arrow auto-routes to element edge.' },
         endElementId: { type: 'string', description: 'For arrows: ID of the element to bind the arrow end to. Arrow auto-routes to element edge.' },
         endArrowhead: { type: 'string', description: 'Arrowhead style at end: arrow, bar, dot, triangle, or null' },
@@ -420,7 +420,7 @@ const tools: Tool[] = [
         opacity: { type: 'number' },
         text: { type: 'string' },
         fontSize: { type: 'number' },
-        fontFamily: { type: 'string' }
+        fontFamily: { type: ['string', 'number'], description: 'Font family: virgil/hand/handwritten (1), helvetica/sans/sans-serif (2), cascadia/mono/monospace (3), excalifont (5), nunito (6), lilita/lilita one (7), comic shanns/comic (8), or numeric ID' }
       },
       required: ['id']
     }
@@ -647,7 +647,7 @@ const tools: Tool[] = [
               opacity: { type: 'number' },
               text: { type: 'string' },
               fontSize: { type: 'number' },
-              fontFamily: { type: 'string' },
+              fontFamily: { type: ['string', 'number'], description: 'Font family: virgil/hand/handwritten (1), helvetica/sans/sans-serif (2), cascadia/mono/monospace (3), excalifont (5), nunito (6), lilita/lilita one (7), comic shanns/comic (8), or numeric ID' },
               startElementId: { type: 'string', description: 'For arrows: ID of element to bind arrow start to' },
               endElementId: { type: 'string', description: 'For arrows: ID of element to bind arrow end to' },
               endArrowhead: { type: 'string', description: 'Arrowhead style at end: arrow, bar, dot, triangle, or null' },
@@ -910,6 +910,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
           version: 1
         };
 
+        // Normalize fontFamily from string names to numeric values
+        if (element.fontFamily !== undefined) {
+          element.fontFamily = normalizeFontFamily(element.fontFamily);
+        }
+
         // For bound arrows without explicit points, set a default
         if ((startElementId || endElementId) && !elementProps.points) {
           (element as any).points = [[0, 0], [100, 0]];
@@ -952,6 +957,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
           points: rawPoints ? normalizePoints(rawPoints) : undefined,
           updatedAt: new Date().toISOString()
         };
+
+        // Normalize fontFamily from string names to numeric values
+        if (updatePayload.fontFamily !== undefined) {
+          updatePayload.fontFamily = normalizeFontFamily(updatePayload.fontFamily);
+        }
 
         // Convert text to label format for Excalidraw
         const excalidrawElement = convertTextToLabel(updatePayload as ServerElement);
@@ -1405,6 +1415,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
             version: 1
           };
 
+          // Normalize fontFamily from string names to numeric values
+          if (element.fontFamily !== undefined) {
+            element.fontFamily = normalizeFontFamily(element.fontFamily);
+          }
+
           // For bound arrows without explicit points, set a default
           if ((startElementId || endElementId) && !elementProps.points) {
             (element as any).points = [[0, 0], [100, 0]];
@@ -1492,11 +1507,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
 
         // Fetch files for image elements
         let sceneFiles: Record<string, any> = {};
-        const filesResponse = await fetch(`${EXPRESS_SERVER_URL}/api/files`);
-        if (filesResponse.ok) {
-          const filesData = await filesResponse.json() as any;
-          sceneFiles = filesData.files || {};
-        }
+        try {
+          const filesResponse = await fetch(`${EXPRESS_SERVER_URL}/api/files`);
+          if (filesResponse.ok) {
+            const filesData = await filesResponse.json() as any;
+            sceneFiles = filesData.files || {};
+          }
+        } catch { /* files endpoint may not exist */ }
 
         const excalidrawScene: any = {
           type: 'excalidraw',
@@ -1577,22 +1594,26 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
         const canvasElements = await batchCreateElementsOnCanvas(elementsToCreate);
 
         // Import files if present (for image elements)
+        let importedFileCount = 0;
         const importFiles = sceneData.files;
         if (importFiles && typeof importFiles === 'object') {
           const fileList = Object.values(importFiles);
           if (fileList.length > 0) {
-            await fetch(`${EXPRESS_SERVER_URL}/api/files`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(fileList)
-            });
+            try {
+              await fetch(`${EXPRESS_SERVER_URL}/api/files`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(fileList)
+              });
+              importedFileCount = fileList.length;
+            } catch { /* best effort */ }
           }
         }
 
         return {
           content: [{
             type: 'text',
-            text: `Imported ${elementsToCreate.length} elements (mode: ${params.mode})${importFiles ? `, ${Object.keys(importFiles).length} files` : ''}\n\n✅ Synced to canvas`
+            text: `Imported ${elementsToCreate.length} elements${importedFileCount > 0 ? ` and ${importedFileCount} files` : ''} (mode: ${params.mode})\n\n✅ Synced to canvas`
           }]
         };
       }
@@ -1965,7 +1986,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
             base.text = text ?? '';
             base.originalText = text ?? '';
             base.fontSize = rest.fontSize ?? 20;
-            base.fontFamily = rest.fontFamily ?? 1;
+            base.fontFamily = normalizeFontFamily(rest.fontFamily) ?? 1;
             base.textAlign = rest.textAlign ?? 'center';
             base.verticalAlign = rest.verticalAlign ?? 'middle';
             base.autoResize = rest.autoResize ?? true;
