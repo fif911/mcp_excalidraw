@@ -730,11 +730,15 @@ function App(): JSX.Element {
           console.log(`Received ${data.type} result from server`)
           if (data.elements && data.elements.length > 0) {
             try {
+              // Load files first (icons must be available before elements reference them)
+              if ((data as any).files) {
+                excalidrawAPI.addFiles(Object.values((data as any).files))
+              }
               const cleanedElements = data.elements.map(cleanElementForExcalidraw)
               const validatedElements = validateAndFixBindings(cleanedElements)
-              const allElements = [...currentElements, ...validatedElements] as any[]
-              const rawConverted = convertToExcalidrawElements(allElements, { regenerateIds: false })
-              const convertedElements = restoreBindings(rawConverted, allElements)
+              // Don't merge with current — d3_convert replaces everything (canvas was cleared)
+              const rawConverted = convertToExcalidrawElements(validatedElements, { regenerateIds: false })
+              const convertedElements = restoreBindings(rawConverted, validatedElements)
               excalidrawAPI.updateScene({
                 elements: convertedElements,
                 captureUpdate: CaptureUpdateAction.IMMEDIATELY

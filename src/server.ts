@@ -817,13 +817,15 @@ app.post('/api/elements/from-d3', async (req: Request, res: Response) => {
       });
     }
 
-    // Broadcast to all WebSocket clients
+    // Broadcast to all WebSocket clients — include files in the d3_convert message
+    // so the frontend has everything in one shot (no ordering issues)
     if (result.files.length > 0) {
       broadcast({ type: 'files_added', files: result.files } as any);
     }
     broadcast({
       type: 'd3_convert',
       elements: result.elements,
+      files: result.files, // include files so handler can load them before rendering
       timestamp: new Date().toISOString()
     } as any);
 
