@@ -1,6 +1,6 @@
 import ELK from 'elkjs';
 import type { D4Graph, D4Layout, D4LayoutNode, D4LayoutEdge, D4Node } from './types.js';
-import { HEADER_HEIGHT, CONTAINER_PAD, FONT_SIZE, measureText } from './shared.js';
+import { HEADER_HEIGHT, ICON_SIZE, CONTAINER_PAD, FONT_SIZE, measureText, wrapLabel } from './shared.js';
 
 const elk = new ELK();
 
@@ -13,14 +13,12 @@ function detectHeaderHeight(label: string): number {
 
 function computeLeafSize(node: D4Node): { width: number; height: number } {
   // Node size must account for BOTH the icon AND the label below it.
-  // ELK uses this to space nodes apart — if we only use icon size,
-  // nodes with wide labels will overlap.
+  // Labels are auto-wrapped to keep nodes compact.
   const ICON = 98;
   const GAP = 8;
-  const label = node.label || '';
-  const lines = label.split('\n');
+  const lines = wrapLabel(node.label || '', FONT_SIZE);
 
-  // Width: max of icon width and widest label line (+ padding)
+  // Width: max of icon width and widest wrapped line (+ padding)
   let maxLineW = 0;
   for (const line of lines) {
     const w = measureText(line, FONT_SIZE).width;
@@ -28,7 +26,7 @@ function computeLeafSize(node: D4Node): { width: number; height: number } {
   }
   const width = Math.max(ICON, maxLineW + 20);
 
-  // Height: icon + gap + all label lines
+  // Height: icon + gap + all wrapped label lines
   const labelH = lines.length * FONT_SIZE * 1.25;
   const height = ICON + GAP + labelH;
 
@@ -69,6 +67,13 @@ function buildFullElkTree(
     if (node.isGroup && node.children.length > 0) {
       // Compound node — recurse into children
       const headerH = detectHeaderHeight(node.label);
+      const isAwsHeader = AWS_HEADER_PATTERNS.test(node.label);
+
+      // Container minimum width: header icon + gap + label text + padding
+      const headerLabelW = measureText(node.label, FONT_SIZE).width;
+      const headerTotalW = (isAwsHeader ? ICON_SIZE + 5 : 10) + headerLabelW + CONTAINER_PAD * 2;
+      const minWidth = Math.round(Math.max(headerTotalW, 200));
+
       const elkNode: ElkChild = {
         id,
         children: buildFullElkTree(node.children, allNodes),
@@ -79,6 +84,8 @@ function buildFullElkTree(
           'elk.layered.spacing.nodeNodeBetweenLayers': '100',
           'elk.spacing.nodeNode': '50',
           'elk.layered.edgeRouting': 'ORTHOGONAL',
+          'elk.nodeSize.constraints': 'MINIMUM_SIZE',
+          'elk.nodeSize.minimum': `(${minWidth}, 0)`,
         },
       };
       result.push(elkNode);

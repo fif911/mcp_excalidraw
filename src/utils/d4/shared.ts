@@ -38,3 +38,30 @@ export function measureText(text: string, fontSize: number): { width: number; he
   }
   return { width: Math.round(maxW * 100) / 100, height: Math.round(lines.length * fontSize * 1.25 * 100) / 100 };
 }
+
+/** Max label width before auto-wrapping (px) */
+export const LABEL_MAX_WIDTH = 200;
+
+/**
+ * Word-wrap a label to fit within maxWidth at the given fontSize.
+ * Respects existing \n breaks. Returns the wrapped lines.
+ */
+export function wrapLabel(text: string, fontSize: number, maxWidth: number = LABEL_MAX_WIDTH): string[] {
+  const result: string[] = [];
+  for (const sourceLine of text.split('\n')) {
+    const words = sourceLine.split(' ');
+    let current = '';
+    for (const word of words) {
+      const test = current ? `${current} ${word}` : word;
+      const w = measureText(test, fontSize).width;
+      if (w > maxWidth && current) {
+        result.push(current);
+        current = word;
+      } else {
+        current = test;
+      }
+    }
+    if (current) result.push(current);
+  }
+  return result.length > 0 ? result : [''];
+}

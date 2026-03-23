@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import { generateId } from '../../types.js';
 import { searchIcons } from '../aws-icon-index.js';
-import { ICON_SIZE, FONT_SIZE, HEADER_HEIGHT, measureText } from './shared.js';
+import { ICON_SIZE, FONT_SIZE, HEADER_HEIGHT, measureText, wrapLabel } from './shared.js';
 import type { D4Graph, D4Node, D4Edge, D4Layout, D4LayoutEdge, D4Result, D4ArrowStyle } from './types.js';
 
 // ─── Icon Resolution (adapted from d3Converter.ts) ──────────────────────
@@ -282,8 +282,8 @@ export function buildD4Elements(graph: D4Graph, layout: D4Layout): D4Result {
           groupIds: [groupId],
         });
 
-        // Label below icon — each line as a separate centered element
-        const lines = node.label.split('\n');
+        // Label below icon — auto-wrapped, each line as a separate centered element
+        const lines = wrapLabel(node.label, FONT_SIZE);
         const lineH = FONT_SIZE * 1.25;
         const labelY = iconY + ICON_SIZE + gap;
 
