@@ -549,6 +549,18 @@ function App(): JSX.Element {
               const appState = excalidrawAPI.getAppState()
               const files = excalidrawAPI.getFiles()
 
+              // Debug: log element bounds
+              const bounds = elements.reduce((acc: any, el: any) => {
+                if (el.x !== undefined && el.y !== undefined) {
+                  acc.minX = Math.min(acc.minX, el.x)
+                  acc.minY = Math.min(acc.minY, el.y)
+                  acc.maxX = Math.max(acc.maxX, el.x + (el.width || 0))
+                  acc.maxY = Math.max(acc.maxY, el.y + (el.height || 0))
+                }
+                return acc
+              }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity })
+              console.log('Export bounds:', bounds, 'Elements:', elements.length, 'Files:', Object.keys(files).length)
+
               if (data.format === 'svg') {
                 const svg = await exportToSvg({
                   elements,
@@ -569,11 +581,17 @@ function App(): JSX.Element {
                   })
                 })
               } else {
+                // Filter elements with valid dimensions for export
+                const validElements = elements.filter((el: any) =>
+                  el.type === 'arrow' || el.type === 'line' || el.type === 'freedraw' ||
+                  (el.width && el.height && (el.width > 0 || el.height > 0))
+                )
                 const blob = await exportToBlob({
-                  elements,
+                  elements: validElements.length > 0 ? validElements : elements,
                   appState: {
                     ...appState,
-                    exportBackground: data.background !== false
+                    exportBackground: data.background !== false,
+                    exportWithDarkMode: false,
                   },
                   files,
                   mimeType: 'image/png'
