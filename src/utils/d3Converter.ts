@@ -1043,6 +1043,9 @@ export function layoutD3Graph(graph: D3Graph): { layout: Record<string, LayoutNo
       }
     }
 
+    // Apply placement hints to leaf children (e.g., "user: placement: left-of customer_account")
+    applyPlacement(leafIds, shape.id);
+
     // Cap expansion to parent bounds — don't grow beyond parent's available space
     if (shape.parent) {
       const parentNode = layout[shape.parent];

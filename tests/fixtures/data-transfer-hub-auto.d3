@@ -1,0 +1,91 @@
+# Data Transfer Hub — v3 (coordinate-free)
+
+arrow_style {
+  stroke_color: "#545B64"
+  badge_bg: "#232F3E"
+  badge_color: "#ffffff"
+  badge_shape: circle
+}
+
+aws_cloud: AWS Cloud {
+
+  user: User {
+    icon_type: resource
+    icon_variant: Light
+    placement: left-of customer_account
+  }
+
+  customer_account: Customer's AWS Account {
+    layout: layers
+
+    col1: {
+      auth: Authentication {
+        style.stroke-dash: 5
+        layout: row
+        cognito: Amazon Cognito
+        openid: OpenID Connect {
+          icon: "custom/icons8-openid.svg"
+        }
+      }
+      dth_ui: Data Transfer\nHub UI {
+        icon_hint: "client"
+      }
+    }
+
+    col2: {
+      appsync: AWS AppSync
+      cloudfront: Amazon CloudFront
+    }
+
+    col3: {
+      dynamodb: Amazon DynamoDB
+      lambda: AWS Lambda
+      s3: Amazon S3
+    }
+
+    col4: {
+      sfn: AWS Step Functions workflow {
+        style.stroke: "#E7157B"
+        lambda_sf: AWS Lambda
+      }
+      cloudformation: AWS CloudFormation
+      fargate: AWS Fargate
+    }
+  }
+
+  managed_account: AWS Managed Account {
+    placement: right-of customer_account
+    layout: "2x3"
+    s3_repl: S3 replication\ncomponent template {
+      icon_hint: "CloudFormation Template Orange"
+    }
+    dynamodb_repl: DynamoDB replication\ncomponent template {
+      icon_hint: "CloudFormation Template Orange"
+    }
+    s3_managed: Amazon S3
+    ecr_repl: ECR replication\ncomponent template {
+      icon_hint: "CloudFormation Template Orange"
+    }
+    ecr: Amazon ECR
+    ecr_docker: ECR replication\nDocker image {
+      icon_hint: "elastic container registry"
+    }
+  }
+}
+
+# Arrows — no coordinates
+aws_cloud.customer_account.col2.cloudfront -> aws_cloud.customer_account.col3.s3: 1
+aws_cloud.user -> aws_cloud.customer_account.col2.appsync: 2
+aws_cloud.user -> aws_cloud.customer_account.col1.dth_ui: 3
+aws_cloud.customer_account.col2.appsync -> aws_cloud.customer_account.col3.lambda: 4
+aws_cloud.customer_account.col3.lambda -> aws_cloud.customer_account.col4.sfn: 5 {
+  route: up-then-right
+}
+aws_cloud.customer_account.col4.cloudformation -> aws_cloud.managed_account.s3_managed: 6
+aws_cloud.customer_account.col4.fargate -> aws_cloud.managed_account.ecr: 7
+aws_cloud.customer_account.col2.appsync -> aws_cloud.customer_account.col3.dynamodb: 8 {
+  route: up-then-right
+}
+aws_cloud.customer_account.col1.dth_ui -> aws_cloud.customer_account.col2.cloudfront {
+  route: down-then-right
+}

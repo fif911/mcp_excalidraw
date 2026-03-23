@@ -329,6 +329,59 @@ describe('badges: auto-placement', () => {
   });
 });
 
+describe('integration: coordinate-free Data Transfer Hub', () => {
+  const d3Source = readFileSync(resolve(FIXTURES, 'data-transfer-hub-auto.d3'), 'utf-8');
+  const result = convertD3ToExcalidraw(d3Source);
+
+  it('produces correct element counts', () => {
+    assertCounts(result, {
+      minContainers: 5,
+      minNodes: 15,
+      minArrows: 9,
+      minBadges: 8,
+    });
+  });
+
+  it('has no critical validation issues', () => {
+    const critical = result.validationIssues.filter(i =>
+      !i.includes('orphan') && !i.includes('icon') && !i.includes('Missing') &&
+      !i.includes('ORPHAN') && !i.includes('ARROW_REROUTED') && !i.includes('TEXT_OVERLAP'));
+    expect(critical).toEqual([]);
+  });
+
+  it('produces only orthogonal arrows', () => {
+    expect(findDiagonalArrows(result)).toEqual([]);
+  });
+
+  it('has no overlapping sibling containers', () => {
+    expect(findOverlappingContainers(result)).toEqual([]);
+  });
+
+  it('customer_account is left of managed_account', () => {
+    const custPos = result.positions.find(p => p.id.includes('customer_account') && p.type === 'container');
+    const managedPos = result.positions.find(p => p.id.includes('managed_account') && p.type === 'container');
+    expect(custPos).toBeDefined();
+    expect(managedPos).toBeDefined();
+    expect(managedPos!.x).toBeGreaterThan(custPos!.x + custPos!.w - 50);
+  });
+
+  it('user is positioned to the left of customer_account', () => {
+    const userPos = result.positions.find(p => p.label === 'User');
+    const custPos = result.positions.find(p => p.id.includes('customer_account') && p.type === 'container');
+    expect(userPos).toBeDefined();
+    expect(custPos).toBeDefined();
+    expect(userPos!.x).toBeLessThan(custPos!.x);
+  });
+
+  it('all 8 numbered badges are present', () => {
+    const badgeTexts = result.elements
+      .filter((el: any) => el.type === 'text' && /^[1-8]$/.test(el.text?.trim()))
+      .map((el: any) => el.text.trim());
+    const uniqueBadges = new Set(badgeTexts);
+    expect(uniqueBadges.size).toBe(8);
+  });
+});
+
 describe('layout: layers without spacers', () => {
   it('handles columns with different item counts', () => {
     const result = convertD3ToExcalidraw(`
