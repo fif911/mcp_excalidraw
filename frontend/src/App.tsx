@@ -849,6 +849,13 @@ function App(): JSX.Element {
                 elements: convertedElements,
                 captureUpdate: CaptureUpdateAction.IMMEDIATELY
               })
+              // Load icon files for image elements
+              if ((data as any).files) {
+                const fileEntries = Array.isArray((data as any).files)
+                  ? (data as any).files
+                  : Object.values((data as any).files)
+                excalidrawAPI.addFiles(fileEntries)
+              }
               console.log('d4_convert diagram rendered:', data.elements.length, 'elements')
             } catch (error) {
               console.error('Error rendering d4_convert diagram from WebSocket:', error)
