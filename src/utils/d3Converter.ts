@@ -2022,6 +2022,10 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
       snapEndpoint(last, last - 1, !!toIsLeaf, cx2, cy2, toTextH, false, cx2, cy2, cx1, cy1);
     }
 
+    // Save snapped endpoints — post-snap transforms must not modify them
+    const snappedStart = [...allPts[0]!];
+    const snappedEnd = [...allPts[allPts.length - 1]!];
+
     // Post-snap orthogonal fix: endpoint snapping may have created new diagonals
     // between the snapped endpoint and the first/last waypoint. Fix them.
     const preFixCount = allPts.length;
@@ -2109,6 +2113,10 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
       }
       if (!removed) break;
     }
+
+    // Restore snapped endpoints — post-snap transforms may have moved them
+    allPts[0] = snappedStart;
+    allPts[allPts.length - 1] = snappedEnd;
 
     // Ensure final segment ≥ 30px (prevents small arrowheads in Excalidraw)
     if (allPts.length >= 3) {
