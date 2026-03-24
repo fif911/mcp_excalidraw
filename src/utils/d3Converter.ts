@@ -1697,27 +1697,6 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
       }
       if (waypointsValid) {
         allPts = [[cx1, cy1], ...conn.waypoints, [cx2, cy2]];
-        // Auto-add approach segment: if the last waypoint shares one axis with the target
-        // but differs on the other, insert a bend point at (target.x, waypoint.y) or
-        // (waypoint.x, target.y) so the arrow approaches from the correct direction
-        if (conn.waypoints.length > 0 && toIsLeaf) {
-          const lastWp = conn.waypoints[conn.waypoints.length - 1]!;
-          const endPt = allPts[allPts.length - 1]!;
-          const wpDx = Math.abs(lastWp[0]! - endPt[0]!);
-          const wpDy = Math.abs(lastWp[1]! - endPt[1]!);
-          // If both axes differ significantly, the orthogonal pass will L-shape it.
-          // But if one axis matches (~same Y) and the other differs, the approach
-          // is horizontal/vertical — add a bend to enter from the perpendicular side.
-          if (wpDx > 30 && wpDy > 15 && wpDy < wpDx) {
-            // Horizontal approach (same-ish Y) but target is at different Y
-            // Insert (endPt.x, lastWp.y) to create: right to target X, then down/up to target
-            allPts.splice(allPts.length - 1, 0, [endPt[0]!, lastWp[1]!]);
-          } else if (wpDy > 30 && wpDx > 15 && wpDx < wpDy) {
-            // Vertical approach (same-ish X) but target is at different X
-            // Insert (lastWp.x, endPt.y) to create: down to target Y, then left/right to target
-            allPts.splice(allPts.length - 1, 0, [lastWp[0]!, endPt[1]!]);
-          }
-        }
       } else {
         // Waypoints are stale/wrong — ignore them, use straight line
         allPts = [[cx1, cy1], [cx2, cy2]];
