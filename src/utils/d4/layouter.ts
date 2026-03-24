@@ -11,26 +11,20 @@ function detectHeaderHeight(label: string): number {
   return AWS_HEADER_PATTERNS.test(label) ? HEADER_HEIGHT : 48;
 }
 
-function computeLeafSize(node: D4Node): { width: number; height: number } {
-  // Node size must account for BOTH the icon AND the label below it.
-  // Labels are auto-wrapped to keep nodes compact.
-  const ICON = 98;
-  const GAP = 8;
+/**
+ * Compute the ELK label dimensions for a leaf node.
+ * The label is placed OUTSIDE, below the icon, centered.
+ * ELK uses this to add spacing between nodes without inflating the node itself.
+ */
+function computeLeafLabel(node: D4Node): { width: number; height: number } {
   const lines = wrapLabel(node.label || '', FONT_SIZE);
-
-  // Width: max of icon width and widest wrapped line (+ padding)
   let maxLineW = 0;
   for (const line of lines) {
     const w = measureText(line, FONT_SIZE).width;
     if (w > maxLineW) maxLineW = w;
   }
-  const width = Math.max(ICON, maxLineW + 20);
-
-  // Height: icon + gap + all wrapped label lines
   const labelH = lines.length * FONT_SIZE * 1.25;
-  const height = ICON + GAP + labelH;
-
-  return { width: Math.round(width), height: Math.round(height) };
+  return { width: Math.round(maxLineW), height: Math.round(labelH) };
 }
 
 // ─── Full hierarchy ELK graph builder ────────────────────────────────────────
@@ -39,6 +33,7 @@ interface ElkChild {
   id: string;
   width?: number;
   height?: number;
+  labels?: Array<{ text: string; width: number; height: number }>;
   children?: ElkChild[];
   layoutOptions?: Record<string, string>;
 }
@@ -53,7 +48,10 @@ function resolveToLeaf(nodeId: string, allNodes: Record<string, D4Node>): string
 
 /**
  * Build the FULL ELK hierarchy — every D4 container becomes an ELK compound node.
- * ELK handles all sizing, spacing, and overlap prevention natively.
+ *
+ * Leaf nodes are sized to the ICON (98×98) with labels attached as ELK labels
+ * placed OUTSIDE below. This way ELK routes arrows to the actual icon border
+ * and adds spacing for labels without inflating the node.
  */
 function buildFullElkTree(
   nodeIds: string[],
@@ -72,7 +70,7 @@ function buildFullElkTree(
       // Container minimum width: header icon + gap + label text + padding
       const headerLabelW = measureText(node.label, FONT_SIZE).width;
       const headerTotalW = (isAwsHeader ? ICON_SIZE + 5 : 10) + headerLabelW + CONTAINER_PAD * 2;
-      const minWidth = Math.round(Math.max(headerTotalW, 200));
+      const minWidth = Math.round(Math.max(headerTotalW + 20, 200));
 
       const elkNode: ElkChild = {
         id,
@@ -80,7 +78,9 @@ function buildFullElkTree(
         layoutOptions: {
           'elk.algorithm': 'layered',
           'elk.direction': 'RIGHT',
-          'elk.padding': `[top=${headerH + CONTAINER_PAD},left=${CONTAINER_PAD},bottom=${CONTAINER_PAD + 40},right=${CONTAINER_PAD}]`,
+          // INCLUDE_CHILDREN reduces effective padding (~60% of requested).
+          // Add 30px extra so children clear the header icon (98px tall).
+          'elk.padding': `[top=${headerH + CONTAINER_PAD + 30},left=${CONTAINER_PAD},bottom=${CONTAINER_PAD + 40},right=${CONTAINER_PAD}]`,
           'elk.layered.spacing.nodeNodeBetweenLayers': '100',
           'elk.spacing.nodeNode': '50',
           'elk.layered.edgeRouting': 'ORTHOGONAL',
@@ -90,9 +90,22 @@ function buildFullElkTree(
       };
       result.push(elkNode);
     } else {
-      // Leaf node
-      const size = computeLeafSize(node);
-      result.push({ id, width: size.width, height: size.height });
+      // Leaf node — icon size with external label for spacing
+      const label = computeLeafLabel(node);
+      const elkNode: ElkChild = {
+        id,
+        width: ICON_SIZE,
+        height: ICON_SIZE,
+        labels: [{
+          text: node.label || '',
+          width: label.width,
+          height: label.height,
+        }],
+        layoutOptions: {
+          'elk.nodeLabels.placement': 'OUTSIDE V_BOTTOM H_CENTER',
+        },
+      };
+      result.push(elkNode);
     }
   }
   return result;
@@ -156,76 +169,13 @@ function generateSyntheticEdges(
   return synthetic;
 }
 
-/**
- * Compute the icon bounding box within an ELK leaf node.
- * The icon is 98×98, centered horizontally at the top of the ELK node.
- */
-function getIconBox(elkNode: D4LayoutNode): { x: number; y: number; w: number; h: number } {
-  const iconW = 98;
-  const iconH = 98;
-  return {
-    x: elkNode.x + (elkNode.w - iconW) / 2,
-    y: elkNode.y,
-    w: iconW,
-    h: iconH,
-  };
-}
-
-/**
- * Snap an arrow endpoint to the icon border, preserving orthogonality.
- *
- * ELK routes arrows to the ELK node border, which includes the label area.
- * But visually the arrow should connect to the 98×98 icon, not the label.
- * This snaps only the axis perpendicular to the approach direction,
- * keeping the other axis from ELK to maintain orthogonal routing.
- */
-function snapEndpointToIcon(
-  points: number[][],
-  index: number,
-  elkNode: D4LayoutNode | undefined,
-): void {
-  if (!elkNode || !points[index]) return;
-  const px = points[index]![0]!;
-  const py = points[index]![1]!;
-  const icon = getIconBox(elkNode);
-
-  // Look at the adjacent point to determine approach direction
-  const adjIndex = index === 0 ? 1 : points.length - 2;
-  if (!points[adjIndex]) return;
-  const adjX = points[adjIndex]![0]!;
-  const adjY = points[adjIndex]![1]!;
-
-  const dx = Math.abs(px - adjX);
-  const dy = Math.abs(py - adjY);
-
-  if (dx > dy) {
-    // Horizontal segment — snap X to icon edge, keep Y from ELK
-    if (adjX < px) {
-      // Arrow comes from left → snap to icon left edge
-      points[index] = [icon.x, py];
-    } else {
-      // Arrow comes from right → snap to icon right edge
-      points[index] = [icon.x + icon.w, py];
-    }
-  } else {
-    // Vertical segment — snap Y to icon edge, keep X from ELK
-    if (adjY < py) {
-      // Arrow comes from above → snap to icon top edge
-      points[index] = [px, icon.y];
-    } else {
-      // Arrow comes from below → snap to icon bottom edge
-      points[index] = [px, icon.y + icon.h];
-    }
-  }
-}
-
 export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
   // Find root-level nodes (no parent)
   const rootNodeIds = Object.keys(graph.nodes).filter(id => !graph.nodes[id]!.parent);
 
   // ─── 1. Build FULL ELK hierarchy ───────────────────────────────────────
-  // Every D4 container becomes an ELK compound node with proper padding
-  // for headers. ELK handles all sizing, spacing, and overlap prevention.
+  // Leaf nodes = icon size (98×98) with ELK labels for spacing.
+  // ELK routes arrows to icon borders and adds label spacing automatically.
   const elkChildren = buildFullElkTree(rootNodeIds, graph.nodes);
 
   // Resolve edge endpoints: if an edge connects to a container, redirect to
@@ -258,8 +208,7 @@ export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
   const result = await elk.layout(elkGraph as any);
 
   // ─── 2. Extract positions from ELK result ──────────────────────────────
-  // Walk the full ELK tree to get absolute positions for ALL nodes
-  // (both compound and leaf). ELK sizes everything — no post-processing needed.
+  // ELK nodes are now icon-sized (98×98). Positions map directly to icons.
   const nodes: Record<string, D4LayoutNode> = {};
   function collectPositions(elkChildren: any[], offsetX: number, offsetY: number) {
     for (const child of elkChildren) {
@@ -280,28 +229,65 @@ export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
   collectPositions(result.children ?? [], 0, 0);
 
   // ─── 3. Extract edges ──────────────────────────────────────────────────
-  // With INCLUDE_CHILDREN + full hierarchy, ELK hoists all edges to the
-  // lowest common ancestor. Walk the full tree to find edges and compute
-  // absolute coordinates by accumulating parent offsets.
-  const elkEdgeMap = new Map<string, { elkEdge: any; offsetX: number; offsetY: number }>();
+  // With INCLUDE_CHILDREN, ELK hoists all edges to the root but uses
+  // coordinate spaces relative to the lowest common ancestor (LCA) of
+  // source and target. We need to find the LCA compound node and use
+  // its absolute position as the offset for edge coordinates.
+  //
+  // Build maps: leaf ID → chain of ancestor compound IDs + their abs positions
+  const nodeAbsPositions = new Map<string, { x: number; y: number }>();
+  const nodeParentChain = new Map<string, string[]>(); // node ID → [parent, grandparent, ...]
 
-  function collectEdgesFromTree(elkNode: any, offsetX: number, offsetY: number) {
-    const nodeOffsetX = elkNode.id === 'root' ? 0 : (elkNode.x ?? 0);
-    const nodeOffsetY = elkNode.id === 'root' ? 0 : (elkNode.y ?? 0);
-    const absX = offsetX + nodeOffsetX;
-    const absY = offsetY + nodeOffsetY;
-    if (elkNode.edges) {
-      for (const e of elkNode.edges) {
-        elkEdgeMap.set(e.id, { elkEdge: e, offsetX: absX, offsetY: absY });
-      }
-    }
+  function buildAncestorMaps(elkNode: any, offsetX: number, offsetY: number, ancestors: string[]) {
+    const ax = elkNode.id === 'root' ? 0 : (elkNode.x ?? 0);
+    const ay = elkNode.id === 'root' ? 0 : (elkNode.y ?? 0);
+    const absX = offsetX + ax;
+    const absY = offsetY + ay;
+    nodeAbsPositions.set(elkNode.id, { x: absX, y: absY });
+    const chain = elkNode.id === 'root' ? [] : [...ancestors, elkNode.id];
     if (elkNode.children) {
       for (const child of elkNode.children) {
-        collectEdgesFromTree(child, absX, absY);
+        if (!child.children) {
+          // Leaf node — record its ancestor chain
+          nodeParentChain.set(child.id, chain);
+          nodeAbsPositions.set(child.id, { x: absX + (child.x ?? 0), y: absY + (child.y ?? 0) });
+        }
+        buildAncestorMaps(child, absX, absY, chain);
       }
     }
   }
-  collectEdgesFromTree(result, 0, 0);
+  buildAncestorMaps(result, 0, 0, []);
+
+  // Find LCA of two leaf nodes and return its absolute position
+  function findLcaOffset(srcId: string, tgtId: string): { x: number; y: number } {
+    const srcChain = nodeParentChain.get(srcId) || [];
+    const tgtChain = nodeParentChain.get(tgtId) || [];
+    // Walk both chains to find deepest common ancestor
+    let lcaId = 'root';
+    for (let i = 0; i < Math.min(srcChain.length, tgtChain.length); i++) {
+      if (srcChain[i] === tgtChain[i]) lcaId = srcChain[i]!;
+      else break;
+    }
+    return nodeAbsPositions.get(lcaId) || { x: 0, y: 0 };
+  }
+
+  // Collect all edges from the ELK result tree
+  const elkEdgeMap = new Map<string, { elkEdge: any; srcId: string; tgtId: string }>();
+  function collectEdgesFromTree(elkNode: any) {
+    if (elkNode.edges) {
+      for (const e of elkNode.edges) {
+        elkEdgeMap.set(e.id, {
+          elkEdge: e,
+          srcId: e.sources?.[0] ?? '',
+          tgtId: e.targets?.[0] ?? '',
+        });
+      }
+    }
+    if (elkNode.children) {
+      for (const child of elkNode.children) collectEdgesFromTree(child);
+    }
+  }
+  collectEdgesFromTree(result);
 
   const edges: D4LayoutEdge[] = [];
   for (const d4Edge of graph.edges) {
@@ -309,7 +295,14 @@ export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
     const points: number[][] = [];
 
     if (entry) {
-      const { elkEdge, offsetX, offsetY } = entry;
+      const { elkEdge, srcId, tgtId } = entry;
+      // Edge coordinates are relative to the LCA compound of source and target
+      const resolvedSrc = resolveToLeaf(d4Edge.from, graph.nodes);
+      const resolvedTgt = resolveToLeaf(d4Edge.to, graph.nodes);
+      const lca = findLcaOffset(resolvedSrc, resolvedTgt);
+      const offsetX = lca.x;
+      const offsetY = lca.y;
+
       if (elkEdge.sections) {
         for (const section of elkEdge.sections) {
           if (section.startPoint) points.push([offsetX + section.startPoint.x, offsetY + section.startPoint.y]);
@@ -319,15 +312,6 @@ export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
           if (section.endPoint) points.push([offsetX + section.endPoint.x, offsetY + section.endPoint.y]);
         }
       }
-    }
-
-    // Snap arrow endpoints to icon borders (not ELK node borders).
-    // ELK nodes include label area, but arrows should visually connect to icons.
-    if (points.length >= 2) {
-      const resolvedFrom = resolveToLeaf(d4Edge.from, graph.nodes);
-      const resolvedTo = resolveToLeaf(d4Edge.to, graph.nodes);
-      snapEndpointToIcon(points, 0, nodes[resolvedFrom]);
-      snapEndpointToIcon(points, points.length - 1, nodes[resolvedTo]);
     }
 
     edges.push({
@@ -343,56 +327,5 @@ export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
     });
   }
 
-  // ─── 5. Push arrow points away from container borders ─────────────────
-  // ELK places edge crossing points exactly on compound node borders.
-  // This makes arrows visually overlap with container border lines.
-  // Push those points outward by a small margin for clean visuals.
-  const containerNodes = Object.values(nodes).filter(n => {
-    const d4Node = graph.nodes[n.id];
-    return d4Node?.isGroup && d4Node.children.length > 0;
-  });
-  adjustEdgeContainerCrossings(edges, containerNodes);
-
   return { nodes, edges };
-}
-
-/**
- * Push arrow points that sit on container borders outward by a margin.
- * ELK with INCLUDE_CHILDREN routes edges through compound node borders,
- * placing points exactly on the border line. This creates visual overlap
- * with the container's stroke. Pushing points outward creates a clean gap.
- */
-function adjustEdgeContainerCrossings(
-  edges: D4LayoutEdge[],
-  containers: D4LayoutNode[],
-  margin: number = 12,
-): void {
-  for (const edge of edges) {
-    for (let i = 0; i < edge.points.length; i++) {
-      const px = edge.points[i]![0]!;
-      const py = edge.points[i]![1]!;
-      for (const c of containers) {
-        const right = c.x + c.w;
-        const bottom = c.y + c.h;
-        const tolerance = 3;
-
-        // Point on right border — push right
-        if (Math.abs(px - right) < tolerance && py > c.y + tolerance && py < bottom - tolerance) {
-          edge.points[i] = [right + margin, py];
-        }
-        // Point on left border — push left
-        else if (Math.abs(px - c.x) < tolerance && py > c.y + tolerance && py < bottom - tolerance) {
-          edge.points[i] = [c.x - margin, py];
-        }
-        // Point on bottom border — push down
-        else if (Math.abs(py - bottom) < tolerance && px > c.x + tolerance && px < right - tolerance) {
-          edge.points[i] = [px, bottom + margin];
-        }
-        // Point on top border — push up
-        else if (Math.abs(py - c.y) < tolerance && px > c.x + tolerance && px < right - tolerance) {
-          edge.points[i] = [px, c.y - margin];
-        }
-      }
-    }
-  }
 }

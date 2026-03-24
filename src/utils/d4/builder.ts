@@ -234,13 +234,13 @@ export function buildD4Elements(graph: D4Graph, layout: D4Layout): D4Result {
 
     } else {
       // ── Leaf node (icon + label) ──
-      // ELK node is sized for icon + label. Icon is centered at the top
-      // of the ELK bounding box, label goes below.
+      // ELK node IS the icon (98×98). Labels are ELK native labels placed
+      // outside below. Arrow endpoints connect directly to this node.
       nodeCount++;
       const groupId = `g-${safeId}`;
 
-      // Center icon horizontally within the ELK node, place at top
-      const iconX = pos.x + (pos.w - ICON_SIZE) / 2;
+      // ELK node = icon position (no centering — node IS the icon)
+      const iconX = pos.x;
       const iconY = pos.y;
       const iconCx = iconX + ICON_SIZE / 2;
 
