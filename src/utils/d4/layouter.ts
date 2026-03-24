@@ -317,5 +317,56 @@ export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
     });
   }
 
+  // ─── 5. Push arrow points away from container borders ─────────────────
+  // ELK places edge crossing points exactly on compound node borders.
+  // This makes arrows visually overlap with container border lines.
+  // Push those points outward by a small margin for clean visuals.
+  const containerNodes = Object.values(nodes).filter(n => {
+    const d4Node = graph.nodes[n.id];
+    return d4Node?.isGroup && d4Node.children.length > 0;
+  });
+  adjustEdgeContainerCrossings(edges, containerNodes);
+
   return { nodes, edges };
+}
+
+/**
+ * Push arrow points that sit on container borders outward by a margin.
+ * ELK with INCLUDE_CHILDREN routes edges through compound node borders,
+ * placing points exactly on the border line. This creates visual overlap
+ * with the container's stroke. Pushing points outward creates a clean gap.
+ */
+function adjustEdgeContainerCrossings(
+  edges: D4LayoutEdge[],
+  containers: D4LayoutNode[],
+  margin: number = 12,
+): void {
+  for (const edge of edges) {
+    for (let i = 0; i < edge.points.length; i++) {
+      const px = edge.points[i]![0]!;
+      const py = edge.points[i]![1]!;
+      for (const c of containers) {
+        const right = c.x + c.w;
+        const bottom = c.y + c.h;
+        const tolerance = 3;
+
+        // Point on right border — push right
+        if (Math.abs(px - right) < tolerance && py > c.y + tolerance && py < bottom - tolerance) {
+          edge.points[i] = [right + margin, py];
+        }
+        // Point on left border — push left
+        else if (Math.abs(px - c.x) < tolerance && py > c.y + tolerance && py < bottom - tolerance) {
+          edge.points[i] = [c.x - margin, py];
+        }
+        // Point on bottom border — push down
+        else if (Math.abs(py - bottom) < tolerance && px > c.x + tolerance && px < right - tolerance) {
+          edge.points[i] = [px, bottom + margin];
+        }
+        // Point on top border — push up
+        else if (Math.abs(py - c.y) < tolerance && px > c.x + tolerance && px < right - tolerance) {
+          edge.points[i] = [px, c.y - margin];
+        }
+      }
+    }
+  }
 }
