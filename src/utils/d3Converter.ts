@@ -2114,10 +2114,6 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
       if (!removed) break;
     }
 
-    // Restore snapped endpoints — post-snap transforms may have moved them
-    allPts[0] = snappedStart;
-    allPts[allPts.length - 1] = snappedEnd;
-
     // Ensure final segment ≥ 30px (prevents small arrowheads in Excalidraw)
     if (allPts.length >= 3) {
       const last = allPts.length - 1;
@@ -2150,6 +2146,10 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
         }
       }
     }
+
+    // Restore snapped endpoints — all post-snap transforms are done
+    allPts[0] = snappedStart;
+    allPts[allPts.length - 1] = snappedEnd;
 
     // Convert to relative points
     const relPts = allPts.map(p => [p[0]! - allPts[0]![0]!, p[1]! - allPts[0]![1]!]);
