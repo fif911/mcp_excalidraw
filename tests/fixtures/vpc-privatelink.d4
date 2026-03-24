@@ -1,0 +1,69 @@
+# VPC PrivateLink cross-VPC connectivity — D4
+
+arrow_style {
+  stroke_color: "#545B64"
+}
+
+aws_cloud: AWS Cloud {
+
+  vpc1: VPC (10.0.0.0/16) {
+
+    igw1: Internet Gateway {
+      icon_hint: "Internet Gateway"
+    }
+
+    vpc1_sub1: Public Subnet {
+      instance1: Amazon EC2
+    }
+
+    vpc1_sub2: Public Subnet {
+      instance2: Amazon EC2
+    }
+
+    nlb1: Network Load Balancer {
+      icon_hint: "Network Load Balancer"
+    }
+  }
+
+  privatelink: AWS PrivateLink {
+    icon_hint: "PrivateLink"
+  }
+
+  vpc2: VPC (10.1.0.0/16) {
+
+    endpoint: VPC Endpoint {
+      icon_hint: "VPC Endpoint"
+    }
+
+    vpc2_sub1: Public Subnet {
+      instance3: Amazon EC2
+    }
+
+    vpc2_sub2: Public Subnet {
+      instance4: Amazon EC2
+    }
+
+    igw2: Internet Gateway {
+      icon_hint: "Internet Gateway"
+    }
+  }
+}
+
+user: User {
+  icon_type: resource
+  icon_variant: Light
+}
+
+# PrivateLink path: VPC2 instance → endpoint → privatelink → NLB → VPC1 instances
+instance3 -> endpoint
+endpoint -> privatelink
+privatelink -> nlb1
+nlb1 -> instance1
+nlb1 -> instance2
+
+# SSH access path (through IGWs)
+user -> igw1: SSH access
+igw1 -> instance1
+igw1 -> instance2
+user -> igw2: SSH access
+igw2 -> instance3

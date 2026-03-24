@@ -1,0 +1,39 @@
+# VPC with ALB and EC2 instances — D4
+
+direction down
+
+arrow_style {
+  stroke_color: "#545B64"
+  badge_bg: "#232F3E"
+  badge_color: "#ffffff"
+}
+
+aws_cloud: AWS Cloud {
+
+  vpc: VPC {
+
+    asg: Auto Scaling group {
+      instance1: Amazon EC2
+      instance2: Amazon EC2
+    }
+
+    alb: Application Load Balancer {
+      icon_hint: "Application Load Balancer"
+    }
+  }
+
+  igw: Internet Gateway {
+    icon_hint: "Internet Gateway"
+  }
+}
+
+user: User {
+  icon_type: resource
+  icon_variant: Light
+}
+
+# Connections
+user -> igw
+igw -> alb: HTTP:80\nHTTPS:443
+alb -> instance1: HTTP:80
+alb -> instance2: HTTP:80
