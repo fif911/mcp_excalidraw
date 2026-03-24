@@ -1708,6 +1708,16 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
       allPts = [[cx1, cy1], [cx2, cy2]];
     }
 
+    // ── Debug logging for arrow 8 pipeline ──
+    const isDebugArrow = conn.label === '8';
+    const debugLog = (stage: string) => {
+      if (!isDebugArrow) return;
+      const pts = allPts.map(p => `(${p[0]!.toFixed(1)},${p[1]!.toFixed(1)})`).join(' → ');
+      const endPt = allPts[allPts.length - 1]!;
+      logger.info(`[ARROW8 ${stage}] endpoint=(${endPt[0]!.toFixed(1)},${endPt[1]!.toFixed(1)}) | path: ${pts}`);
+    };
+    debugLog('01-INITIAL');
+
     // Enforce orthogonal segments: straighten near-straight lines, L-shape true diagonals.
     // L-shape direction: the FIRST segment matches the source's snapped exit edge.
     // After snapping, allPts[0] is on an edge of the source icon. Check if it was
@@ -1825,6 +1835,7 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
       ortho.push(cur);
     }
     allPts = ortho;
+    debugLog('02-ORTHO');
 
     // ── Crossing avoidance: reroute arrows around icons/labels ──
     // Arrows may only cross container borders — not icons, labels, or other elements.
@@ -1919,8 +1930,37 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
         if (!fixed) break; // no more crossings
       }
     }
+    debugLog('03-CROSSING-AVOIDANCE');
     // Restore original endpoint — crossing avoidance may have replaced it
     allPts[allPts.length - 1] = savedEndpoint;
+    debugLog('04-ENDPOINT-RESTORE');
+
+    // ── Pre-snap diagonal fix ──
+    // Crossing avoidance may create diagonal last/first segments. Break them into
+    // L-shape bends BEFORE snapping so the snap sees the correct approach direction.
+    // Use overall arrow direction to choose L-shape orientation:
+    //   - Overall more vertical → horizontal-first → last sub-segment is vertical → TOP/BOTTOM entry
+    //   - Overall more horizontal → vertical-first → last sub-segment is horizontal → LEFT/RIGHT entry
+    if (allPts.length >= 2) {
+      const last = allPts.length - 1;
+      const prevPt = allPts[last - 1]!;
+      const endPt = allPts[last]!;
+      const segDx = Math.abs(endPt[0]! - prevPt[0]!);
+      const segDy = Math.abs(endPt[1]! - prevPt[1]!);
+      // Only fix if the segment is actually diagonal (both dx and dy significant)
+      if (segDx > 5 && segDy > 5) {
+        const overallDx = Math.abs(cx2 - cx1);
+        const overallDy = Math.abs(cy2 - cy1);
+        if (overallDy > overallDx) {
+          // Overall more vertical → horizontal-first bend → vertical approach to endpoint
+          allPts.splice(last, 0, [endPt[0]!, prevPt[1]!]);
+        } else {
+          // Overall more horizontal → vertical-first bend → horizontal approach to endpoint
+          allPts.splice(last, 0, [prevPt[0]!, endPt[1]!]);
+        }
+      }
+    }
+    debugLog('04b-PRE-SNAP-DIAG-FIX');
 
     // ── Edge-aware endpoint snapping ──
     // Arrows stop at the icon edge (or container border), centered on the
@@ -2015,16 +2055,28 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
     if (allPts.length >= 2) {
       snapEndpoint(0, 1, !!fromIsLeaf, cx1, cy1, fromTextH, true, cx2, cy2, cx1, cy1);
     }
+    debugLog('05-SNAP-START');
 
     // Snap end endpoint (arrow arrives at this element)
     if (allPts.length >= 2) {
       const last = allPts.length - 1;
+      if (isDebugArrow) {
+        const neighbor = allPts[last - 1]!;
+        const pt = allPts[last]!;
+        const dx = pt[0]! - neighbor[0]!;
+        const dy = pt[1]! - neighbor[1]!;
+        logger.info(`[ARROW8 SNAP-END-INPUT] pt=(${pt[0]!.toFixed(1)},${pt[1]!.toFixed(1)}) neighbor=(${neighbor[0]!.toFixed(1)},${neighbor[1]!.toFixed(1)}) dx=${dx.toFixed(1)} dy=${dy.toFixed(1)} toIsLeaf=${!!toIsLeaf} center=(${cx2.toFixed(1)},${cy2.toFixed(1)})`);
+      }
       snapEndpoint(last, last - 1, !!toIsLeaf, cx2, cy2, toTextH, false, cx2, cy2, cx1, cy1);
     }
+    debugLog('06-SNAP-END');
 
     // Save snapped endpoints — post-snap transforms must not modify them
     const snappedStart = [...allPts[0]!];
     const snappedEnd = [...allPts[allPts.length - 1]!];
+    if (isDebugArrow) {
+      logger.info(`[ARROW8 07-SAVED-SNAPPED] start=(${snappedStart[0]!.toFixed(1)},${snappedStart[1]!.toFixed(1)}) end=(${snappedEnd[0]!.toFixed(1)},${snappedEnd[1]!.toFixed(1)})`);
+    }
 
     // Post-snap orthogonal fix: endpoint snapping may have created new diagonals
     // between the snapped endpoint and the first/last waypoint. Fix them.
@@ -2045,6 +2097,7 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
       postSnapOrtho.push(cur);
     }
     allPts = postSnapOrtho;
+    debugLog('08-POST-SNAP-ORTHO');
     if (allPts.length !== preFixCount) {
       validationIssues.push(`ARROW_REROUTED: arrow "${conn.from} -> ${conn.to}" had ${allPts.length - preFixCount} extra bend(s) added to fix diagonal segments. Update waypoints in D3 if needed.`);
     }
@@ -2060,6 +2113,7 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
     }
     if (cleaned.length < 2) allPts = [[cx1, cy1], [cx2, cy2]];
     else allPts = cleaned;
+    debugLog('09-DEGENERATE-COLLAPSE');
 
     // Exit stub: 20px straight segment in exit direction before turning
     if (fromIsLeaf && allPts.length >= 2) {
@@ -2087,6 +2141,7 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
         }
       }
     }
+    debugLog('10-EXIT-STUB');
 
     // ── Universal backward jog removal ──
     // Walk triplets: if point B reverses direction from A→B to B→C on any axis, remove B.
@@ -2113,6 +2168,7 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
       }
       if (!removed) break;
     }
+    debugLog('11-JOG-REMOVAL');
 
     // Ensure final segment ≥ 30px (prevents small arrowheads in Excalidraw)
     if (allPts.length >= 3) {
@@ -2147,9 +2203,12 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
       }
     }
 
+    debugLog('12-SHORT-SEG-ABSORB');
+
     // Restore snapped endpoints — all post-snap transforms are done
     allPts[0] = snappedStart;
     allPts[allPts.length - 1] = snappedEnd;
+    debugLog('13-FINAL-RESTORE');
 
     // Convert to relative points
     const relPts = allPts.map(p => [p[0]! - allPts[0]![0]!, p[1]! - allPts[0]![1]!]);

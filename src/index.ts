@@ -1519,6 +1519,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
           d2Diagram: z.string(),
           validate: z.boolean().optional().default(true),
         }).parse(args);
+        await ensureExpressRunning();
         try {
           const response = await fetch(`${EXPRESS_SERVER_URL}/api/elements/from-d2`, {
             method: 'POST',
@@ -1546,6 +1547,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
           diagramLength: params.d3Diagram.length,
           layout: params.layout,
         });
+
+        // Ensure Express server is running before making the request
+        await ensureExpressRunning();
 
         try {
           const response = await fetch(`${EXPRESS_SERVER_URL}/api/elements/from-d3`, {
@@ -2673,7 +2677,54 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   return { tools };
 });
 
-// Kill any existing Express server and start fresh with latest code
+// Lightweight check: if Express server is reachable, return immediately.
+// If not, start it (with rebuild). Use this in tool handlers.
+async function ensureExpressRunning(): Promise<void> {
+  try {
+    const resp = await fetch(`${EXPRESS_SERVER_URL}/api/elements`, { signal: AbortSignal.timeout(2000) });
+    if (resp.ok) return; // Server is up — nothing to do
+  } catch {
+    // Not reachable — fall through to start
+  }
+  logger.info('Express server not reachable — starting fresh...');
+
+  // Rebuild TypeScript to ensure latest code
+  try {
+    const { execSync: rebuildSync } = await import('child_process');
+    rebuildSync('npx tsc --project tsconfig.json', {
+      cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'),
+      timeout: 30000,
+      stdio: 'ignore',
+    });
+    logger.info('TypeScript rebuild complete');
+  } catch {
+    logger.warn('TypeScript rebuild failed — using existing compiled code');
+  }
+
+  const serverPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'server.js');
+  const { spawn: spawnChild } = await import('child_process');
+  const child = spawnChild('node', [serverPath], {
+    stdio: 'ignore',
+    detached: true,
+    env: { ...process.env },
+  });
+  child.unref();
+
+  // Wait for it to be ready (up to 10 seconds)
+  for (let attempt = 0; attempt < 20; attempt++) {
+    await new Promise(r => setTimeout(r, 500));
+    try {
+      const resp = await fetch(`${EXPRESS_SERVER_URL}/api/elements`, { signal: AbortSignal.timeout(1000) });
+      if (resp.ok) {
+        logger.info('Express server started successfully');
+        return;
+      }
+    } catch { /* retry */ }
+  }
+  logger.warn('Express server may not have started — continuing anyway');
+}
+
+// Kill any existing Express server and start fresh with latest code (used at startup)
 async function ensureExpressServer(): Promise<void> {
   // Always kill existing server to load fresh compiled code
   try {
