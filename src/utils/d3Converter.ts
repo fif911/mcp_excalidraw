@@ -1886,6 +1886,8 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
     }
 
     // Crossing avoidance: reroute segments that cross obstacles (icons, header labels)
+    // Save original endpoints — crossing avoidance must not replace them (snap handles endpoints)
+    const savedEndpoint = [...allPts[allPts.length - 1]!];
     {
       const obstacles = getObstacleBboxes();
       for (let attempt = 0; attempt < 5; attempt++) {
@@ -1917,6 +1919,8 @@ export function convertD3ToExcalidraw(source: string): ConvertResult {
         if (!fixed) break; // no more crossings
       }
     }
+    // Restore original endpoint — crossing avoidance may have replaced it
+    allPts[allPts.length - 1] = savedEndpoint;
 
     // ── Edge-aware endpoint snapping ──
     // Arrows stop at the icon edge (or container border), centered on the
