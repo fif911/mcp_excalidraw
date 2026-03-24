@@ -157,40 +157,65 @@ function generateSyntheticEdges(
 }
 
 /**
- * If an edge endpoint falls inside a node, snap it to the nearest node border.
- * This fixes rare ELK cases where edge start/end points land inside icons.
+ * Compute the icon bounding box within an ELK leaf node.
+ * The icon is 98×98, centered horizontally at the top of the ELK node.
  */
-function clampEndpointToNodeBorder(
+function getIconBox(elkNode: D4LayoutNode): { x: number; y: number; w: number; h: number } {
+  const iconW = 98;
+  const iconH = 98;
+  return {
+    x: elkNode.x + (elkNode.w - iconW) / 2,
+    y: elkNode.y,
+    w: iconW,
+    h: iconH,
+  };
+}
+
+/**
+ * Snap an arrow endpoint to the icon border, preserving orthogonality.
+ *
+ * ELK routes arrows to the ELK node border, which includes the label area.
+ * But visually the arrow should connect to the 98×98 icon, not the label.
+ * This snaps only the axis perpendicular to the approach direction,
+ * keeping the other axis from ELK to maintain orthogonal routing.
+ */
+function snapEndpointToIcon(
   points: number[][],
   index: number,
-  node: D4LayoutNode | undefined,
+  elkNode: D4LayoutNode | undefined,
 ): void {
-  if (!node || !points[index]) return;
+  if (!elkNode || !points[index]) return;
   const px = points[index]![0]!;
   const py = points[index]![1]!;
-  const margin = 2; // slight inset tolerance
+  const icon = getIconBox(elkNode);
 
-  // Check if point is inside the node
-  if (px <= node.x + margin || px >= node.x + node.w - margin ||
-      py <= node.y + margin || py >= node.y + node.h - margin) {
-    return; // already outside or on border
-  }
+  // Look at the adjacent point to determine approach direction
+  const adjIndex = index === 0 ? 1 : points.length - 2;
+  if (!points[adjIndex]) return;
+  const adjX = points[adjIndex]![0]!;
+  const adjY = points[adjIndex]![1]!;
 
-  // Find nearest border and snap to it
-  const distLeft = px - node.x;
-  const distRight = (node.x + node.w) - px;
-  const distTop = py - node.y;
-  const distBottom = (node.y + node.h) - py;
-  const minDist = Math.min(distLeft, distRight, distTop, distBottom);
+  const dx = Math.abs(px - adjX);
+  const dy = Math.abs(py - adjY);
 
-  if (minDist === distLeft) {
-    points[index] = [node.x, py];
-  } else if (minDist === distRight) {
-    points[index] = [node.x + node.w, py];
-  } else if (minDist === distTop) {
-    points[index] = [px, node.y];
+  if (dx > dy) {
+    // Horizontal segment — snap X to icon edge, keep Y from ELK
+    if (adjX < px) {
+      // Arrow comes from left → snap to icon left edge
+      points[index] = [icon.x, py];
+    } else {
+      // Arrow comes from right → snap to icon right edge
+      points[index] = [icon.x + icon.w, py];
+    }
   } else {
-    points[index] = [px, node.y + node.h];
+    // Vertical segment — snap Y to icon edge, keep X from ELK
+    if (adjY < py) {
+      // Arrow comes from above → snap to icon top edge
+      points[index] = [px, icon.y];
+    } else {
+      // Arrow comes from below → snap to icon bottom edge
+      points[index] = [px, icon.y + icon.h];
+    }
   }
 }
 
@@ -296,12 +321,13 @@ export async function layoutD4Graph(graph: D4Graph): Promise<D4Layout> {
       }
     }
 
-    // Clamp endpoints to node borders if ELK placed them inside
+    // Snap arrow endpoints to icon borders (not ELK node borders).
+    // ELK nodes include label area, but arrows should visually connect to icons.
     if (points.length >= 2) {
       const resolvedFrom = resolveToLeaf(d4Edge.from, graph.nodes);
       const resolvedTo = resolveToLeaf(d4Edge.to, graph.nodes);
-      clampEndpointToNodeBorder(points, 0, nodes[resolvedFrom]);
-      clampEndpointToNodeBorder(points, points.length - 1, nodes[resolvedTo]);
+      snapEndpointToIcon(points, 0, nodes[resolvedFrom]);
+      snapEndpointToIcon(points, points.length - 1, nodes[resolvedTo]);
     }
 
     edges.push({
